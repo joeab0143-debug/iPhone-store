@@ -1,0 +1,131 @@
+@import url("https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Sora:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap");
+@import "tailwindcss";
+
+:root {
+  --bg: #0a0e14;
+  --bg-elevated: #10151d;
+  --surface: #161d27;
+  --surface-2: #1c2531;
+  --border: #253040;
+  --border-soft: #1c2431;
+
+  --ink: #eef2f6;
+  --ink-muted: #8b98a9;
+  --ink-faint: #566274;
+
+  --gold: #f2b705;
+  --gold-soft: #4a3a10;
+  --teal: #22d3c7;
+  --teal-soft: #0f3a37;
+
+  --up: #34d399;
+  --down: #f2555a;
+  --due: #f2b705;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-gold: var(--gold);
+  --color-teal: var(--teal);
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --color-due: var(--due);
+  --font-display: "Sora", "Hind Siliguri", sans-serif;
+  --font-body: "Hind Siliguri", "Sora", sans-serif;
+  --font-num: "JetBrains Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.tabular {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Signature element: phone-screen stat card — a rounded rectangle with a
+   speaker notch, echoing the physical product this shop sells. */
+.phone-card {
+  position: relative;
+  border-radius: 28px;
+  background: linear-gradient(165deg, var(--surface) 0%, var(--bg-elevated) 100%);
+  border: 1px solid var(--border);
+  padding: 22px 20px 20px;
+  overflow: hidden;
+}
+.phone-card::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 46px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--border);
+}
+.phone-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 28px;
+  padding: 1px;
+  background: linear-gradient(165deg, rgba(242, 183, 5, 0.18), transparent 40%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

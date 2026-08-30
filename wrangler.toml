@@ -1,0 +1,9 @@
+name = "phone-fantasy"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "phone-fantasy-db"
+database_id = "7530fb6a-bb75-4ecb-b6a9-64ff020e559f"
