@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Trash2, TrendingUp, TrendingDown } from "lucide-react";
-import { Button, Field, inputClass, Sheet, money, formatDate } from "./ui";
+import { Trash2, TrendingUp, TrendingDown } from "lucide-react";
+import { Badge, inputClass, money, formatDate } from "./ui";
+import { emitDashboardRefresh } from "@/lib/events";
 import type { NetProfitSummary, OutsideDeal } from "@/lib/types";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -18,21 +19,6 @@ export default function ProfitTab() {
   const [summary, setSummary] = useState<NetProfitSummary | null>(null);
   const [deals, setDeals] = useState<OutsideDeal[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const [dealOpen, setDealOpen] = useState(false);
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    model: "",
-    imei: "",
-    buy_price: "",
-    nid: "",
-    phone_number: "",
-    sell_price: "",
-    profit: "",
-    deal_date: "",
-  });
 
   async function load() {
     setLoading(true);
@@ -52,50 +38,9 @@ export default function ProfitTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to]);
 
-  async function submitDeal() {
-    setError("");
-    if (!form.name) {
-      setError("নাম দিন");
-      return;
-    }
-    setSaving(true);
-    const res = await fetch("/api/outside", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: form.name,
-        model: form.model || null,
-        imei: form.imei || null,
-        buy_price: form.buy_price ? Number(form.buy_price) : 0,
-        nid: form.nid || null,
-        phone_number: form.phone_number || null,
-        sell_price: form.sell_price ? Number(form.sell_price) : null,
-        profit: form.profit ? Number(form.profit) : null,
-        deal_date: form.deal_date ? `${form.deal_date} 00:00:00` : null,
-      }),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      setError("সেভ করা যায়নি");
-      return;
-    }
-    setForm({
-      name: "",
-      model: "",
-      imei: "",
-      buy_price: "",
-      nid: "",
-      phone_number: "",
-      sell_price: "",
-      profit: "",
-      deal_date: "",
-    });
-    setDealOpen(false);
-    load();
-  }
-
   async function deleteDeal(id: number) {
     await fetch(`/api/outside/${id}`, { method: "DELETE" });
+    emitDashboardRefresh();
     load();
   }
 
@@ -146,16 +91,16 @@ export default function ProfitTab() {
         </div>
       </div>
 
-      {/* Outside profit deals */}
+      {/* Outside deals list — created via the Buy / Outside Sell bottom-bar actions */}
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-display font-semibold">Outside Profit — পুরনো ফোন কেনাবেচা</h3>
+        <h3 className="font-display font-semibold">Outside — পুরনো ফোন কেনাবেচা</h3>
       </div>
 
       {loading ? (
         <p className="text-center text-sm text-ink-muted py-10">লোড হচ্ছে...</p>
       ) : deals.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border py-10 text-center text-ink-muted">
-          এই সময়ে কোনো ডিল নেই
+          এই সময়ে কোনো ডিল নেই — Buy ট্যাব থেকে ফোন ক্রয় করুন
         </div>
       ) : (
         <ul className="space-y-2">
@@ -166,24 +111,38 @@ export default function ProfitTab() {
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-medium">{d.name}</p>
-                  {(d.model || d.imei) && (
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium truncate">
+                      {d.model || d.bought_from || d.name}
+                    </p>
+                    <Badge tone={d.status === "unsold" ? "default" : "up"}>
+                      {d.status === "unsold" ? "Unsold" : "Sold"}
+                    </Badge>
+                  </div>
+                  {(d.ram_rom || d.imei) && (
                     <p className="text-xs text-ink-faint truncate">
-                      {d.model}
-                      {d.model && d.imei ? " · " : ""}
+                      {d.ram_rom}
+                      {d.ram_rom && d.imei ? " · " : ""}
                       {d.imei && `IMEI: ${d.imei}`}
                     </p>
                   )}
-                  <p className="text-xs text-ink-faint">{formatDate(d.deal_date)}</p>
+                  <p className="text-xs text-ink-faint">
+                    ক্রয়: ৳{money(d.buy_price)} · {formatDate(d.deal_date)}
+                    {d.bought_from ? ` · ${d.bought_from} থেকে` : ""}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span
-                    className={`tabular font-semibold ${
-                      d.profit >= 0 ? "text-up" : "text-down"
-                    }`}
-                  >
-                    {d.profit >= 0 ? "+" : ""}৳{money(d.profit)}
-                  </span>
+                  {d.status === "sold" ? (
+                    <span
+                      className={`tabular font-semibold ${
+                        d.profit >= 0 ? "text-up" : "text-down"
+                      }`}
+                    >
+                      {d.profit >= 0 ? "+" : ""}৳{money(d.profit)}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-ink-faint">বিক্রি বাকি</span>
+                  )}
                   <button
                     onClick={() => deleteDeal(d.id)}
                     className="text-ink-faint hover:text-down"
@@ -196,93 +155,6 @@ export default function ProfitTab() {
           ))}
         </ul>
       )}
-
-      <button
-        onClick={() => setDealOpen(true)}
-        className="no-print fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-[#1a1400] shadow-lg shadow-gold/20 active:scale-95"
-        aria-label="নতুন ডিল যোগ করুন"
-      >
-        <Plus size={26} />
-      </button>
-
-      <Sheet open={dealOpen} onClose={() => setDealOpen(false)} title="নতুন Outside Deal">
-        <div className="space-y-3">
-          <Field label="নাম">
-            <input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Model">
-            <input
-              value={form.model}
-              onChange={(e) => setForm({ ...form, model: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="IMEI">
-            <input
-              value={form.imei}
-              onChange={(e) => setForm({ ...form, imei: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Buy Price (৳)">
-            <input
-              type="number"
-              inputMode="decimal"
-              value={form.buy_price}
-              onChange={(e) => setForm({ ...form, buy_price: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="NID">
-            <input
-              value={form.nid}
-              onChange={(e) => setForm({ ...form, nid: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Phone Number">
-            <input
-              value={form.phone_number}
-              onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Sell Price (৳) — দিলে প্রফিট অটো হিসাব হবে">
-            <input
-              type="number"
-              inputMode="decimal"
-              value={form.sell_price}
-              onChange={(e) => setForm({ ...form, sell_price: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="অথবা সরাসরি প্রফিট লিখুন (Sell Price ফাঁকা রাখলে)">
-            <input
-              type="number"
-              inputMode="decimal"
-              value={form.profit}
-              onChange={(e) => setForm({ ...form, profit: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="তারিখ (ফাঁকা রাখলে আজকের তারিখ বসবে)">
-            <input
-              type="date"
-              value={form.deal_date}
-              onChange={(e) => setForm({ ...form, deal_date: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          {error && <p className="text-sm text-down">{error}</p>}
-          <Button full onClick={submitDeal} disabled={saving}>
-            {saving ? "সেভ হচ্ছে..." : "যোগ করুন"}
-          </Button>
-        </div>
-      </Sheet>
     </div>
   );
 }

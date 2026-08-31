@@ -6,6 +6,7 @@ import { Button, Field, inputClass, Sheet, Badge, money, formatDate } from "./ui
 import BarcodeScanner from "./BarcodeScanner";
 import BarcodeSticker from "./BarcodeSticker";
 import { generateInvoicePDF } from "@/lib/invoice";
+import { emitDashboardRefresh } from "@/lib/events";
 import type { Phone, Sale } from "@/lib/types";
 
 const SHOP_NAME = "Phone Fantasy";
@@ -81,6 +82,7 @@ export default function StockTab() {
     }
     setForm({ name_model: "", imei: "", buy_price: "", buy_date: "" });
     setAddOpen(false);
+    emitDashboardRefresh();
     load();
   }
 
@@ -122,6 +124,7 @@ export default function StockTab() {
     });
     const soldSaleId = d.id;
     setSellPhone(null);
+    emitDashboardRefresh();
     load();
 
     // fetch to build receipt
@@ -512,6 +515,7 @@ function DuePanel({
     }
     setSale({ ...sale!, due_amount: d.due_amount, paid_amount: d.paid_amount });
     setAmount("");
+    emitDashboardRefresh();
     onUpdated();
   }
 

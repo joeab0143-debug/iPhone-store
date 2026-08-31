@@ -6,12 +6,17 @@ export const runtime = "edge";
 export async function GET(req: NextRequest) {
   const db = getDB();
   const status = req.nextUrl.searchParams.get("status"); // unsold | sold | null(all)
+  const imei = req.nextUrl.searchParams.get("imei"); // exact match, used by the Sell sheet's IMEI lookup
 
-  let query = "SELECT * FROM phones";
+  let query = "SELECT * FROM phones WHERE 1=1";
   const binds: string[] = [];
   if (status === "unsold" || status === "sold") {
-    query += " WHERE status = ?";
+    query += " AND status = ?";
     binds.push(status);
+  }
+  if (imei) {
+    query += " AND imei = ?";
+    binds.push(imei);
   }
   query += " ORDER BY created_at DESC";
 

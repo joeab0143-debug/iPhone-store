@@ -39,13 +39,27 @@ export interface OutsideDeal {
   name: string;
   model: string | null;
   imei: string | null;
+  ram_rom: string | null;
+  bought_from: string | null;
   buy_price: number;
   nid: string | null;
   phone_number: string | null;
+  status: "unsold" | "sold";
   sell_price: number | null;
   profit: number;
-  deal_date: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  deal_date: string; // buy date
+  sell_date: string | null;
   created_at: string;
+}
+
+export interface DashboardSummary {
+  total_cash: number;
+  today_sale: number;
+  total_buy: number;
+  stock_count: number;
+  profit_till_now: number;
 }
 
 export interface ExpenseCategory {

@@ -8,11 +8,15 @@
 
 ## ফিচার
 
+- **ড্যাশবোর্ড স্ট্যাটস** (সবসময় উপরে দেখা যায়, রিয়েল-টাইম): টোটাল ক্যাশ, আজকের সেল, মোট ক্রয়, স্টক সংখ্যা, প্রফিট (এ পর্যন্ত)
 - **স্টক**: ফোন এন্ট্রি (নাম/মডেল, IMEI, ক্রয়মূল্য, ক্রয়ের তারিখ), Unsold/Sold স্ট্যাটাস
 - **বিক্রি**: বিক্রয়মূল্য দিলে অটো প্রফিট হিসাব, Due/বাকি টগল, কাস্টমার নাম-নম্বর, আংশিক/সম্পূর্ণ বাকি পরিশোধ ট্র্যাকিং, বিক্রির সাথে সাথে PDF রিসিট ডাউনলোড
-- **Outside Profit**: পুরনো ফোন কেনাবেচার আলাদা মডিউল (Name, Model, IMEI, Buy Price, NID, Phone Number), প্রফিট আলাদা দেখায় কিন্তু নিট সামারিতে যোগ হয়
 - **খরচ**: কাস্টম ঘর (ডেজিগনেশনসহ) তৈরি করে প্রতিদিনের খরচ এন্ট্রি, অটো টোটাল
 - **নিট প্রফিট**: তারিখ-রেঞ্জ ফিল্টার সহ — স্টক প্রফিট + Outside প্রফিট − মোট খরচ
+- **নিচের অ্যাকশন বার — Sell / Outside Sell / Buy** (যেকোনো ট্যাব থেকে খোলা যায়):
+  - **Sell**: মূল স্টক থেকে বিক্রি — Name, Number, Model, IMEI, Price দিয়ে সরাসরি বিক্রি করে "Phone Fantasy" হেডারসহ মেমো তৈরি হয়
+  - **Buy**: বাইরের/পুরনো ফোন ক্রয় — Model Number, IMEI (স্ক্যানারসহ), RAM/ROM, Buy Price, Buy from whom, Number, NID
+  - **Outside Sell**: Buy-তে যোগ করা ফোন IMEI দিয়ে খুঁজে বিক্রি করে (Name, Number, Model, IMEI, Price) — প্রফিট Outside প্রফিটে যোগ হয়
 - **বারকোড**: IMEI দিয়ে Code128 স্টিকার প্রিন্ট, ক্যামেরা দিয়ে স্ক্যান, এবং Bluetooth/USB হার্ডওয়্যার স্ক্যানার (keyboard-emulation মোডে) সাপোর্ট
 - মোবাইল-ফার্স্ট, প্রিমিয়াম ডার্ক UI, বাংলা ইন্টারফেস
 
@@ -30,6 +34,7 @@ cp .dev.vars.example .dev.vars   # (ঐচ্ছিক, দরকার নে�
 
 # লোকাল D1 ডাটাবেস বানিয়ে স্কিমা বসান
 npx wrangler d1 execute phone-fantasy-db --local --file=migrations/0001_init.sql
+npx wrangler d1 execute phone-fantasy-db --local --file=migrations/0002_buy_sell_split.sql
 
 # বিল্ড করে Cloudflare Pages dev সার্ভার চালান (D1 বাইন্ডিং সহ)
 npm run build
@@ -58,7 +63,10 @@ npx wrangler d1 create phone-fantasy-db
 
 ```bash
 npx wrangler d1 execute phone-fantasy-db --remote --file=migrations/0001_init.sql
+npx wrangler d1 execute phone-fantasy-db --remote --file=migrations/0002_buy_sell_split.sql
 ```
+
+> ইতিমধ্যে ডিপ্লয় করা থাকলে শুধু নতুন মাইগ্রেশনটা (`0002_buy_sell_split.sql`) চালালেই হবে — এটা বিদ্যমান ডেটা মুছে না, শুধু নতুন কলাম যোগ করে।
 
 ### ৩. Cloudflare Pages প্রজেক্ট তৈরি করুন
 
@@ -95,20 +103,28 @@ Git integration ব্যবহার করলে Cloudflare Dashboard-এ:
 
 ```
 app/
-  page.tsx                  ড্যাশবোর্ড (৩ ট্যাব)
+  page.tsx                  ড্যাশবোর্ড (স্ট্যাটস + ৩ ট্যাব + নিচের অ্যাকশন বার)
   components/
+    DashboardStats.tsx       উপরের ৫টা রিয়েল-টাইম স্ট্যাট
     StockTab.tsx             স্টক + বিক্রি + বাকি + বারকোড
     ExpenseTab.tsx            খরচের ঘর + এন্ট্রি
-    ProfitTab.tsx             Outside profit + নিট প্রফিট সামারি
+    ProfitTab.tsx             Outside deals লিস্ট + নিট প্রফিট সামারি
+    BottomActionBar.tsx      Sell / Outside Sell / Buy বার
+    SellSheet.tsx             Sell ফর্ম (Name, Number, Model, IMEI, Price) + মেমো
+    OutsideSellSheet.tsx      Outside Sell ফর্ম — Buy-করা ফোন IMEI দিয়ে বিক্রি
+    BuySheet.tsx              Buy ফর্ম (Model, IMEI, RAM/ROM, Buy Price, Buy from whom, Number, NID)
     BarcodeScanner.tsx        ক্যামেরা + হার্ডওয়্যার স্ক্যান
     BarcodeSticker.tsx        IMEI বারকোড রেন্ডার
     ui.tsx                    শেয়ার্ড UI (বাটন, ইনপুট, শিট)
-  api/                       সব API রুট (Edge runtime, D1 এক্সেস)
+  api/                       সব API রুট (Edge runtime, D1 এক্সেস) — dashboard/ রুটসহ
 lib/
   db.ts                      D1 বাইন্ডিং হেল্পার
   types.ts                   TypeScript টাইপ
-  invoice.ts                 PDF রিসিট জেনারেটর
-migrations/0001_init.sql     D1 স্কিমা
+  invoice.ts                 PDF রিসিট/মেমো জেনারেটর
+  events.ts                  ড্যাশবোর্ড রিফ্রেশ ইভেন্ট (mutation হলেই স্ট্যাটস আপডেট হয়)
+migrations/
+  0001_init.sql              মূল স্কিমা
+  0002_buy_sell_split.sql    outside_deals-কে Buy/Outside Sell ধাপে ভাগ করার কলাম
 wrangler.toml                Cloudflare কনফিগ (এখানে D1 database_id বসাতে হবে)
 ```
 

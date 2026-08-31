@@ -5,6 +5,8 @@ import { Boxes, Wallet2, TrendingUp, Smartphone } from "lucide-react";
 import StockTab from "./components/StockTab";
 import ExpenseTab from "./components/ExpenseTab";
 import ProfitTab from "./components/ProfitTab";
+import DashboardStats from "./components/DashboardStats";
+import BottomActionBar from "./components/BottomActionBar";
 
 type Tab = "stock" | "expense" | "profit";
 
@@ -34,9 +36,15 @@ export default function Home() {
             </p>
           </div>
         </div>
+      </header>
 
-        {/* Tab row */}
-        <div className="mt-4 grid grid-cols-3 gap-1.5 rounded-2xl bg-surface p-1.5">
+      {/* Content */}
+      <main className="px-5 pt-4">
+        {/* Dashboard stats — always visible at the top, real-time */}
+        <DashboardStats />
+
+        {/* Tab row — existing Stock/Expense/Profit, unchanged */}
+        <div className="mb-4 grid grid-cols-3 gap-1.5 rounded-2xl bg-surface p-1.5">
           {TABS.map((t) => {
             const Icon = t.icon;
             const active = tab === t.id;
@@ -56,14 +64,14 @@ export default function Home() {
             );
           })}
         </div>
-      </header>
 
-      {/* Content */}
-      <main className="px-5 pt-4">
         {tab === "stock" && <StockTab />}
         {tab === "expense" && <ExpenseTab />}
         {tab === "profit" && <ProfitTab />}
       </main>
+
+      {/* Bottom action bar — Sell / Outside Sell / Buy, always accessible */}
+      <BottomActionBar />
     </div>
   );
 }

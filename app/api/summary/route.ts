@@ -30,10 +30,16 @@ export async function GET(req: NextRequest) {
     .bind(...stockWhere.binds)
     .first<{ total: number; cnt: number }>();
 
-  const outsideWhere = dateWhere("deal_date");
+  // Outside profit is realized at sell time (the Outside Sell sheet), not at
+  // purchase time, and only sold rows have a profit — so filter on sell_date
+  // and require status='sold' rather than filtering on the buy date.
+  const outsideWhere = dateWhere("sell_date");
+  const outsideBaseClause = outsideWhere.clause
+    ? outsideWhere.clause + " AND status = 'sold'"
+    : "WHERE status = 'sold'";
   const outsideRow = await db
     .prepare(
-      `SELECT COALESCE(SUM(profit),0) AS total, COUNT(*) AS cnt FROM outside_deals ${outsideWhere.clause}`
+      `SELECT COALESCE(SUM(profit),0) AS total, COUNT(*) AS cnt FROM outside_deals ${outsideBaseClause}`
     )
     .bind(...outsideWhere.binds)
     .first<{ total: number; cnt: number }>();

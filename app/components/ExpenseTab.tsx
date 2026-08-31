@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button, Field, inputClass, Sheet, money, formatDate } from "./ui";
+import { emitDashboardRefresh } from "@/lib/events";
 import type { Expense, ExpenseCategory } from "@/lib/types";
 
 export default function ExpenseTab() {
@@ -92,11 +93,13 @@ export default function ExpenseTab() {
     }
     setEntryForm({ category_id: "", amount: "", expense_date: "", note: "" });
     setEntryOpen(false);
+    emitDashboardRefresh();
     load();
   }
 
   async function deleteExpense(id: number) {
     await fetch(`/api/expenses/${id}`, { method: "DELETE" });
+    emitDashboardRefresh();
     load();
   }
 
