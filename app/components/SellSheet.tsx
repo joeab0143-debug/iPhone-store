@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ScanLine } from "lucide-react";
-import { Button, Field, inputClass, Sheet, formatDate } from "./ui";
+import { Button, Field, inputClass, Sheet } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
 import { generateInvoicePDF } from "@/lib/invoice";
 import { emitDashboardRefresh } from "@/lib/events";
@@ -141,7 +141,7 @@ export default function SellSheet({
       nameModel: sd.sale.name_model,
       imei: sd.sale.imei,
       sellingPrice: sd.sale.selling_price,
-      sellingDate: formatDate(sd.sale.selling_date),
+      sellingDate: sd.sale.selling_date,
       isDue: !!sd.sale.is_due,
       customerName: sd.sale.customer_name,
       customerPhone: sd.sale.customer_phone,

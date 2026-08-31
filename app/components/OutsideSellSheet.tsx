@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ScanLine } from "lucide-react";
-import { Button, Field, inputClass, Sheet, formatDate } from "./ui";
+import { Button, Field, inputClass, Sheet } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
 import { generateInvoicePDF } from "@/lib/invoice";
 import { emitDashboardRefresh } from "@/lib/events";
@@ -108,7 +108,7 @@ export default function OutsideSellSheet({
       nameModel: form.model || matched.model || "-",
       imei: matched.imei || form.imei,
       sellingPrice: Number(form.sell_price),
-      sellingDate: formatDate(nowSql),
+      sellingDate: nowSql,
       isDue: false,
       customerName: form.customer_name,
       customerPhone: form.customer_phone,
