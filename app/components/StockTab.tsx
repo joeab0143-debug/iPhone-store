@@ -243,6 +243,13 @@ export default function StockTab() {
                 <div className="min-w-0">
                   <p className="font-display font-semibold truncate">{p.name_model}</p>
                   <p className="mt-0.5 text-xs text-ink-faint tabular">IMEI: {p.imei}</p>
+                  {(p.ram_rom || p.bought_from) && (
+                    <p className="mt-0.5 text-xs text-ink-faint truncate">
+                      {p.ram_rom}
+                      {p.ram_rom && p.bought_from ? " · " : ""}
+                      {p.bought_from && `${p.bought_from} থেকে কেনা`}
+                    </p>
+                  )}
                   <p className="mt-1 text-xs text-ink-muted">
                     ক্রয়: <span className="tabular">৳{money(p.buy_price)}</span> ·{" "}
                     {formatDate(p.buy_date)}

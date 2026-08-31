@@ -34,11 +34,11 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ deals: results });
 }
 
-// Creates an outside deal. The Buy sheet calls this with just the purchase
-// fields (model, imei, ram_rom, buy_price, bought_from, phone_number, nid) and
-// no sell_price, so the row lands as status='unsold' — ready for the Outside
-// Sell sheet to look up by IMEI later. sell_price/profit/status can still be
-// passed directly for backward compatibility.
+// Outside Sell is now a standalone 3-field profit log (Model, IMEI, Profit),
+// so a row usually arrives with just those + status:"sold". The extra
+// columns (ram_rom, bought_from, buy_price, nid, phone_number, sell_price)
+// are legacy from the old staged-Buy flow and stay optional for backward
+// compatibility.
 export async function POST(req: NextRequest) {
   const db = getDB();
   const body: any = await req.json();
@@ -58,9 +58,9 @@ export async function POST(req: NextRequest) {
     status,
   } = body;
 
-  const ownerName = bought_from || name;
-  if (!ownerName) {
-    return NextResponse.json({ error: "কার কাছ থেকে কেনা হয়েছে তা দিন" }, { status: 400 });
+  const identifier = model || imei || bought_from || name;
+  if (!identifier) {
+    return NextResponse.json({ error: "Model অথবা IMEI দিন" }, { status: 400 });
   }
 
   // profit: if sell_price given, compute; otherwise use manually entered profit
@@ -70,26 +70,28 @@ export async function POST(req: NextRequest) {
       : Number(profit || 0);
 
   const rowStatus = status || (sell_price !== undefined && sell_price !== null && sell_price !== "" ? "sold" : "unsold");
+  const sellDate = rowStatus === "sold" ? new Date().toISOString().slice(0, 19).replace("T", " ") : null;
 
   const result = await db
     .prepare(
       `INSERT INTO outside_deals
-        (name, model, imei, ram_rom, bought_from, buy_price, nid, phone_number, sell_price, profit, status, deal_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now','localtime')))`
+        (name, model, imei, ram_rom, bought_from, buy_price, nid, phone_number, sell_price, profit, status, deal_date, sell_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now','localtime')), ?)`
     )
     .bind(
-      ownerName,
+      name || identifier,
       model || null,
       imei || null,
       ram_rom || null,
-      bought_from || ownerName,
+      bought_from || null,
       buy_price || 0,
       nid || null,
       phone_number || null,
       sell_price ?? null,
       computedProfit,
       rowStatus,
-      buy_date || deal_date || null
+      buy_date || deal_date || null,
+      sellDate
     )
     .run();
 

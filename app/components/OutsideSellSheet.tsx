@@ -1,21 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ScanLine } from "lucide-react";
 import { Button, Field, inputClass, Sheet } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
-import { generateInvoicePDF } from "@/lib/invoice";
 import { emitDashboardRefresh } from "@/lib/events";
-import type { OutsideDeal } from "@/lib/types";
 
-const SHOP_NAME = "Phone Fantasy";
-
+// Outside Sell is a standalone profit log — no invoice, no stock lookup.
+// Just record what was sold (Model, IMEI) and the profit made on it; that
+// profit adds straight into the total/net profit and cash.
 const EMPTY_FORM = {
-  customer_name: "",
-  customer_phone: "",
   model: "",
   imei: "",
-  sell_price: "",
+  profit: "",
 };
 
 export default function OutsideSellSheet({
@@ -26,44 +23,15 @@ export default function OutsideSellSheet({
   onClose: () => void;
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
-  const [matched, setMatched] = useState<OutsideDeal | null>(null);
-  const [checkingImei, setCheckingImei] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  // Outside Sell only works on phones already logged through Buy, so we
-  // look them up by IMEI among unsold outside_deals rows.
-  useEffect(() => {
-    const imei = form.imei.trim();
-    if (!imei) {
-      setMatched(null);
-      return;
-    }
-    const t = setTimeout(async () => {
-      setCheckingImei(true);
-      try {
-        const res = await fetch(`/api/outside?status=unsold&imei=${encodeURIComponent(imei)}`);
-        const d: any = await res.json();
-        const found: OutsideDeal | undefined = (d.deals || [])[0];
-        if (found) {
-          setMatched(found);
-          setForm((f) => ({ ...f, model: found.model || "" }));
-        } else {
-          setMatched(null);
-        }
-      } catch {
-        // ignore
-      }
-      setCheckingImei(false);
-    }, 400);
-    return () => clearTimeout(t);
-  }, [form.imei]);
+  const [done, setDone] = useState(false);
 
   function reset() {
     setForm(EMPTY_FORM);
-    setMatched(null);
     setError("");
+    setDone(false);
   }
 
   function handleClose() {
@@ -73,25 +41,19 @@ export default function OutsideSellSheet({
 
   async function submit() {
     setError("");
-    if (!form.customer_name || !form.customer_phone || !form.imei || !form.sell_price) {
-      setError("সব ঘর পূরণ করুন");
-      return;
-    }
-    if (!matched) {
-      setError("এই IMEI দিয়ে কেনা কোনো ফোন Buy তালিকায় পাওয়া যায়নি — আগে Buy করুন");
+    if (!form.model || !form.imei || form.profit === "") {
+      setError("Model, IMEI ও Profit — সব ঘর পূরণ করুন");
       return;
     }
     setSaving(true);
-    const nowSql = new Date().toISOString().slice(0, 19).replace("T", " ");
-    const res = await fetch(`/api/outside/${matched.id}`, {
-      method: "PATCH",
+    const res = await fetch("/api/outside", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        sell_price: Number(form.sell_price),
-        customer_name: form.customer_name,
-        customer_phone: form.customer_phone,
+        model: form.model,
+        imei: form.imei,
+        profit: Number(form.profit),
         status: "sold",
-        sell_date: nowSql,
       }),
     });
     setSaving(false);
@@ -101,85 +63,62 @@ export default function OutsideSellSheet({
       return;
     }
     emitDashboardRefresh();
-
-    generateInvoicePDF({
-      saleId: matched.id,
-      shopName: SHOP_NAME,
-      nameModel: form.model || matched.model || "-",
-      imei: matched.imei || form.imei,
-      sellingPrice: Number(form.sell_price),
-      sellingDate: nowSql,
-      isDue: false,
-      customerName: form.customer_name,
-      customerPhone: form.customer_phone,
-      paidAmount: Number(form.sell_price),
-      dueAmount: 0,
-    });
-
-    handleClose();
+    setDone(true);
   }
 
   return (
     <>
       <Sheet open={open} onClose={handleClose} title="Outside Sell">
-        <div className="space-y-3">
-          <Field label="Name">
-            <input
-              value={form.customer_name}
-              onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Number">
-            <input
-              value={form.customer_phone}
-              onChange={(e) => setForm({ ...form, customer_phone: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="IMEI">
-            <div className="flex gap-2">
+        {done ? (
+          <div className="py-6 text-center">
+            <p className="mb-4 text-lg font-semibold text-up">প্রফিট যোগ হয়েছে ✓</p>
+            <Button full onClick={reset}>
+              আরেকটা Outside Sell যোগ করুন
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <Field label="Model">
               <input
-                value={form.imei}
-                onChange={(e) => setForm({ ...form, imei: e.target.value })}
-                placeholder="IMEI নম্বর"
+                value={form.model}
+                onChange={(e) => setForm({ ...form, model: e.target.value })}
+                placeholder="যেমন: iPhone 12, 128GB"
                 className={inputClass}
               />
-              <button
-                onClick={() => setScanOpen(true)}
-                className="flex shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 px-3 text-teal"
-                aria-label="IMEI স্ক্যান করুন"
-              >
-                <ScanLine size={18} />
-              </button>
-            </div>
-            {checkingImei && <p className="mt-1 text-xs text-ink-faint">খোঁজা হচ্ছে...</p>}
-            {matched ? (
-              <p className="mt-1 text-xs text-up">Buy তালিকা থেকে পাওয়া গেছে — {matched.model}</p>
-            ) : (
-              form.imei.trim() && (
-                <p className="mt-1 text-xs text-down">Buy তালিকায় এই IMEI পাওয়া যায়নি</p>
-              )
-            )}
-          </Field>
-          <Field label="Model">
-            <input value={form.model} readOnly className={inputClass + " opacity-70"} />
-          </Field>
-          <Field label="Price (৳)">
-            <input
-              type="number"
-              inputMode="decimal"
-              value={form.sell_price}
-              onChange={(e) => setForm({ ...form, sell_price: e.target.value })}
-              placeholder="0"
-              className={inputClass}
-            />
-          </Field>
-          {error && <p className="text-sm text-down">{error}</p>}
-          <Button full onClick={submit} disabled={saving}>
-            {saving ? "সেভ হচ্ছে..." : "বিক্রি নিশ্চিত করুন ও মেমো বানান"}
-          </Button>
-        </div>
+            </Field>
+            <Field label="IMEI">
+              <div className="flex gap-2">
+                <input
+                  value={form.imei}
+                  onChange={(e) => setForm({ ...form, imei: e.target.value })}
+                  placeholder="IMEI নম্বর"
+                  className={inputClass}
+                />
+                <button
+                  onClick={() => setScanOpen(true)}
+                  className="flex shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 px-3 text-teal"
+                  aria-label="IMEI স্ক্যান করুন"
+                >
+                  <ScanLine size={18} />
+                </button>
+              </div>
+            </Field>
+            <Field label="Profit (৳)">
+              <input
+                type="number"
+                inputMode="decimal"
+                value={form.profit}
+                onChange={(e) => setForm({ ...form, profit: e.target.value })}
+                placeholder="0"
+                className={inputClass}
+              />
+            </Field>
+            {error && <p className="text-sm text-down">{error}</p>}
+            <Button full onClick={submit} disabled={saving}>
+              {saving ? "সেভ হচ্ছে..." : "সেভ করুন"}
+            </Button>
+          </div>
+        )}
       </Sheet>
 
       <BarcodeScanner

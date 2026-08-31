@@ -47,18 +47,19 @@ export default function BuySheet({
       return;
     }
     setSaving(true);
-    const res = await fetch("/api/outside", {
+    // Buy now adds the phone straight into the main stock (phones table) so
+    // it shows up in the Stock tab immediately — no separate "outside" bucket.
+    const res = await fetch("/api/stock", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: form.model,
+        name_model: form.model,
         imei: form.imei,
-        ram_rom: form.ram_rom || null,
         buy_price: Number(form.buy_price),
+        ram_rom: form.ram_rom || null,
         bought_from: form.bought_from,
         phone_number: form.phone_number || null,
         nid: form.nid || null,
-        status: "unsold",
       }),
     });
     setSaving(false);
@@ -76,7 +77,7 @@ export default function BuySheet({
       <Sheet open={open} onClose={handleClose} title="ফোন ক্রয় (Buy)">
         {done ? (
           <div className="py-6 text-center">
-            <p className="mb-4 text-lg font-semibold text-up">ক্রয় সেভ হয়েছে ✓</p>
+            <p className="mb-4 text-lg font-semibold text-up">ক্রয় সেভ হয়েছে — স্টকে যোগ হয়েছে ✓</p>
             <Button full onClick={reset}>
               আরেকটা ফোন ক্রয় করুন
             </Button>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Trash2, TrendingUp, TrendingDown } from "lucide-react";
-import { Badge, inputClass, money, formatDate } from "./ui";
+import { inputClass, money, formatDate } from "./ui";
 import { emitDashboardRefresh } from "@/lib/events";
 import type { NetProfitSummary, OutsideDeal } from "@/lib/types";
 
@@ -91,16 +91,17 @@ export default function ProfitTab() {
         </div>
       </div>
 
-      {/* Outside deals list — created via the Buy / Outside Sell bottom-bar actions */}
+      {/* Outside Sell log — a simple Model/IMEI/Profit entry added via the
+          bottom-bar Outside Sell action */}
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-display font-semibold">Outside — পুরনো ফোন কেনাবেচা</h3>
+        <h3 className="font-display font-semibold">Outside Sell — প্রফিট লগ</h3>
       </div>
 
       {loading ? (
         <p className="text-center text-sm text-ink-muted py-10">লোড হচ্ছে...</p>
       ) : deals.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border py-10 text-center text-ink-muted">
-          এই সময়ে কোনো ডিল নেই — Buy ট্যাব থেকে ফোন ক্রয় করুন
+          এই সময়ে কোনো এন্ট্রি নেই — নিচের Outside Sell বাটন থেকে যোগ করুন
         </div>
       ) : (
         <ul className="space-y-2">
@@ -111,38 +112,22 @@ export default function ProfitTab() {
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium truncate">
-                      {d.model || d.bought_from || d.name}
-                    </p>
-                    <Badge tone={d.status === "unsold" ? "default" : "up"}>
-                      {d.status === "unsold" ? "Unsold" : "Sold"}
-                    </Badge>
-                  </div>
-                  {(d.ram_rom || d.imei) && (
-                    <p className="text-xs text-ink-faint truncate">
-                      {d.ram_rom}
-                      {d.ram_rom && d.imei ? " · " : ""}
-                      {d.imei && `IMEI: ${d.imei}`}
-                    </p>
+                  <p className="font-medium truncate">{d.model || d.name}</p>
+                  {d.imei && (
+                    <p className="text-xs text-ink-faint truncate">IMEI: {d.imei}</p>
                   )}
                   <p className="text-xs text-ink-faint">
-                    ক্রয়: ৳{money(d.buy_price)} · {formatDate(d.deal_date)}
-                    {d.bought_from ? ` · ${d.bought_from} থেকে` : ""}
+                    {formatDate(d.sell_date || d.deal_date)}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {d.status === "sold" ? (
-                    <span
-                      className={`tabular font-semibold ${
-                        d.profit >= 0 ? "text-up" : "text-down"
-                      }`}
-                    >
-                      {d.profit >= 0 ? "+" : ""}৳{money(d.profit)}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-ink-faint">বিক্রি বাকি</span>
-                  )}
+                  <span
+                    className={`tabular font-semibold ${
+                      d.profit >= 0 ? "text-up" : "text-down"
+                    }`}
+                  >
+                    {d.profit >= 0 ? "+" : ""}৳{money(d.profit)}
+                  </span>
                   <button
                     onClick={() => deleteDeal(d.id)}
                     className="text-ink-faint hover:text-down"

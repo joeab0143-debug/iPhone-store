@@ -6,6 +6,11 @@ export interface Phone {
   buy_date: string;
   status: "unsold" | "sold";
   created_at: string;
+  // Optional — populated when the phone was added via the Buy tab
+  ram_rom?: string | null;
+  bought_from?: string | null;
+  phone_number?: string | null;
+  nid?: string | null;
 }
 
 export interface Sale {
@@ -36,6 +41,9 @@ export interface DuePayment {
 
 export interface OutsideDeal {
   id: number;
+  // Outside Sell is now a standalone 3-field profit log (Model, IMEI,
+  // Profit) — most other columns are legacy from the old staged-Buy flow
+  // and stay optional/unused for new rows.
   name: string;
   model: string | null;
   imei: string | null;
@@ -49,7 +57,7 @@ export interface OutsideDeal {
   profit: number;
   customer_name: string | null;
   customer_phone: string | null;
-  deal_date: string; // buy date
+  deal_date: string; // legacy buy date
   sell_date: string | null;
   created_at: string;
 }
