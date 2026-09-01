@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, ScanLine, Printer, Receipt, Wallet, Search } from "lucide-react";
+import { Plus, ScanLine, Printer, Receipt, Wallet, Search, RotateCcw } from "lucide-react";
 import { Button, Field, inputClass, Sheet, Badge, money, formatDate } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
 import BarcodeSticker from "./BarcodeSticker";
@@ -35,6 +35,7 @@ export default function StockTab() {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [returningId, setReturningId] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
@@ -172,6 +173,43 @@ export default function StockTab() {
     });
   }
 
+  // Return: undoes the sale (removes it, phone goes back to unsold) and
+  // reprints the same memo with a RETURNED stamp at the bottom.
+  async function returnPhone(phone: Phone) {
+    const res = await fetch(`/api/stock/${phone.id}`);
+    const d: any = await res.json();
+    if (!d.sale) return;
+    const sale = d.sale;
+    if (
+      !window.confirm(`${phone.name_model} — এই ফোনটি ফেরত নিয়ে স্টকে যোগ করবেন?`)
+    ) {
+      return;
+    }
+    setReturningId(phone.id);
+    const delRes = await fetch(`/api/sales/${sale.id}`, { method: "DELETE" });
+    setReturningId(null);
+    if (!delRes.ok) {
+      setError("রিটার্ন করা যায়নি");
+      return;
+    }
+    emitDashboardRefresh();
+    load();
+    generateInvoicePDF({
+      saleId: sale.id,
+      shopName: SHOP_NAME,
+      nameModel: phone.name_model,
+      imei: phone.imei,
+      sellingPrice: sale.selling_price,
+      sellingDate: sale.selling_date,
+      isDue: !!sale.is_due,
+      customerName: sale.customer_name,
+      customerPhone: sale.customer_phone,
+      paidAmount: sale.paid_amount,
+      dueAmount: sale.due_amount,
+      isReturn: true,
+    });
+  }
+
   function handleScanResult(code: string) {
     setScanOpen(false);
     if (scanTarget === "add") {
@@ -233,62 +271,72 @@ export default function StockTab() {
           কোনো ফোন নেই — নতুন ফোন যোগ করুন
         </div>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-2">
           {filtered.map((p) => (
             <li
               key={p.id}
-              className="rounded-2xl border border-border bg-surface p-4"
+              className="rounded-xl border border-border bg-surface p-3"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-display font-semibold truncate">{p.name_model}</p>
-                  <p className="mt-0.5 text-xs text-ink-faint tabular">IMEI: {p.imei}</p>
-                  {(p.ram_rom || p.bought_from) && (
-                    <p className="mt-0.5 text-xs text-ink-faint truncate">
-                      {p.ram_rom}
-                      {p.ram_rom && p.bought_from ? " · " : ""}
-                      {p.bought_from && `${p.bought_from} থেকে কেনা`}
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-display text-sm font-semibold truncate">
+                      {p.name_model}
                     </p>
-                  )}
-                  <p className="mt-1 text-xs text-ink-muted">
-                    ক্রয়: <span className="tabular">৳{money(p.buy_price)}</span> ·{" "}
+                    <Badge tone={p.status === "unsold" ? "default" : "up"}>
+                      {p.status === "unsold" ? "Unsold" : "Sold"}
+                    </Badge>
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-ink-faint tabular">
+                    IMEI: {p.imei}
+                    {p.ram_rom && ` · ${p.ram_rom}`}
+                    {p.bought_from && ` · ${p.bought_from} থেকে`} · ৳{money(p.buy_price)} ·{" "}
                     {formatDate(p.buy_date)}
                   </p>
                 </div>
-                <Badge tone={p.status === "unsold" ? "default" : "up"}>
-                  {p.status === "unsold" ? "Unsold" : "Sold"}
-                </Badge>
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-2 flex gap-1.5">
                 {p.status === "unsold" ? (
                   <Button
                     variant="primary"
-                    className="flex-1"
+                    className="flex-1 !py-2 !text-xs"
                     onClick={() => setSellPhone(p)}
                   >
                     বিক্রি করুন
                   </Button>
                 ) : (
                   <>
-                    <Button
-                      variant="secondary"
-                      className="flex-1"
+                    <button
                       onClick={() => printReceiptFor(p.id)}
+                      className="flex items-center justify-center rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-ink-muted hover:text-teal"
+                      aria-label="বিল দেখুন"
                     >
-                      <Receipt size={15} /> বিল
-                    </Button>
-                    <Button variant="secondary" onClick={() => openDuePanel(p)}>
-                      <Wallet size={15} /> বাকি দেখুন
-                    </Button>
+                      <Receipt size={15} />
+                    </button>
+                    <button
+                      onClick={() => openDuePanel(p)}
+                      className="flex items-center justify-center rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-ink-muted hover:text-teal"
+                      aria-label="বাকি দেখুন"
+                    >
+                      <Wallet size={15} />
+                    </button>
+                    <button
+                      onClick={() => returnPhone(p)}
+                      disabled={returningId === p.id}
+                      className="flex items-center justify-center rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-ink-muted hover:text-down disabled:opacity-50"
+                      aria-label="ফোন ফেরত নিন"
+                    >
+                      <RotateCcw size={15} />
+                    </button>
                   </>
                 )}
                 <button
                   onClick={() => setStickerPhone(p)}
-                  className="flex items-center justify-center rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-ink-muted hover:text-teal"
+                  className="flex items-center justify-center rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-ink-muted hover:text-teal"
                   aria-label="স্টিকার প্রিন্ট"
                 >
-                  <Printer size={16} />
+                  <Printer size={15} />
                 </button>
               </div>
             </li>

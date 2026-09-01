@@ -15,12 +15,17 @@ export interface InvoiceData {
   customerPhone?: string | null;
   paidAmount: number;
   dueAmount: number;
+  /** True when this memo documents a phone being returned to stock — same
+   * layout as the original sales receipt, with a RETURNED stamp at the
+   * bottom instead of the thank-you line. */
+  isReturn?: boolean;
 }
 
 const GOLD: [number, number, number] = [242, 183, 5];
 const INK_DARK: [number, number, number] = [26, 20, 0];
 const INK: [number, number, number] = [30, 30, 30];
 const INK_MUTED: [number, number, number] = [120, 120, 120];
+const INK_DOWN: [number, number, number] = [193, 42, 42];
 const BORDER: [number, number, number] = [225, 222, 214];
 const HIGHLIGHT: [number, number, number] = [252, 244, 214];
 
@@ -132,10 +137,17 @@ export function generateInvoicePDF(data: InvoiceData) {
   doc.line(marginX, y, pageW - marginX, y);
   doc.setLineWidth(1);
   y += 24;
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(9.5);
-  doc.setTextColor(...INK_MUTED);
-  doc.text("Thank you for your purchase!", pageW / 2, y, { align: "center" });
+  if (data.isReturn) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...INK_DOWN);
+    doc.text("R E T U R N E D", pageW / 2, y, { align: "center" });
+  } else {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9.5);
+    doc.setTextColor(...INK_MUTED);
+    doc.text("Thank you for your purchase!", pageW / 2, y, { align: "center" });
+  }
 
-  doc.save(`invoice-${data.saleId}.pdf`);
+  doc.save(`${data.isReturn ? "return" : "invoice"}-${data.saleId}.pdf`);
 }
