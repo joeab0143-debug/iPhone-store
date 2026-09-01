@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, ScanLine, Printer, Receipt, Wallet, Search, RotateCcw } from "lucide-react";
+import { ScanLine, Printer, Receipt, Wallet, Search, RotateCcw } from "lucide-react";
 import { Button, Field, inputClass, Sheet, Badge, money, formatDate } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
 import BarcodeSticker from "./BarcodeSticker";
@@ -17,14 +17,11 @@ export default function StockTab() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const [addOpen, setAddOpen] = useState(false);
   const [sellPhone, setSellPhone] = useState<Phone | null>(null);
   const [stickerPhone, setStickerPhone] = useState<Phone | null>(null);
   const [duePhone, setDuePhone] = useState<{ phone: Phone; sale: Sale } | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
-  const [scanTarget, setScanTarget] = useState<"add" | "find">("find");
 
-  const [form, setForm] = useState({ name_model: "", imei: "", buy_price: "", buy_date: "" });
   const [sellForm, setSellForm] = useState({
     selling_price: "",
     selling_date: "",
@@ -57,35 +54,6 @@ export default function StockTab() {
       p.name_model.toLowerCase().includes(s) || p.imei.toLowerCase().includes(s)
     );
   });
-
-  async function submitAdd() {
-    setError("");
-    if (!form.name_model || !form.imei || !form.buy_price) {
-      setError("সব ঘর পূরণ করুন");
-      return;
-    }
-    setSaving(true);
-    const res = await fetch("/api/stock", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name_model: form.name_model,
-        imei: form.imei,
-        buy_price: Number(form.buy_price),
-        buy_date: form.buy_date ? `${form.buy_date} 00:00:00` : null,
-      }),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      const d: any = await res.json();
-      setError(d.error || "সেভ করা যায়নি");
-      return;
-    }
-    setForm({ name_model: "", imei: "", buy_price: "", buy_date: "" });
-    setAddOpen(false);
-    emitDashboardRefresh();
-    load();
-  }
 
   async function submitSell() {
     if (!sellPhone) return;
@@ -212,13 +180,8 @@ export default function StockTab() {
 
   function handleScanResult(code: string) {
     setScanOpen(false);
-    if (scanTarget === "add") {
-      setForm((f) => ({ ...f, imei: code }));
-      setAddOpen(true);
-    } else {
-      setSearch(code);
-      setFilter("all");
-    }
+    setSearch(code);
+    setFilter("all");
   }
 
   return (
@@ -237,10 +200,7 @@ export default function StockTab() {
           />
         </div>
         <button
-          onClick={() => {
-            setScanTarget("find");
-            setScanOpen(true);
-          }}
+          onClick={() => setScanOpen(true)}
           className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 text-teal"
           aria-label="বারকোড স্ক্যান"
         >
@@ -268,7 +228,7 @@ export default function StockTab() {
         <p className="text-center text-sm text-ink-muted py-10">লোড হচ্ছে...</p>
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border py-12 text-center text-ink-muted">
-          কোনো ফোন নেই — নতুন ফোন যোগ করুন
+          কোনো ফোন নেই — নিচের Buy বাটন থেকে ফোন ক্রয় করুন
         </div>
       ) : (
         <ul className="space-y-2">
@@ -343,70 +303,6 @@ export default function StockTab() {
           ))}
         </ul>
       )}
-
-      {/* Floating add button */}
-      <button
-        onClick={() => setAddOpen(true)}
-        className="no-print fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-[#1a1400] shadow-lg shadow-gold/20 active:scale-95"
-        aria-label="নতুন ফোন যোগ করুন"
-      >
-        <Plus size={26} />
-      </button>
-
-      {/* Add phone sheet */}
-      <Sheet open={addOpen} onClose={() => setAddOpen(false)} title="নতুন ফোন যোগ করুন">
-        <div className="space-y-3">
-          <Field label="ফোনের নাম ও মডেল">
-            <input
-              value={form.name_model}
-              onChange={(e) => setForm({ ...form, name_model: e.target.value })}
-              placeholder="যেমন: Samsung Galaxy A15"
-              className={inputClass}
-            />
-          </Field>
-          <Field label="IMEI">
-            <div className="flex gap-2">
-              <input
-                value={form.imei}
-                onChange={(e) => setForm({ ...form, imei: e.target.value })}
-                placeholder="IMEI নম্বর"
-                className={inputClass}
-              />
-              <button
-                onClick={() => {
-                  setScanTarget("add");
-                  setScanOpen(true);
-                }}
-                className="flex shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 px-3 text-teal"
-              >
-                <ScanLine size={18} />
-              </button>
-            </div>
-          </Field>
-          <Field label="ক্রয়মূল্য (৳)">
-            <input
-              type="number"
-              inputMode="decimal"
-              value={form.buy_price}
-              onChange={(e) => setForm({ ...form, buy_price: e.target.value })}
-              placeholder="0"
-              className={inputClass}
-            />
-          </Field>
-          <Field label="ক্রয়ের তারিখ (ফাঁকা রাখলে আজকের তারিখ বসবে)">
-            <input
-              type="date"
-              value={form.buy_date}
-              onChange={(e) => setForm({ ...form, buy_date: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-          {error && <p className="text-sm text-down">{error}</p>}
-          <Button full onClick={submitAdd} disabled={saving}>
-            {saving ? "সেভ হচ্ছে..." : "যোগ করুন"}
-          </Button>
-        </div>
-      </Sheet>
 
       {/* Sell sheet */}
       <Sheet
