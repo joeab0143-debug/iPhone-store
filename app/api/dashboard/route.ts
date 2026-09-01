@@ -31,6 +31,7 @@ export async function GET() {
     outsideProfitThisMonth,
     expenseAllTime,
     expenseThisMonth,
+    loanFlow,
   ] = await Promise.all([
     db.prepare("SELECT COALESCE(SUM(buy_price),0) AS total FROM phones").first<{ total: number }>(),
     db.prepare("SELECT COUNT(*) AS cnt FROM phones WHERE status = 'unsold'").first<{ cnt: number }>(),
@@ -64,6 +65,23 @@ export async function GET() {
         "SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE strftime('%Y-%m', expense_date) = strftime('%Y-%m','now','localtime')"
       )
       .first<{ total: number }>(),
+    // ধার নিলে/আদায় হলে ক্যাশ বাড়ে; ধার দিলে/পরিশোধ করলে ক্যাশ কমে —
+    // all-time, কখনো রিসেট হয় না (Total Cash-এর মতোই)।
+    db
+      .prepare(
+        `SELECT
+           COALESCE(SUM(CASE WHEN la.direction='taken' AND le.kind='disburse' THEN le.amount ELSE 0 END),0) AS taken_in,
+           COALESCE(SUM(CASE WHEN la.direction='given' AND le.kind='repay' THEN le.amount ELSE 0 END),0) AS given_repaid_in,
+           COALESCE(SUM(CASE WHEN la.direction='given' AND le.kind='disburse' THEN le.amount ELSE 0 END),0) AS given_out,
+           COALESCE(SUM(CASE WHEN la.direction='taken' AND le.kind='repay' THEN le.amount ELSE 0 END),0) AS taken_repaid_out
+         FROM loan_entries le JOIN loan_accounts la ON la.id = le.account_id`
+      )
+      .first<{
+        taken_in: number;
+        given_repaid_in: number;
+        given_out: number;
+        taken_repaid_out: number;
+      }>(),
   ]);
 
   const totalBuyAmt = totalBuy?.total ?? 0;
@@ -71,10 +89,13 @@ export async function GET() {
   const todaySale = (salesToday?.total ?? 0) + (outsideProfitToday?.total ?? 0);
 
   // Cash on hand = actual cash received (sales' paid_amount + Outside Sell
-  // profit, since Outside Sell has no tracked buy cost) minus everything
-  // spent buying stock and paying expenses — all-time, never resets.
-  const cashIn = (salesPaidAllTime?.total ?? 0) + (outsideProfitAllTime?.total ?? 0);
-  const cashOut = totalBuyAmt + (expenseAllTime?.total ?? 0);
+  // profit + loans taken + loan repayments received) minus everything
+  // spent (buying stock, expenses, loans given out, loans paid back) —
+  // all-time, never resets.
+  const loanCashIn = (loanFlow?.taken_in ?? 0) + (loanFlow?.given_repaid_in ?? 0);
+  const loanCashOut = (loanFlow?.given_out ?? 0) + (loanFlow?.taken_repaid_out ?? 0);
+  const cashIn = (salesPaidAllTime?.total ?? 0) + (outsideProfitAllTime?.total ?? 0) + loanCashIn;
+  const cashOut = totalBuyAmt + (expenseAllTime?.total ?? 0) + loanCashOut;
   const totalCash = cashIn - cashOut;
 
   // Profit (এ পর্যন্ত) — restarts at the beginning of every calendar month.

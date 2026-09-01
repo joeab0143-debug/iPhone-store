@@ -3,16 +3,43 @@ import { getDB } from "@/lib/db";
 
 export const runtime = "edge";
 
-// Loans — a private personal ledger, kept deliberately separate from the
-// shop's own cash flow. Never summed into /api/dashboard or the Profit tab.
+// Loans — now a per-person running ledger. GET returns one row per
+// (direction, person) account with its totals; the full entry-by-entry
+// history lives behind GET /api/loans/[id].
+//
+// Loan cash flow now feeds into /api/dashboard's Total Cash (see that
+// route) — it's no longer excluded.
 export async function GET() {
   const db = getDB();
   const { results } = await db
-    .prepare("SELECT * FROM loans ORDER BY (status = 'pending') DESC, loan_date DESC")
+    .prepare(
+      `SELECT
+         la.id, la.direction, la.person_name, la.created_at,
+         COALESCE(SUM(CASE WHEN le.kind = 'disburse' THEN le.amount ELSE 0 END), 0) AS disbursed,
+         COALESCE(SUM(CASE WHEN le.kind = 'repay' THEN le.amount ELSE 0 END), 0) AS repaid,
+         MAX(le.entry_date) AS last_entry_date
+       FROM loan_accounts la
+       LEFT JOIN loan_entries le ON le.account_id = la.id
+       GROUP BY la.id
+       ORDER BY
+         (COALESCE(SUM(CASE WHEN le.kind = 'disburse' THEN le.amount ELSE 0 END), 0) -
+          COALESCE(SUM(CASE WHEN le.kind = 'repay' THEN le.amount ELSE 0 END), 0)) <= 0,
+         MAX(le.entry_date) DESC`
+    )
     .all();
-  return NextResponse.json({ loans: results });
+
+  const accounts = (results as any[]).map((r) => ({
+    ...r,
+    remaining: Number(r.disbursed) - Number(r.repaid),
+  }));
+
+  return NextResponse.json({ accounts });
 }
 
+// Record a new "disburse" (taking or giving a loan). If an account already
+// exists for this exact direction + person (matched case-insensitively, so
+// "Rahim" and "rahim" merge), the amount adds into it as a new entry
+// instead of creating a separate line.
 export async function POST(req: NextRequest) {
   const db = getDB();
   const body: any = await req.json();
@@ -21,17 +48,36 @@ export async function POST(req: NextRequest) {
   if (direction !== "taken" && direction !== "given") {
     return NextResponse.json({ error: "সঠিক ধরন দিন" }, { status: 400 });
   }
-  if (!person_name || amount === undefined || Number(amount) <= 0) {
+  const name = String(person_name || "").trim();
+  if (!name || amount === undefined || Number(amount) <= 0) {
     return NextResponse.json({ error: "সব ঘর পূরণ করুন" }, { status: 400 });
   }
 
-  const result = await db
+  const existing = await db
     .prepare(
-      `INSERT INTO loans (direction, person_name, amount, loan_date)
-       VALUES (?, ?, ?, COALESCE(?, datetime('now','localtime')))`
+      `SELECT id FROM loan_accounts WHERE direction = ? AND LOWER(TRIM(person_name)) = LOWER(?)`
     )
-    .bind(direction, person_name, Number(amount), loan_date || null)
+    .bind(direction, name)
+    .first<{ id: number }>();
+
+  let accountId: number;
+  if (existing) {
+    accountId = existing.id;
+  } else {
+    const created = await db
+      .prepare(`INSERT INTO loan_accounts (direction, person_name) VALUES (?, ?)`)
+      .bind(direction, name)
+      .run();
+    accountId = created.meta.last_row_id as number;
+  }
+
+  await db
+    .prepare(
+      `INSERT INTO loan_entries (account_id, kind, amount, entry_date)
+       VALUES (?, 'disburse', ?, COALESCE(?, datetime('now','localtime')))`
+    )
+    .bind(accountId, Number(amount), loan_date || null)
     .run();
 
-  return NextResponse.json({ id: result.meta.last_row_id }, { status: 201 });
+  return NextResponse.json({ id: accountId }, { status: 201 });
 }

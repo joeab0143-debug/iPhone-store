@@ -109,24 +109,29 @@ export interface GadgetSale {
   sold_at: string;
 }
 
-export interface Loan {
+// A loan account is one running ledger per (direction, person) — every
+// amount taken/given from that person and every repayment merges into it
+// instead of creating a separate row each time.
+export interface LoanAccount {
   id: number;
   direction: "taken" | "given";
   person_name: string;
-  amount: number;
-  paid_amount: number;
-  loan_date: string;
-  status: "pending" | "settled";
-  settled_date: string | null;
   created_at: string;
+  // joined aggregates
+  disbursed?: number; // total taken/given, all-time
+  repaid?: number; // total repaid/recovered, all-time
+  remaining?: number; // disbursed - repaid
+  last_entry_date?: string | null;
 }
 
-export interface LoanPayment {
+export interface LoanEntry {
   id: number;
-  loan_id: number;
+  account_id: number;
+  kind: "disburse" | "repay";
   amount: number;
-  paid_date: string;
+  entry_date: string;
   note: string | null;
+  created_at: string;
 }
 
 export interface NetProfitSummary {

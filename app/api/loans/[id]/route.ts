@@ -3,28 +3,53 @@ import { getDB } from "@/lib/db";
 
 export const runtime = "edge";
 
-// Mark a loan fully settled in one shot — "the whole thing is paid off",
-// as opposed to /api/loan-payments which records a partial repayment.
-// Sets paid_amount to the full loan amount so the numbers stay consistent.
-export async function PATCH(
+// Full detail for one loan account — its totals plus the complete
+// chronological history of every amount taken/given and every repayment.
+// Powers the "ভেতরে ঢুকে বিস্তারিত" drill-down in the Loans tab.
+export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const db = getDB();
-  await db
+
+  const account = await db
     .prepare(
-      `UPDATE loans SET paid_amount = amount, status = 'settled', settled_date = datetime('now','localtime') WHERE id = ?`
+      `SELECT
+         la.id, la.direction, la.person_name, la.created_at,
+         COALESCE(SUM(CASE WHEN le.kind = 'disburse' THEN le.amount ELSE 0 END), 0) AS disbursed,
+         COALESCE(SUM(CASE WHEN le.kind = 'repay' THEN le.amount ELSE 0 END), 0) AS repaid
+       FROM loan_accounts la
+       LEFT JOIN loan_entries le ON le.account_id = la.id
+       WHERE la.id = ?
+       GROUP BY la.id`
     )
     .bind(params.id)
-    .run();
-  return NextResponse.json({ ok: true });
+    .first<any>();
+
+  if (!account) {
+    return NextResponse.json({ error: "এন্ট্রি পাওয়া যায়নি" }, { status: 404 });
+  }
+  account.remaining = Number(account.disbursed) - Number(account.repaid);
+
+  const { results: entries } = await db
+    .prepare(
+      `SELECT * FROM loan_entries WHERE account_id = ? ORDER BY entry_date ASC, id ASC`
+    )
+    .bind(params.id)
+    .all();
+
+  return NextResponse.json({ account, entries });
 }
 
+// Deletes the whole account and its entire history — used when a loan was
+// entered by mistake, not for settling one (settling is just a repay entry
+// for the full remaining amount, via /api/loan-payments).
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const db = getDB();
-  await db.prepare("DELETE FROM loans WHERE id = ?").bind(params.id).run();
+  await db.prepare("DELETE FROM loan_entries WHERE account_id = ?").bind(params.id).run();
+  await db.prepare("DELETE FROM loan_accounts WHERE id = ?").bind(params.id).run();
   return NextResponse.json({ ok: true });
 }
