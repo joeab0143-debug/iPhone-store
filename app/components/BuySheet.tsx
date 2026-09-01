@@ -10,6 +10,7 @@ const EMPTY_FORM = {
   model: "",
   imei: "",
   ram_rom: "",
+  battery_health: "",
   buy_price: "",
   bought_from: "",
   phone_number: "",
@@ -57,6 +58,7 @@ export default function BuySheet({
         imei: form.imei,
         buy_price: Number(form.buy_price),
         ram_rom: form.ram_rom || null,
+        battery_health: form.battery_health || null,
         bought_from: form.bought_from,
         phone_number: form.phone_number || null,
         nid: form.nid || null,
@@ -114,6 +116,14 @@ export default function BuySheet({
                 value={form.ram_rom}
                 onChange={(e) => setForm({ ...form, ram_rom: e.target.value })}
                 placeholder="যেমন: 4/64 GB"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Battery Health (ঐচ্ছিক)">
+              <input
+                value={form.battery_health}
+                onChange={(e) => setForm({ ...form, battery_health: e.target.value })}
+                placeholder="যেমন: 92%"
                 className={inputClass}
               />
             </Field>

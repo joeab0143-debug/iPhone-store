@@ -8,6 +8,7 @@ export interface Phone {
   created_at: string;
   // Optional — populated when the phone was added via the Buy tab
   ram_rom?: string | null;
+  battery_health?: string | null;
   bought_from?: string | null;
   phone_number?: string | null;
   nid?: string | null;

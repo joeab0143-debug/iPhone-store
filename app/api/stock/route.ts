@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const db = getDB();
   const body: any = await req.json();
-  const { name_model, imei, buy_price, buy_date, ram_rom, bought_from, phone_number, nid } = body;
+  const { name_model, imei, buy_price, buy_date, ram_rom, battery_health, bought_from, phone_number, nid } = body;
 
   if (!name_model || !imei || buy_price === undefined) {
     return NextResponse.json(
@@ -43,8 +43,8 @@ export async function POST(req: NextRequest) {
   try {
     const result = await db
       .prepare(
-        `INSERT INTO phones (name_model, imei, buy_price, buy_date, status, ram_rom, bought_from, phone_number, nid)
-         VALUES (?, ?, ?, COALESCE(?, datetime('now','localtime')), 'unsold', ?, ?, ?, ?)`
+        `INSERT INTO phones (name_model, imei, buy_price, buy_date, status, ram_rom, battery_health, bought_from, phone_number, nid)
+         VALUES (?, ?, ?, COALESCE(?, datetime('now','localtime')), 'unsold', ?, ?, ?, ?, ?)`
       )
       .bind(
         name_model,
@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
         buy_price,
         buy_date || null,
         ram_rom || null,
+        battery_health || null,
         bought_from || null,
         phone_number || null,
         nid || null

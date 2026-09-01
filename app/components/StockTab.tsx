@@ -459,7 +459,12 @@ export default function StockTab() {
         {stickerPhone && (
           <div className="flex flex-col items-center gap-4">
             <div id="sticker-print-area">
-              <BarcodeSticker imei={stickerPhone.imei} label={stickerPhone.name_model} />
+              <BarcodeSticker
+                imei={stickerPhone.imei}
+                label={stickerPhone.name_model}
+                ramRom={stickerPhone.ram_rom}
+                batteryHealth={stickerPhone.battery_health}
+              />
             </div>
             <Button
               full
@@ -548,6 +553,7 @@ function PhoneDetailsSheet({
   const detailRows: { label: string; value: string }[] = [
     { label: "IMEI", value: phone.imei },
     ...(phone.ram_rom ? [{ label: "RAM/ROM", value: phone.ram_rom }] : []),
+    ...(phone.battery_health ? [{ label: "Battery Health", value: phone.battery_health }] : []),
     ...(phone.bought_from ? [{ label: "Buy from whom", value: phone.bought_from }] : []),
     ...(phone.phone_number ? [{ label: "Number", value: phone.phone_number }] : []),
     ...(phone.nid ? [{ label: "NID", value: phone.nid }] : []),
