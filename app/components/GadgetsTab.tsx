@@ -24,6 +24,7 @@ export default function GadgetsTab() {
 
   const [sellTarget, setSellTarget] = useState<Gadget | null>(null);
   const [sellPrice, setSellPrice] = useState("");
+  const [sellQty, setSellQty] = useState("1");
   const [sellSaving, setSellSaving] = useState(false);
   const [sellError, setSellError] = useState("");
 
@@ -75,21 +76,32 @@ export default function GadgetsTab() {
   function openSell(g: Gadget) {
     setSellTarget(g);
     setSellPrice("");
+    setSellQty("1");
     setSellError("");
   }
 
   async function confirmSell() {
     if (!sellTarget) return;
     setSellError("");
+    const remaining = Number(sellTarget.quantity) - Number(sellTarget.sold_count || 0);
+    const qty = Math.floor(Number(sellQty));
     if (!sellPrice || Number(sellPrice) <= 0) {
       setSellError("সঠিক Sell দাম দিন");
+      return;
+    }
+    if (!qty || qty < 1) {
+      setSellError("সঠিক Quantity দিন");
+      return;
+    }
+    if (qty > remaining) {
+      setSellError(`স্টকে আছে মাত্র ${remaining}টা — এর বেশি বিক্রি করা যাবে না`);
       return;
     }
     setSellSaving(true);
     const res = await fetch(`/api/gadgets/${sellTarget.id}/sell`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sell_price: Number(sellPrice) }),
+      body: JSON.stringify({ sell_price: Number(sellPrice), quantity: qty }),
     });
     setSellSaving(false);
     if (!res.ok) {
@@ -246,7 +258,7 @@ export default function GadgetsTab() {
               Buy দাম ছিল ৳{money(sellTarget.buy_price)} / unit · স্টকে আছে{" "}
               {Number(sellTarget.quantity) - Number(sellTarget.sold_count || 0)}টা
             </p>
-            <Field label="Sell দাম (৳)">
+            <Field label="Sell দাম (৳ / প্রতি পিস)">
               <input
                 type="number"
                 inputMode="decimal"
@@ -257,6 +269,23 @@ export default function GadgetsTab() {
                 className={inputClass}
               />
             </Field>
+            <Field label="কয়টা বিক্রি করছেন (Quantity)">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={Number(sellTarget.quantity) - Number(sellTarget.sold_count || 0)}
+                value={sellQty}
+                onChange={(e) => setSellQty(e.target.value)}
+                placeholder="1"
+                className={inputClass}
+              />
+            </Field>
+            {sellPrice && sellQty && Number(sellQty) > 1 && (
+              <p className="text-xs text-ink-muted">
+                মোট: ৳{money(Number(sellPrice) * Number(sellQty))} ({sellQty}টা × ৳{money(sellPrice)})
+              </p>
+            )}
             {sellError && <p className="text-sm text-down">{sellError}</p>}
             <Button full onClick={confirmSell} disabled={sellSaving}>
               {sellSaving ? "সেভ হচ্ছে..." : "বিক্রি নিশ্চিত করুন"}
