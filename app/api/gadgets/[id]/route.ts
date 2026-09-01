@@ -8,6 +8,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   const db = getDB();
+  await db.prepare("DELETE FROM gadget_sales WHERE gadget_id = ?").bind(params.id).run();
   await db.prepare("DELETE FROM gadgets WHERE id = ?").bind(params.id).run();
   return NextResponse.json({ ok: true });
 }

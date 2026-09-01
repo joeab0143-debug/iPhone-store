@@ -16,6 +16,8 @@ const EMPTY_FORM = {
   model: "",
   imei: "",
   selling_price: "",
+  ram_rom: "",
+  battery_health: "",
 };
 
 export default function SellSheet({
@@ -91,6 +93,10 @@ export default function SellSheet({
       setError("এই ফোনটি ইতিমধ্যে বিক্রি হয়ে গেছে");
       return;
     }
+    // Open the receipt tab synchronously, still inside this click's user
+    // gesture — otherwise the browser blocks window.open() once we hit the
+    // awaits below. We navigate this tab to the finished PDF later.
+    const previewWin = window.open("", "_blank");
     setSaving(true);
 
     let phoneId = matchedPhone?.id;
@@ -121,10 +127,13 @@ export default function SellSheet({
         customer_name: form.customer_name,
         customer_phone: form.customer_phone,
         paid_now: isDue ? Number(paidNow || 0) : undefined,
+        ram_rom: form.ram_rom || null,
+        battery_health: form.battery_health || null,
       }),
     });
     if (!res.ok) {
       setSaving(false);
+      previewWin?.close();
       const d: any = await res.json().catch(() => ({}));
       setError(d.error || "সেভ করা যায়নি");
       return;
@@ -135,19 +144,24 @@ export default function SellSheet({
     const r = await fetch(`/api/sales/${d.id}`);
     const sd: any = await r.json();
     setSaving(false);
-    generateInvoicePDF({
-      saleId: sd.sale.id,
-      shopName: SHOP_NAME,
-      nameModel: sd.sale.name_model,
-      imei: sd.sale.imei,
-      sellingPrice: sd.sale.selling_price,
-      sellingDate: sd.sale.selling_date,
-      isDue: !!sd.sale.is_due,
-      customerName: sd.sale.customer_name,
-      customerPhone: sd.sale.customer_phone,
-      paidAmount: sd.sale.paid_amount,
-      dueAmount: sd.sale.due_amount,
-    });
+    generateInvoicePDF(
+      {
+        saleId: sd.sale.id,
+        shopName: SHOP_NAME,
+        nameModel: sd.sale.name_model,
+        imei: sd.sale.imei,
+        sellingPrice: sd.sale.selling_price,
+        sellingDate: sd.sale.selling_date,
+        isDue: !!sd.sale.is_due,
+        customerName: sd.sale.customer_name,
+        customerPhone: sd.sale.customer_phone,
+        paidAmount: sd.sale.paid_amount,
+        dueAmount: sd.sale.due_amount,
+        ramRom: sd.sale.ram_rom,
+        batteryHealth: sd.sale.battery_health,
+      },
+      previewWin
+    );
 
     handleClose();
   }
@@ -198,6 +212,22 @@ export default function SellSheet({
               readOnly={!!matchedPhone}
               placeholder="ফোনের নাম ও মডেল"
               className={inputClass + (matchedPhone ? " opacity-70" : "")}
+            />
+          </Field>
+          <Field label="RAM/ROM (ঐচ্ছিক)">
+            <input
+              value={form.ram_rom}
+              onChange={(e) => setForm({ ...form, ram_rom: e.target.value })}
+              placeholder="যেমন: 4/64 GB"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Battery Health (ঐচ্ছিক)">
+            <input
+              value={form.battery_health}
+              onChange={(e) => setForm({ ...form, battery_health: e.target.value })}
+              placeholder="যেমন: 92%"
+              className={inputClass}
             />
           </Field>
           <Field label="Price (৳)">

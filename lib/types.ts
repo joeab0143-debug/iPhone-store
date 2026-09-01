@@ -91,7 +91,31 @@ export interface Gadget {
   id: number;
   buy_name: string;
   buy_price: number;
+  quantity: number; // total units originally bought — never edited afterwards
+  created_at: string;
+  // joined — how many of those units have been sold so far, and the
+  // resulting revenue/profit from just those sold units
+  sold_count?: number;
+  total_sell?: number;
+  total_profit?: number;
+}
+
+export interface GadgetSale {
+  id: number;
+  gadget_id: number;
   sell_price: number;
+  profit: number;
+  sold_at: string;
+}
+
+export interface Loan {
+  id: number;
+  direction: "taken" | "given";
+  person_name: string;
+  amount: number;
+  loan_date: string;
+  status: "pending" | "settled";
+  settled_date: string | null;
   created_at: string;
 }
 

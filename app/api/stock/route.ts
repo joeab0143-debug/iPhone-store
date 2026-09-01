@@ -63,9 +63,12 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (e: any) {
+    // The DB only enforces uniqueness among currently-unsold rows (see
+    // migration 0006) — this only fires when the same IMEI is already sitting
+    // unsold in stock. A sold phone's IMEI can always be re-entered.
     if (String(e.message || e).includes("UNIQUE")) {
       return NextResponse.json(
-        { error: "এই IMEI নম্বরটি আগে থেকেই স্টকে আছে" },
+        { error: "এই IMEI নম্বরের ফোনটি ইতিমধ্যে স্টকে আছে (Unsold)" },
         { status: 409 }
       );
     }

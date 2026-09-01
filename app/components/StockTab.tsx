@@ -6,7 +6,7 @@ import { Button, Field, inputClass, Sheet, Badge, money, formatDate } from "./ui
 import BarcodeScanner from "./BarcodeScanner";
 import BarcodeSticker from "./BarcodeSticker";
 import { generateInvoicePDF } from "@/lib/invoice";
-import { emitDashboardRefresh } from "@/lib/events";
+import { emitDashboardRefresh, DASHBOARD_REFRESH_EVENT } from "@/lib/events";
 import type { Phone, Sale } from "@/lib/types";
 
 const SHOP_NAME = "Phone Fantasy";
@@ -19,6 +19,7 @@ export default function StockTab() {
 
   const [sellPhone, setSellPhone] = useState<Phone | null>(null);
   const [stickerPhone, setStickerPhone] = useState<Phone | null>(null);
+  const [detailsPhone, setDetailsPhone] = useState<Phone | null>(null);
   const [duePhone, setDuePhone] = useState<{ phone: Phone; sale: Sale } | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
 
@@ -29,6 +30,8 @@ export default function StockTab() {
     customer_name: "",
     customer_phone: "",
     paid_now: "",
+    ram_rom: "",
+    battery_health: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -47,6 +50,16 @@ export default function StockTab() {
     load();
   }, [filter]);
 
+  // Buy/Sell/Return elsewhere in the app (bottom action bar, etc.) fire this
+  // event — reload so newly bought phones show up here without a manual
+  // page refresh.
+  useEffect(() => {
+    const handler = () => load();
+    window.addEventListener(DASHBOARD_REFRESH_EVENT, handler);
+    return () => window.removeEventListener(DASHBOARD_REFRESH_EVENT, handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
+
   const filtered = phones.filter((p) => {
     if (!search.trim()) return true;
     const s = search.toLowerCase();
@@ -62,6 +75,9 @@ export default function StockTab() {
       setError("বিক্রয়মূল্য দিন");
       return;
     }
+    // Open the receipt tab now, still inside this click's user gesture —
+    // browsers block window.open() once we hit the awaits below.
+    const previewWin = window.open("", "_blank");
     setSaving(true);
     const res = await fetch("/api/sales", {
       method: "POST",
@@ -74,10 +90,13 @@ export default function StockTab() {
         customer_name: sellForm.customer_name || null,
         customer_phone: sellForm.customer_phone || null,
         paid_now: sellForm.is_due ? Number(sellForm.paid_now || 0) : undefined,
+        ram_rom: sellForm.ram_rom || null,
+        battery_health: sellForm.battery_health || null,
       }),
     });
     setSaving(false);
     if (!res.ok) {
+      previewWin?.close();
       const d: any = await res.json();
       setError(d.error || "সেভ করা যায়নি");
       return;
@@ -90,6 +109,8 @@ export default function StockTab() {
       customer_name: "",
       customer_phone: "",
       paid_now: "",
+      ram_rom: "",
+      battery_health: "",
     });
     const soldSaleId = d.id;
     setSellPhone(null);
@@ -99,19 +120,24 @@ export default function StockTab() {
     // fetch to build receipt
     const r = await fetch(`/api/sales/${soldSaleId}`);
     const sd: any = await r.json();
-    generateInvoicePDF({
-      saleId: sd.sale.id,
-      shopName: SHOP_NAME,
-      nameModel: sd.sale.name_model,
-      imei: sd.sale.imei,
-      sellingPrice: sd.sale.selling_price,
-      sellingDate: sd.sale.selling_date,
-      isDue: !!sd.sale.is_due,
-      customerName: sd.sale.customer_name,
-      customerPhone: sd.sale.customer_phone,
-      paidAmount: sd.sale.paid_amount,
-      dueAmount: sd.sale.due_amount,
-    });
+    generateInvoicePDF(
+      {
+        saleId: sd.sale.id,
+        shopName: SHOP_NAME,
+        nameModel: sd.sale.name_model,
+        imei: sd.sale.imei,
+        sellingPrice: sd.sale.selling_price,
+        sellingDate: sd.sale.selling_date,
+        isDue: !!sd.sale.is_due,
+        customerName: sd.sale.customer_name,
+        customerPhone: sd.sale.customer_phone,
+        paidAmount: sd.sale.paid_amount,
+        dueAmount: sd.sale.due_amount,
+        ramRom: sd.sale.ram_rom,
+        batteryHealth: sd.sale.battery_health,
+      },
+      previewWin
+    );
   }
 
   async function openDuePanel(phone: Phone) {
@@ -123,59 +149,82 @@ export default function StockTab() {
   }
 
   async function printReceiptFor(phoneId: number) {
+    // Open the tab first — still inside the click's user gesture — then
+    // navigate it to the PDF once it's ready below.
+    const previewWin = window.open("", "_blank");
     const res = await fetch(`/api/stock/${phoneId}`);
     const d: any = await res.json();
-    if (!d.sale) return;
-    generateInvoicePDF({
-      saleId: d.sale.id,
-      shopName: SHOP_NAME,
-      nameModel: d.phone.name_model,
-      imei: d.phone.imei,
-      sellingPrice: d.sale.selling_price,
-      sellingDate: d.sale.selling_date,
-      isDue: !!d.sale.is_due,
-      customerName: d.sale.customer_name,
-      customerPhone: d.sale.customer_phone,
-      paidAmount: d.sale.paid_amount,
-      dueAmount: d.sale.due_amount,
-    });
+    if (!d.sale) {
+      previewWin?.close();
+      return;
+    }
+    generateInvoicePDF(
+      {
+        saleId: d.sale.id,
+        shopName: SHOP_NAME,
+        nameModel: d.phone.name_model,
+        imei: d.phone.imei,
+        sellingPrice: d.sale.selling_price,
+        sellingDate: d.sale.selling_date,
+        isDue: !!d.sale.is_due,
+        customerName: d.sale.customer_name,
+        customerPhone: d.sale.customer_phone,
+        paidAmount: d.sale.paid_amount,
+        dueAmount: d.sale.due_amount,
+        ramRom: d.sale.ram_rom,
+        batteryHealth: d.sale.battery_health,
+      },
+      previewWin
+    );
   }
 
   // Return: undoes the sale (removes it, phone goes back to unsold) and
   // reprints the same memo with a RETURNED stamp at the bottom.
   async function returnPhone(phone: Phone) {
-    const res = await fetch(`/api/stock/${phone.id}`);
-    const d: any = await res.json();
-    if (!d.sale) return;
-    const sale = d.sale;
     if (
       !window.confirm(`${phone.name_model} — এই ফোনটি ফেরত নিয়ে স্টকে যোগ করবেন?`)
     ) {
       return;
     }
+    // Open the tab right after confirm (still user-gesture-attached) —
+    // pointed at the PDF once it's built below.
+    const previewWin = window.open("", "_blank");
+    const res = await fetch(`/api/stock/${phone.id}`);
+    const d: any = await res.json();
+    if (!d.sale) {
+      previewWin?.close();
+      return;
+    }
+    const sale = d.sale;
     setReturningId(phone.id);
     const delRes = await fetch(`/api/sales/${sale.id}`, { method: "DELETE" });
     setReturningId(null);
     if (!delRes.ok) {
+      previewWin?.close();
       setError("রিটার্ন করা যায়নি");
       return;
     }
     emitDashboardRefresh();
     load();
-    generateInvoicePDF({
-      saleId: sale.id,
-      shopName: SHOP_NAME,
-      nameModel: phone.name_model,
-      imei: phone.imei,
-      sellingPrice: sale.selling_price,
-      sellingDate: sale.selling_date,
-      isDue: !!sale.is_due,
-      customerName: sale.customer_name,
-      customerPhone: sale.customer_phone,
-      paidAmount: sale.paid_amount,
-      dueAmount: sale.due_amount,
-      isReturn: true,
-    });
+    generateInvoicePDF(
+      {
+        saleId: sale.id,
+        shopName: SHOP_NAME,
+        nameModel: phone.name_model,
+        imei: phone.imei,
+        sellingPrice: sale.selling_price,
+        sellingDate: sale.selling_date,
+        isDue: !!sale.is_due,
+        customerName: sale.customer_name,
+        customerPhone: sale.customer_phone,
+        paidAmount: sale.paid_amount,
+        dueAmount: sale.due_amount,
+        ramRom: sale.ram_rom,
+        batteryHealth: sale.battery_health,
+        isReturn: true,
+      },
+      previewWin
+    );
   }
 
   function handleScanResult(code: string) {
@@ -235,7 +284,8 @@ export default function StockTab() {
           {filtered.map((p) => (
             <li
               key={p.id}
-              className="rounded-xl border border-border bg-surface p-3"
+              onClick={() => setDetailsPhone(p)}
+              className="cursor-pointer rounded-xl border border-border bg-surface p-3 active:bg-surface-2"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
@@ -256,7 +306,7 @@ export default function StockTab() {
                 </div>
               </div>
 
-              <div className="mt-2 flex gap-1.5">
+              <div className="mt-2 flex gap-1.5" onClick={(e) => e.stopPropagation()}>
                 {p.status === "unsold" ? (
                   <Button
                     variant="primary"
@@ -326,6 +376,22 @@ export default function StockTab() {
               type="date"
               value={sellForm.selling_date}
               onChange={(e) => setSellForm({ ...sellForm, selling_date: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="RAM/ROM (ঐচ্ছিক)">
+            <input
+              value={sellForm.ram_rom}
+              onChange={(e) => setSellForm({ ...sellForm, ram_rom: e.target.value })}
+              placeholder="যেমন: 4/64 GB"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Battery Health (ঐচ্ছিক)">
+            <input
+              value={sellForm.battery_health}
+              onChange={(e) => setSellForm({ ...sellForm, battery_health: e.target.value })}
+              placeholder="যেমন: 92%"
               className={inputClass}
             />
           </Field>
@@ -412,6 +478,28 @@ export default function StockTab() {
         )}
       </Sheet>
 
+      {/* Phone details — opens when tapping a card */}
+      <PhoneDetailsSheet
+        phone={detailsPhone}
+        onClose={() => setDetailsPhone(null)}
+        onSell={(p) => {
+          setDetailsPhone(null);
+          setSellPhone(p);
+        }}
+        onPrintBill={(p) => {
+          setDetailsPhone(null);
+          printReceiptFor(p.id);
+        }}
+        onViewDue={(p) => {
+          setDetailsPhone(null);
+          openDuePanel(p);
+        }}
+        onReturn={(p) => {
+          setDetailsPhone(null);
+          returnPhone(p);
+        }}
+      />
+
       {/* Due panel */}
       <DuePanel duePhone={duePhone} onClose={() => setDuePhone(null)} onUpdated={load} />
 
@@ -421,6 +509,117 @@ export default function StockTab() {
         onResult={handleScanResult}
       />
     </div>
+  );
+}
+
+function PhoneDetailsSheet({
+  phone,
+  onClose,
+  onSell,
+  onPrintBill,
+  onViewDue,
+  onReturn,
+}: {
+  phone: Phone | null;
+  onClose: () => void;
+  onSell: (phone: Phone) => void;
+  onPrintBill: (phone: Phone) => void;
+  onViewDue: (phone: Phone) => void;
+  onReturn: (phone: Phone) => void;
+}) {
+  const [sale, setSale] = useState<Sale | null>(null);
+
+  useEffect(() => {
+    setSale(null);
+    if (phone && phone.status === "sold") {
+      fetch(`/api/stock/${phone.id}`)
+        .then((r) => r.json())
+        .then((d: any) => setSale(d.sale || null))
+        .catch(() => {});
+    }
+  }, [phone]);
+
+  if (!phone) return null;
+
+  const detailRows: { label: string; value: string }[] = [
+    { label: "IMEI", value: phone.imei },
+    ...(phone.ram_rom ? [{ label: "RAM/ROM", value: phone.ram_rom }] : []),
+    ...(phone.bought_from ? [{ label: "Buy from whom", value: phone.bought_from }] : []),
+    ...(phone.phone_number ? [{ label: "Number", value: phone.phone_number }] : []),
+    ...(phone.nid ? [{ label: "NID", value: phone.nid }] : []),
+    { label: "ক্রয়মূল্য", value: `৳${money(phone.buy_price)}` },
+    { label: "ক্রয়ের তারিখ", value: formatDate(phone.buy_date) },
+  ];
+
+  return (
+    <Sheet open={!!phone} onClose={onClose} title={phone.name_model}>
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Badge tone={phone.status === "unsold" ? "default" : "up"}>
+            {phone.status === "unsold" ? "Unsold" : "Sold"}
+          </Badge>
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-border bg-surface-2 p-3.5">
+          {detailRows.map((r) => (
+            <div key={r.label} className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-ink-muted">{r.label}</span>
+              <span className="tabular font-medium text-right">{r.value}</span>
+            </div>
+          ))}
+        </div>
+
+        {phone.status === "sold" && sale && (
+          <div className="space-y-2 rounded-xl border border-border bg-surface-2 p-3.5">
+            <p className="text-xs font-semibold text-ink-muted">বিক্রির তথ্য</p>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-ink-muted">বিক্রয়মূল্য</span>
+              <span className="tabular font-medium">৳{money(sale.selling_price)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-ink-muted">বিক্রয়ের তারিখ</span>
+              <span className="tabular font-medium">{formatDate(sale.selling_date)}</span>
+            </div>
+            {sale.customer_name && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-ink-muted">কাস্টমার</span>
+                <span className="font-medium">{sale.customer_name}</span>
+              </div>
+            )}
+            {sale.customer_phone && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-ink-muted">নম্বর</span>
+                <span className="tabular font-medium">{sale.customer_phone}</span>
+              </div>
+            )}
+            {!!sale.is_due && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-due">বাকি আছে</span>
+                <span className="tabular font-medium text-due">৳{money(sale.due_amount)}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {phone.status === "unsold" ? (
+          <Button full onClick={() => onSell(phone)}>
+            বিক্রি করুন
+          </Button>
+        ) : (
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={() => onPrintBill(phone)}>
+              <Receipt size={15} /> বিল
+            </Button>
+            <Button variant="secondary" className="flex-1" onClick={() => onViewDue(phone)}>
+              <Wallet size={15} /> বাকি
+            </Button>
+            <Button variant="secondary" className="flex-1" onClick={() => onReturn(phone)}>
+              <RotateCcw size={15} /> রিটার্ন
+            </Button>
+          </div>
+        )}
+      </div>
+    </Sheet>
   );
 }
 

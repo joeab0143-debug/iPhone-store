@@ -78,7 +78,7 @@ export function Sheet({
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-bg-elevated border border-border p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <div className="relative z-10 w-full sm:max-w-md max-h-[90dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-bg-elevated border border-border p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="font-display text-lg font-semibold">{title}</h3>
           <button

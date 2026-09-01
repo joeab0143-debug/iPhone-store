@@ -48,6 +48,14 @@
 
 html {
   color-scheme: dark;
+  /* Mobile browsers (esp. Android Chrome/Samsung Internet) silently bump the
+     base text size up/down to "fit the column" when the device rotates —
+     this is what makes the whole layout look zoomed in/out after rotating.
+     Locking the adjustment to 100% stops that automatic rescaling. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -55,6 +63,8 @@ body {
   color: var(--ink);
   font-family: var(--font-body);
   -webkit-tap-highlight-color: transparent;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .font-display {

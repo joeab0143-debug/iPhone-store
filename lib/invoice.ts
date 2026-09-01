@@ -19,6 +19,10 @@ export interface InvoiceData {
    * layout as the original sales receipt, with a RETURNED stamp at the
    * bottom instead of the thank-you line. */
   isReturn?: boolean;
+  /** Optional extra details captured at sale time. Each only appears on the
+   * receipt when it was actually filled in. */
+  ramRom?: string | null;
+  batteryHealth?: string | null;
 }
 
 const GOLD: [number, number, number] = [242, 183, 5];
@@ -37,15 +41,55 @@ function formatReceiptDate(input: string): string {
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export function generateInvoicePDF(data: InvoiceData) {
+/**
+ * Builds the sales/return receipt and opens it in a new tab as a print
+ * preview (instead of silently auto-downloading) — the user reviews it there
+ * and prints with the browser/PDF viewer's own print command.
+ *
+ * IMPORTANT: pass `previewWindow` — a window opened with
+ * `window.open("", "_blank")` synchronously, as the very first thing inside
+ * the button's onClick, BEFORE any `await`. Browsers only allow window.open
+ * to bypass the popup blocker when it's called directly inside a user
+ * gesture; once an `await` runs, that gesture is gone and a fresh
+ * window.open() call would be blocked. Opening the blank tab first (still
+ * inside the gesture) and later pointing it at the finished PDF sidesteps
+ * that. If no window (or a blocked one) is passed in, this falls back to a
+ * normal file download so the user still gets the receipt.
+ */
+export function generateInvoicePDF(data: InvoiceData, previewWindow?: Window | null) {
   const pageW = 300;
-  const doc = new jsPDF({ unit: "pt", format: [pageW, 460] }); // receipt-style narrow page
   const marginX = 24;
   const contentW = pageW - marginX * 2;
+
+  // Extra detail lines under the item name — only the ones actually filled in.
+  const detailLines: string[] = [`IMEI: ${data.imei}`];
+  if (data.ramRom) detailLines.push(`RAM/ROM: ${data.ramRom}`);
+  if (data.batteryHealth) detailLines.push(`Battery Health: ${data.batteryHealth}`);
+
+  const hasCustomer = !!(data.customerName || data.customerPhone);
+  const customerLineCount = (data.customerName ? 1 : 0) + (data.customerPhone ? 1 : 0);
+
+  // ---- Compute the exact page height this receipt needs, top to bottom,
+  // so optional lines (RAM/ROM, Battery Health, Customer) never get cut off
+  // or leave a big empty gap. ----
+  const headerH = 74;
+  const boxRowCount = data.isDue ? 3 : 2;
+  const boxH = 14 + boxRowCount * 18 + 12;
+  let height = headerH + 26; // header band + gap before meta
+  height += 16 * 2; // Receipt # + Date rows
+  height += 4 + 22; // divider + gap
+  height += 15; // item name line
+  height += detailLines.length * 13; // IMEI / RAM-ROM / Battery Health
+  height += 5 + boxH + 20; // gap + price box + gap
+  if (hasCustomer) {
+    height += 20 + customerLineCount * 16 + 4;
+  }
+  height += 6 + 24 + 20 + 20; // footer divider + stamp line + bottom margin
+
+  const doc = new jsPDF({ unit: "pt", format: [pageW, height] });
   let y: number;
 
   // ---- Header band ----
-  const headerH = 74;
   doc.setFillColor(...GOLD);
   doc.rect(0, 0, pageW, headerH, "F");
   doc.setTextColor(...INK_DARK);
@@ -70,7 +114,7 @@ export function generateInvoicePDF(data: InvoiceData) {
     y += 16;
   };
 
-  row("Receipt #", `INV-${data.saleId}`);
+  row("Receipt #", `${data.isReturn ? "RTN" : "INV"}-${data.saleId}`);
   row("Date", formatReceiptDate(data.sellingDate));
 
   y += 4;
@@ -87,19 +131,17 @@ export function generateInvoicePDF(data: InvoiceData) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...INK_MUTED);
-  doc.text(`IMEI: ${data.imei}`, marginX, y);
-  y += 18;
+  for (const line of detailLines) {
+    doc.text(line, marginX, y);
+    y += 13;
+  }
+  y += 5;
 
   // ---- Price highlight box ----
-  const boxRowCount = data.isDue ? 3 : 2;
-  const boxPadTop = 14;
-  const boxPadBottom = 12;
-  const boxRowH = 18;
-  const boxH = boxPadTop + boxRowCount * boxRowH + boxPadBottom;
   doc.setFillColor(...HIGHLIGHT);
   doc.rect(marginX, y, contentW, boxH, "F");
 
-  let ty = y + boxPadTop + 11;
+  let ty = y + 14 + 11;
   doc.setFontSize(10);
   const boxRow = (label: string, value: string) => {
     doc.setFont("helvetica", "normal");
@@ -108,7 +150,7 @@ export function generateInvoicePDF(data: InvoiceData) {
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...INK);
     doc.text(value, pageW - marginX - 12, ty, { align: "right" });
-    ty += boxRowH;
+    ty += 18;
   };
 
   boxRow("Selling Price", `${data.sellingPrice.toLocaleString()} Tk`);
@@ -121,7 +163,7 @@ export function generateInvoicePDF(data: InvoiceData) {
   y += boxH + 20;
 
   // ---- Customer ----
-  if (data.customerName || data.customerPhone) {
+  if (hasCustomer) {
     doc.setDrawColor(...BORDER);
     doc.line(marginX, y, pageW - marginX, y);
     y += 20;
@@ -149,5 +191,14 @@ export function generateInvoicePDF(data: InvoiceData) {
     doc.text("Thank you for your purchase!", pageW / 2, y, { align: "center" });
   }
 
-  doc.save(`${data.isReturn ? "return" : "invoice"}-${data.saleId}.pdf`);
+  const filename = `${data.isReturn ? "return" : "invoice"}-${data.saleId}.pdf`;
+
+  if (previewWindow && !previewWindow.closed) {
+    const blobUrl = doc.output("bloburl") as unknown as string;
+    previewWindow.location.href = blobUrl;
+  } else {
+    // No pre-opened tab (popup was blocked, or caller didn't pass one) —
+    // fall back to a plain download so the receipt is never lost.
+    doc.save(filename);
+  }
 }

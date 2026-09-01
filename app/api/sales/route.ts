@@ -45,6 +45,8 @@ export async function POST(req: NextRequest) {
     customer_name,
     customer_phone,
     paid_now, // amount paid immediately, even if due
+    ram_rom,
+    battery_health,
   } = body;
 
   if (!phone_id || selling_price === undefined) {
@@ -77,8 +79,8 @@ export async function POST(req: NextRequest) {
   const result = await db
     .prepare(
       `INSERT INTO sales
-        (phone_id, selling_price, selling_date, profit, is_due, customer_name, customer_phone, due_amount, paid_amount)
-       VALUES (?, ?, COALESCE(?, datetime('now','localtime')), ?, ?, ?, ?, ?, ?)`
+        (phone_id, selling_price, selling_date, profit, is_due, customer_name, customer_phone, due_amount, paid_amount, ram_rom, battery_health)
+       VALUES (?, ?, COALESCE(?, datetime('now','localtime')), ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       phone_id,
@@ -89,7 +91,9 @@ export async function POST(req: NextRequest) {
       customer_name || null,
       customer_phone || null,
       dueAmount,
-      paidAmount
+      paidAmount,
+      ram_rom || null,
+      battery_health || null
     )
     .run();
 
