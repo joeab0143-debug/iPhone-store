@@ -113,10 +113,19 @@ export interface Loan {
   direction: "taken" | "given";
   person_name: string;
   amount: number;
+  paid_amount: number;
   loan_date: string;
   status: "pending" | "settled";
   settled_date: string | null;
   created_at: string;
+}
+
+export interface LoanPayment {
+  id: number;
+  loan_id: number;
+  amount: number;
+  paid_date: string;
+  note: string | null;
 }
 
 export interface NetProfitSummary {

@@ -9,6 +9,11 @@ import type { Loan } from "@/lib/types";
 // given to people). Deliberately isolated from the shop's own cash flow:
 // never touches /api/dashboard, Total Cash, or the Profit tab. The same
 // person can have several loans open at once; each entry stays independent.
+//
+// Repayment can happen in parts — every "পরিশোধ" tap opens a small panel
+// (same idea as the phone-sale Due panel) where any amount up to what's
+// left can be logged; the loan only flips to settled once the running
+// paid_amount reaches the full loan amount.
 export default function LoansTab() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +26,8 @@ export default function LoansTab() {
 
   const [showSettledTaken, setShowSettledTaken] = useState(false);
   const [showSettledGiven, setShowSettledGiven] = useState(false);
+
+  const [payTarget, setPayTarget] = useState<Loan | null>(null);
 
   async function load() {
     setLoading(true);
@@ -67,11 +74,6 @@ export default function LoansTab() {
     load();
   }
 
-  async function settle(id: number) {
-    await fetch(`/api/loans/${id}`, { method: "PATCH" });
-    load();
-  }
-
   async function remove(id: number) {
     if (!confirm("এই এন্ট্রিটি মুছে ফেলবেন?")) return;
     await fetch(`/api/loans/${id}`, { method: "DELETE" });
@@ -85,8 +87,8 @@ export default function LoansTab() {
   const takenSettled = taken.filter((l) => l.status === "settled");
   const givenSettled = given.filter((l) => l.status === "settled");
 
-  const totalOwedByMe = takenPending.reduce((s, l) => s + Number(l.amount), 0);
-  const totalOwedToMe = givenPending.reduce((s, l) => s + Number(l.amount), 0);
+  const totalOwedByMe = takenPending.reduce((s, l) => s + (Number(l.amount) - Number(l.paid_amount || 0)), 0);
+  const totalOwedToMe = givenPending.reduce((s, l) => s + (Number(l.amount) - Number(l.paid_amount || 0)), 0);
   const net = totalOwedToMe - totalOwedByMe;
 
   return (
@@ -104,11 +106,11 @@ export default function LoansTab() {
         </p>
         <div className="mt-3 grid grid-cols-2 gap-2.5 text-sm">
           <div className="rounded-xl bg-surface-2 p-2.5">
-            <p className="text-[11px] text-ink-muted">আপনি ধার নিয়েছেন</p>
+            <p className="text-[11px] text-ink-muted">আপনি ধার নিয়েছেন (বাকি)</p>
             <p className="tabular font-semibold text-down">৳{money(totalOwedByMe)}</p>
           </div>
           <div className="rounded-xl bg-surface-2 p-2.5">
-            <p className="text-[11px] text-ink-muted">আপনি ধার দিয়েছেন</p>
+            <p className="text-[11px] text-ink-muted">আপনি ধার দিয়েছেন (বাকি)</p>
             <p className="tabular font-semibold text-up">৳{money(totalOwedToMe)}</p>
           </div>
         </div>
@@ -125,8 +127,8 @@ export default function LoansTab() {
             settled={takenSettled}
             showSettled={showSettledTaken}
             onToggleSettled={() => setShowSettledTaken((v) => !v)}
-            actionLabel="পরিশোধ (Repay)"
-            onAction={settle}
+            actionLabel="পরিশোধ"
+            onOpenPay={setPayTarget}
             onDelete={remove}
             onAdd={() => openAdd("taken")}
             emptyText="কোনো ধার নেই"
@@ -138,8 +140,8 @@ export default function LoansTab() {
             settled={givenSettled}
             showSettled={showSettledGiven}
             onToggleSettled={() => setShowSettledGiven((v) => !v)}
-            actionLabel="ফেরত পেয়েছি"
-            onAction={settle}
+            actionLabel="আদায়"
+            onOpenPay={setPayTarget}
             onDelete={remove}
             onAdd={() => openAdd("given")}
             emptyText="কাউকে ধার দেননি"
@@ -203,6 +205,8 @@ export default function LoansTab() {
           </Button>
         </div>
       </Sheet>
+
+      <LoanPaymentSheet loan={payTarget} onClose={() => setPayTarget(null)} onUpdated={load} />
     </div>
   );
 }
@@ -215,7 +219,7 @@ function LoanSection({
   showSettled,
   onToggleSettled,
   actionLabel,
-  onAction,
+  onOpenPay,
   onDelete,
   onAdd,
   emptyText,
@@ -227,7 +231,7 @@ function LoanSection({
   showSettled: boolean;
   onToggleSettled: () => void;
   actionLabel: string;
-  onAction: (id: number) => void;
+  onOpenPay: (loan: Loan) => void;
   onDelete: (id: number) => void;
   onAdd: () => void;
   emptyText: string;
@@ -249,26 +253,45 @@ function LoanSection({
         </div>
       ) : (
         <ul className="space-y-2">
-          {pending.map((l) => (
-            <li
-              key={l.id}
-              className="flex items-center justify-between gap-2 rounded-xl border border-border bg-surface p-3"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{l.person_name}</p>
-                <p className="text-xs text-ink-faint tabular">{formatDate(l.loan_date)}</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="tabular text-sm font-semibold">৳{money(l.amount)}</span>
-                <Button variant="secondary" className="!px-2.5 !py-1.5 !text-xs" onClick={() => onAction(l.id)}>
-                  {actionLabel}
-                </Button>
-                <button onClick={() => onDelete(l.id)} className="text-ink-faint hover:text-down">
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </li>
-          ))}
+          {pending.map((l) => {
+            const remaining = Number(l.amount) - Number(l.paid_amount || 0);
+            const partiallyPaid = Number(l.paid_amount || 0) > 0;
+            return (
+              <li
+                key={l.id}
+                className="rounded-xl border border-border bg-surface p-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{l.person_name}</p>
+                    <p className="text-xs text-ink-faint tabular">{formatDate(l.loan_date)}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="text-right">
+                      <span className="tabular text-sm font-semibold">৳{money(remaining)}</span>
+                      {partiallyPaid && (
+                        <p className="text-[10px] text-ink-faint tabular">মোট ৳{money(l.amount)}-এর</p>
+                      )}
+                    </div>
+                    <Button variant="secondary" className="!px-2.5 !py-1.5 !text-xs" onClick={() => onOpenPay(l)}>
+                      {actionLabel}
+                    </Button>
+                    <button onClick={() => onDelete(l.id)} className="text-ink-faint hover:text-down">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+                {partiallyPaid && (
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                    <div
+                      className="h-full rounded-full bg-teal"
+                      style={{ width: `${Math.min(100, (Number(l.paid_amount) / Number(l.amount)) * 100)}%` }}
+                    />
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -306,5 +329,118 @@ function LoanSection({
         </div>
       )}
     </div>
+  );
+}
+
+function LoanPaymentSheet({
+  loan,
+  onClose,
+  onUpdated,
+}: {
+  loan: Loan | null;
+  onClose: () => void;
+  onUpdated: () => void;
+}) {
+  const [current, setCurrent] = useState<Loan | null>(null);
+  const [amount, setAmount] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setCurrent(loan);
+    setAmount("");
+    setError("");
+  }, [loan]);
+
+  if (!loan || !current) return null;
+
+  const remaining = Number(current.amount) - Number(current.paid_amount || 0);
+  const isTaken = current.direction === "taken";
+
+  async function submitPayment(payAmount: number) {
+    setError("");
+    if (!payAmount || payAmount <= 0) {
+      setError("বৈধ পরিমাণ দিন");
+      return;
+    }
+    if (payAmount > remaining) {
+      setError("বাকি থাকা পরিমাণের চেয়ে বেশি দেওয়া যাবে না");
+      return;
+    }
+    setSaving(true);
+    const res = await fetch("/api/loan-payments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ loan_id: current!.id, amount: payAmount }),
+    });
+    setSaving(false);
+    const d: any = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(d.error || "সেভ করা যায়নি");
+      return;
+    }
+    setCurrent({ ...current!, paid_amount: d.paid_amount, status: d.status });
+    setAmount("");
+    onUpdated();
+    if (d.status === "settled") {
+      onClose();
+    }
+  }
+
+  return (
+    <Sheet
+      open={!!loan}
+      onClose={onClose}
+      title={`${isTaken ? "পরিশোধ" : "আদায়"} — ${current.person_name}`}
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl bg-surface-2 p-3 text-center">
+            <p className="text-xs text-ink-muted">মোট পরিমাণ</p>
+            <p className="tabular text-lg font-semibold">৳{money(current.amount)}</p>
+          </div>
+          <div className="rounded-xl bg-due/10 p-3 text-center">
+            <p className="text-xs text-due">বাকি আছে</p>
+            <p className="tabular text-lg font-semibold text-due">৳{money(remaining)}</p>
+          </div>
+        </div>
+        {Number(current.paid_amount || 0) > 0 && (
+          <p className="text-center text-xs text-ink-muted">
+            এ পর্যন্ত পরিশোধ হয়েছে ৳{money(current.paid_amount)}
+          </p>
+        )}
+
+        {remaining > 0 ? (
+          <>
+            <Field label={isTaken ? "কত টাকা পরিশোধ করলেন" : "কত টাকা ফেরত পেলেন"}>
+              <input
+                type="number"
+                inputMode="decimal"
+                autoFocus
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0"
+                className={inputClass}
+              />
+            </Field>
+            {error && <p className="text-sm text-down">{error}</p>}
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => setAmount(String(remaining))}
+              >
+                পুরোটা (৳{money(remaining)})
+              </Button>
+              <Button full className="flex-1" onClick={() => submitPayment(Number(amount))} disabled={saving}>
+                {saving ? "সেভ হচ্ছে..." : "যোগ করুন"}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <p className="text-center text-sm font-medium text-up">সম্পূর্ণ পরিশোধ হয়ে গেছে ✓</p>
+        )}
+      </div>
+    </Sheet>
   );
 }

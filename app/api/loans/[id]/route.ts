@@ -3,8 +3,9 @@ import { getDB } from "@/lib/db";
 
 export const runtime = "edge";
 
-// Mark a loan settled — "Repay" for a loan taken, "received back" for a
-// loan given. Both just flip the same status/settled_date.
+// Mark a loan fully settled in one shot — "the whole thing is paid off",
+// as opposed to /api/loan-payments which records a partial repayment.
+// Sets paid_amount to the full loan amount so the numbers stay consistent.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -12,7 +13,7 @@ export async function PATCH(
   const db = getDB();
   await db
     .prepare(
-      `UPDATE loans SET status = 'settled', settled_date = datetime('now','localtime') WHERE id = ?`
+      `UPDATE loans SET paid_amount = amount, status = 'settled', settled_date = datetime('now','localtime') WHERE id = ?`
     )
     .bind(params.id)
     .run();
