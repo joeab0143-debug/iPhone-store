@@ -8,6 +8,8 @@ export default function BarcodeSticker({
   label,
   ramRom,
   batteryHealth,
+  price,
+  shopName = "Phone Fantasy",
   width = 2,
   height = 50,
 }: {
@@ -15,6 +17,8 @@ export default function BarcodeSticker({
   label?: string;
   ramRom?: string | null;
   batteryHealth?: string | null;
+  price?: number | null;
+  shopName?: string;
   width?: number;
   height?: number;
 }) {
@@ -44,11 +48,19 @@ export default function BarcodeSticker({
 
   return (
     <div className="inline-flex flex-col items-center bg-white rounded-lg p-2">
+      {shopName && (
+        <div className="text-center text-[9px] font-bold uppercase tracking-wide text-black/70">
+          {shopName}
+        </div>
+      )}
       {label && (
         <div className="mb-0.5 text-center text-[11px] font-semibold text-black">{label}</div>
       )}
       {specLine && (
-        <div className="mb-1 text-center text-[9px] text-black/80">{specLine}</div>
+        <div className="text-center text-[9px] text-black/80">{specLine}</div>
+      )}
+      {price != null && price > 0 && (
+        <div className="mb-1 text-center text-[11px] font-bold text-black">৳{price.toLocaleString()}</div>
       )}
       <svg ref={ref} />
     </div>

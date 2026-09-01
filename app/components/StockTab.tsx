@@ -464,6 +464,7 @@ export default function StockTab() {
                 label={stickerPhone.name_model}
                 ramRom={stickerPhone.ram_rom}
                 batteryHealth={stickerPhone.battery_health}
+                price={stickerPhone.buy_price}
               />
             </div>
             <Button
