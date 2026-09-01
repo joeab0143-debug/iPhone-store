@@ -280,7 +280,7 @@ export default function StockTab() {
           কোনো ফোন নেই — নিচের Buy বাটন থেকে ফোন ক্রয় করুন
         </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-2 sm:space-y-0 lg:grid-cols-3">
           {filtered.map((p) => (
             <li
               key={p.id}
@@ -396,6 +396,28 @@ export default function StockTab() {
             />
           </Field>
 
+          {/* Same customer fields as the bottom-bar Sell sheet — always
+              shown here too, not just for due sales, so both sell flows
+              collect the same information. */}
+          <Field label="কাস্টমারের নাম">
+            <input
+              value={sellForm.customer_name}
+              onChange={(e) =>
+                setSellForm({ ...sellForm, customer_name: e.target.value })
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label="কাস্টমারের ফোন নম্বর">
+            <input
+              value={sellForm.customer_phone}
+              onChange={(e) =>
+                setSellForm({ ...sellForm, customer_phone: e.target.value })
+              }
+              className={inputClass}
+            />
+          </Field>
+
           <label className="flex items-center gap-2.5 rounded-xl border border-border bg-surface-2 px-3.5 py-3">
             <input
               type="checkbox"
@@ -408,24 +430,6 @@ export default function StockTab() {
 
           {sellForm.is_due && (
             <div className="space-y-3 rounded-xl border border-due/30 bg-due/5 p-3">
-              <Field label="কাস্টমারের নাম">
-                <input
-                  value={sellForm.customer_name}
-                  onChange={(e) =>
-                    setSellForm({ ...sellForm, customer_name: e.target.value })
-                  }
-                  className={inputClass}
-                />
-              </Field>
-              <Field label="কাস্টমারের ফোন নম্বর">
-                <input
-                  value={sellForm.customer_phone}
-                  onChange={(e) =>
-                    setSellForm({ ...sellForm, customer_phone: e.target.value })
-                  }
-                  className={inputClass}
-                />
-              </Field>
               <Field label="এখন কত টাকা দিলো (অগ্রিম, না দিলে ০)">
                 <input
                   type="number"

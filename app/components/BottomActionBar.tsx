@@ -19,7 +19,7 @@ export default function BottomActionBar() {
 
   return (
     <>
-      <nav className="no-print fixed bottom-0 left-0 right-0 z-40 mx-auto max-w-md landscape:max-w-3xl border-t border-border-soft bg-bg-elevated/95 backdrop-blur-md px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
+      <nav className="no-print fixed bottom-0 left-0 right-0 z-40 mx-auto max-w-md sm:max-w-2xl lg:max-w-5xl 2xl:max-w-6xl border-t border-border-soft bg-bg-elevated/95 backdrop-blur-md px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
         <div className="grid grid-cols-3 gap-2">
           {ITEMS.map((it) => {
             const Icon = it.icon;

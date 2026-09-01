@@ -24,7 +24,7 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>("stock");
 
   return (
-    <div className="mx-auto min-h-dvh max-w-md landscape:max-w-3xl">
+    <div className="mx-auto min-h-dvh max-w-md sm:max-w-2xl lg:max-w-5xl 2xl:max-w-6xl">
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-border-soft bg-bg/90 backdrop-blur-md px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
         <div className="flex items-center gap-2">
