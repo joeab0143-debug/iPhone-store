@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { X } from "lucide-react";
+import { X, ChevronLeft, ChevronRight } from "lucide-react";
 
 export function Button({
   children,
@@ -131,4 +131,64 @@ export function formatDate(iso: string | null | undefined) {
     month: "short",
     year: "numeric",
   });
+}
+
+// --- Month-scoped views (খরচ, প্রফিট) --------------------------------
+// Every month "restarts" its running totals, but nothing is ever deleted —
+// this just picks which calendar month's rows to sum/list. currentMonthStr
+// is the default; MonthPicker lets the user step to any earlier month to
+// see its history.
+
+export function currentMonthStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export function monthRange(monthStr: string) {
+  const [y, m] = monthStr.split("-").map(Number);
+  const from = `${monthStr}-01`;
+  const lastDay = new Date(y, m, 0).getDate();
+  const to = `${monthStr}-${String(lastDay).padStart(2, "0")}`;
+  return { from, to };
+}
+
+function shiftMonth(monthStr: string, delta: number) {
+  const [y, m] = monthStr.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export function MonthPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (month: string) => void;
+}) {
+  return (
+    <div className="mb-4 flex items-center gap-2">
+      <button
+        onClick={() => onChange(shiftMonth(value, -1))}
+        className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 text-ink-muted hover:text-teal"
+        aria-label="আগের মাস"
+      >
+        <ChevronLeft size={18} />
+      </button>
+      <input
+        type="month"
+        value={value}
+        max={currentMonthStr()}
+        onChange={(e) => e.target.value && onChange(e.target.value)}
+        className={inputClass + " flex-1 text-center"}
+      />
+      <button
+        onClick={() => onChange(shiftMonth(value, 1))}
+        disabled={value >= currentMonthStr()}
+        className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 text-ink-muted hover:text-teal disabled:opacity-40"
+        aria-label="পরের মাস"
+      >
+        <ChevronRight size={18} />
+      </button>
+    </div>
+  );
 }

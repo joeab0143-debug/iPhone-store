@@ -2,7 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { Button, Field, inputClass, Sheet, money, formatDate } from "./ui";
+import {
+  Button,
+  Field,
+  inputClass,
+  Sheet,
+  money,
+  formatDate,
+  MonthPicker,
+  currentMonthStr,
+  monthRange,
+} from "./ui";
 import { emitDashboardRefresh } from "@/lib/events";
 import type { Expense, ExpenseCategory } from "@/lib/types";
 
@@ -10,6 +20,9 @@ export default function ExpenseTab() {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
+  // মাসের শুরুতে খরচের হিসাব ০ থেকে শুরু হয় — পুরনো মাসের এন্ট্রি মুছে
+  // যায় না, এই পিকার দিয়ে যেকোনো মাসের হিস্ট্রি দেখা যাবে।
+  const [month, setMonth] = useState(currentMonthStr());
 
   const [catOpen, setCatOpen] = useState(false);
   const [entryOpen, setEntryOpen] = useState(false);
@@ -26,9 +39,10 @@ export default function ExpenseTab() {
 
   async function load() {
     setLoading(true);
+    const { from, to } = monthRange(month);
     const [cRes, eRes] = await Promise.all([
       fetch("/api/expense-categories"),
-      fetch("/api/expenses"),
+      fetch(`/api/expenses?from=${from}&to=${to}`),
     ]);
     const cData: any = await cRes.json();
     const eData: any = await eRes.json();
@@ -39,7 +53,8 @@ export default function ExpenseTab() {
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month]);
 
   async function submitCategory() {
     setError("");
@@ -115,10 +130,13 @@ export default function ExpenseTab() {
     })
     .reduce((s, e) => s + Number(e.amount), 0);
 
-  const totalAll = expenses.reduce((s, e) => s + Number(e.amount), 0);
+  // নির্বাচিত মাসের মোট খরচ — API থেকে already সেই মাসের এন্ট্রিই আসে।
+  const totalMonth = expenses.reduce((s, e) => s + Number(e.amount), 0);
 
   return (
     <div className="pb-24">
+      <MonthPicker value={month} onChange={setMonth} />
+
       <div className="mb-4 grid grid-cols-2 gap-3">
         <div className="phone-card">
           <p className="text-xs text-ink-muted">আজকের খরচ</p>
@@ -127,8 +145,8 @@ export default function ExpenseTab() {
           </p>
         </div>
         <div className="phone-card">
-          <p className="text-xs text-ink-muted">সর্বমোট খরচ</p>
-          <p className="tabular font-display text-2xl font-bold mt-1">৳{money(totalAll)}</p>
+          <p className="text-xs text-ink-muted">এই মাসের খরচ</p>
+          <p className="tabular font-display text-2xl font-bold mt-1">৳{money(totalMonth)}</p>
         </div>
       </div>
 

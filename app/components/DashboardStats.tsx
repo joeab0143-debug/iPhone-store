@@ -56,7 +56,7 @@ export default function DashboardStats() {
         <StatTile icon={Boxes} label="স্টক" value={summary?.stock_count} tone="default" isCount />
         <StatTile
           icon={TrendingUp}
-          label="প্রফিট (এ পর্যন্ত)"
+          label="এই মাসের প্রফিট"
           value={summary?.profit_till_now}
           tone={profitPositive ? "up" : "down"}
         />

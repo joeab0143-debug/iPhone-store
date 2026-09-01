@@ -2,26 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { Trash2, TrendingUp, TrendingDown } from "lucide-react";
-import { inputClass, money, formatDate } from "./ui";
+import { money, formatDate, MonthPicker, currentMonthStr, monthRange } from "./ui";
 import { emitDashboardRefresh } from "@/lib/events";
 import type { NetProfitSummary, OutsideDeal } from "@/lib/types";
 
-const today = () => new Date().toISOString().slice(0, 10);
-const monthAgo = () => {
-  const d = new Date();
-  d.setDate(d.getDate() - 30);
-  return d.toISOString().slice(0, 10);
-};
-
 export default function ProfitTab() {
-  const [from, setFrom] = useState(monthAgo());
-  const [to, setTo] = useState(today());
+  // মাসের শুরুতে প্রফিট/খরচের হিসাব ০ থেকে শুরু হয় — এই পিকার দিয়ে
+  // আগের যেকোনো মাসের হিস্ট্রি দেখা যাবে, কিছুই হারিয়ে যায় না।
+  const [month, setMonth] = useState(currentMonthStr());
   const [summary, setSummary] = useState<NetProfitSummary | null>(null);
   const [deals, setDeals] = useState<OutsideDeal[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
+    const { from, to } = monthRange(month);
     const qs = `?from=${from}&to=${to}`;
     const [sRes, dRes] = await Promise.all([
       fetch(`/api/summary${qs}`),
@@ -36,7 +31,7 @@ export default function ProfitTab() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, to]);
+  }, [month]);
 
   async function deleteDeal(id: number) {
     await fetch(`/api/outside/${id}`, { method: "DELETE" });
@@ -48,27 +43,12 @@ export default function ProfitTab() {
 
   return (
     <div className="pb-24">
-      {/* Date range filter */}
-      <div className="mb-4 flex items-center gap-2">
-        <input
-          type="date"
-          value={from}
-          onChange={(e) => setFrom(e.target.value)}
-          className={inputClass + " flex-1"}
-        />
-        <span className="text-ink-faint">—</span>
-        <input
-          type="date"
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-          className={inputClass + " flex-1"}
-        />
-      </div>
+      <MonthPicker value={month} onChange={setMonth} />
 
       {/* Net profit hero */}
       <div className="phone-card mb-4">
         <div className="flex items-center justify-between">
-          <p className="text-xs text-ink-muted">নিট প্রফিট (নির্বাচিত সময়ে)</p>
+          <p className="text-xs text-ink-muted">নিট প্রফিট (নির্বাচিত মাসে)</p>
           {netPositive ? (
             <TrendingUp size={18} className="text-up" />
           ) : (
