@@ -39,8 +39,10 @@ export default function StockTab() {
 
   async function load() {
     setLoading(true);
-    const q = filter === "all" ? "" : `?status=${filter}`;
-    const res = await fetch(`/api/stock${q}`);
+    // Always fetch everything — status tab and search are both applied
+    // client-side below, so a search matches phones regardless of which
+    // tab (স্টকে আছে/বিক্রি হয়েছে/সব) happens to be selected.
+    const res = await fetch(`/api/stock`);
     const data: any = await res.json();
     setPhones(data.phones || []);
     setLoading(false);
@@ -48,7 +50,27 @@ export default function StockTab() {
 
   useEffect(() => {
     load();
-  }, [filter]);
+  }, []);
+
+  // Opening the sell sheet for a phone already tells us its RAM/ROM and
+  // Battery Health (entered at Buy time) — pre-fill them instead of making
+  // the user type the same specs again, and reset the rest of the form so
+  // nothing carries over from a previously-opened phone.
+  useEffect(() => {
+    if (sellPhone) {
+      setSellForm({
+        selling_price: "",
+        selling_date: "",
+        is_due: false,
+        customer_name: "",
+        customer_phone: "",
+        paid_now: "",
+        ram_rom: sellPhone.ram_rom || "",
+        battery_health: sellPhone.battery_health || "",
+      });
+      setError("");
+    }
+  }, [sellPhone]);
 
   // Buy/Sell/Return elsewhere in the app (bottom action bar, etc.) fire this
   // event — reload so newly bought phones show up here without a manual
@@ -57,15 +79,20 @@ export default function StockTab() {
     const handler = () => load();
     window.addEventListener(DASHBOARD_REFRESH_EVENT, handler);
     return () => window.removeEventListener(DASHBOARD_REFRESH_EVENT, handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, []);
 
   const filtered = phones.filter((p) => {
-    if (!search.trim()) return true;
-    const s = search.toLowerCase();
-    return (
-      p.name_model.toLowerCase().includes(s) || p.imei.toLowerCase().includes(s)
-    );
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      // While actively searching, ignore the status tab entirely — a
+      // search for an IMEI/name should find it whether the phone is
+      // currently sold or unsold.
+      return (
+        p.name_model.toLowerCase().includes(s) || p.imei.toLowerCase().includes(s)
+      );
+    }
+    if (filter === "all") return true;
+    return p.status === filter;
   });
 
   async function submitSell() {

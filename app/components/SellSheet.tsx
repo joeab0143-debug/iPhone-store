@@ -52,7 +52,15 @@ export default function SellSheet({
         const found: Phone | undefined = (d.phones || [])[0];
         if (found) {
           setMatchedPhone(found);
-          setForm((f) => ({ ...f, model: found.name_model }));
+          // Bring over what we already know about this phone from Buy
+          // time, so the user doesn't have to retype RAM/ROM or Battery
+          // Health for a phone that's already in stock.
+          setForm((f) => ({
+            ...f,
+            model: found.name_model,
+            ram_rom: found.ram_rom || f.ram_rom,
+            battery_health: found.battery_health || f.battery_health,
+          }));
         } else {
           setMatchedPhone(null);
         }
