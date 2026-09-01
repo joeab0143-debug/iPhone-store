@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ScanLine, Printer, Receipt, Wallet, Search, RotateCcw } from "lucide-react";
+import { ScanLine, Printer, Receipt, Wallet, Search, RotateCcw, Pencil } from "lucide-react";
 import { Button, Field, inputClass, Sheet, Badge, money, formatDate } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
 import BarcodeSticker from "./BarcodeSticker";
@@ -20,6 +20,7 @@ export default function StockTab() {
   const [sellPhone, setSellPhone] = useState<Phone | null>(null);
   const [stickerPhone, setStickerPhone] = useState<Phone | null>(null);
   const [detailsPhone, setDetailsPhone] = useState<Phone | null>(null);
+  const [editPhone, setEditPhone] = useState<Phone | null>(null);
   const [duePhone, setDuePhone] = useState<{ phone: Phone; sale: Sale } | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
 
@@ -300,6 +301,13 @@ export default function StockTab() {
         ))}
       </div>
 
+      {!loading && filtered.length > 0 && (
+        <p className="mb-3 text-xs text-ink-muted">
+          {filtered.length}টি ফোন · মোট মূল্য ৳
+          {money(filtered.reduce((s, p) => s + Number(p.buy_price), 0))}
+        </p>
+      )}
+
       {loading ? (
         <p className="text-center text-sm text-ink-muted py-10">লোড হচ্ছে...</p>
       ) : filtered.length === 0 ? (
@@ -544,7 +552,14 @@ export default function StockTab() {
           setDetailsPhone(null);
           returnPhone(p);
         }}
+        onEdit={(p) => {
+          setDetailsPhone(null);
+          setEditPhone(p);
+        }}
       />
+
+      {/* Edit a stock phone's own details (model, IMEI, RAM/ROM, buy price, etc.) */}
+      <EditPhoneSheet phone={editPhone} onClose={() => setEditPhone(null)} onSaved={load} />
 
       {/* Due panel */}
       <DuePanel duePhone={duePhone} onClose={() => setDuePhone(null)} onUpdated={load} />
@@ -565,6 +580,7 @@ function PhoneDetailsSheet({
   onPrintBill,
   onViewDue,
   onReturn,
+  onEdit,
 }: {
   phone: Phone | null;
   onClose: () => void;
@@ -572,6 +588,7 @@ function PhoneDetailsSheet({
   onPrintBill: (phone: Phone) => void;
   onViewDue: (phone: Phone) => void;
   onReturn: (phone: Phone) => void;
+  onEdit: (phone: Phone) => void;
 }) {
   const [sale, setSale] = useState<Sale | null>(null);
 
@@ -601,10 +618,16 @@ function PhoneDetailsSheet({
   return (
     <Sheet open={!!phone} onClose={onClose} title={phone.name_model}>
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2">
           <Badge tone={phone.status === "unsold" ? "default" : "up"}>
             {phone.status === "unsold" ? "Unsold" : "Sold"}
           </Badge>
+          <button
+            onClick={() => onEdit(phone)}
+            className="flex items-center gap-1 text-xs font-semibold text-teal"
+          >
+            <Pencil size={13} /> এডিট
+          </button>
         </div>
 
         <div className="space-y-2 rounded-xl border border-border bg-surface-2 p-3.5">
@@ -758,6 +781,149 @@ function DuePanel({
             সম্পূর্ণ পরিশোধ হয়ে গেছে ✓
           </p>
         )}
+      </div>
+    </Sheet>
+  );
+}
+
+function EditPhoneSheet({
+  phone,
+  onClose,
+  onSaved,
+}: {
+  phone: Phone | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    name_model: "",
+    imei: "",
+    ram_rom: "",
+    battery_health: "",
+    buy_price: "",
+    bought_from: "",
+    phone_number: "",
+    nid: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (phone) {
+      setForm({
+        name_model: phone.name_model || "",
+        imei: phone.imei || "",
+        ram_rom: phone.ram_rom || "",
+        battery_health: phone.battery_health || "",
+        buy_price: String(phone.buy_price ?? ""),
+        bought_from: phone.bought_from || "",
+        phone_number: phone.phone_number || "",
+        nid: phone.nid || "",
+      });
+      setError("");
+    }
+  }, [phone]);
+
+  if (!phone) return null;
+
+  async function submit() {
+    setError("");
+    if (!form.name_model || !form.imei || !form.buy_price) {
+      setError("Model, IMEI ও Buy Price আবশ্যক");
+      return;
+    }
+    setSaving(true);
+    const res = await fetch(`/api/stock/${phone!.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name_model: form.name_model,
+        imei: form.imei,
+        buy_price: Number(form.buy_price),
+        ram_rom: form.ram_rom,
+        battery_health: form.battery_health,
+        bought_from: form.bought_from,
+        phone_number: form.phone_number,
+        nid: form.nid,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const d: any = await res.json().catch(() => ({}));
+      setError(d.error || "সেভ করা যায়নি");
+      return;
+    }
+    onSaved();
+    onClose();
+  }
+
+  return (
+    <Sheet open={!!phone} onClose={onClose} title={`এডিট — ${phone.name_model}`}>
+      <div className="space-y-3">
+        <Field label="Model Number">
+          <input
+            value={form.name_model}
+            onChange={(e) => setForm({ ...form, name_model: e.target.value })}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="IMEI">
+          <input
+            value={form.imei}
+            onChange={(e) => setForm({ ...form, imei: e.target.value })}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="RAM/ROM">
+          <input
+            value={form.ram_rom}
+            onChange={(e) => setForm({ ...form, ram_rom: e.target.value })}
+            placeholder="যেমন: 4/64 GB"
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Battery Health">
+          <input
+            value={form.battery_health}
+            onChange={(e) => setForm({ ...form, battery_health: e.target.value })}
+            placeholder="যেমন: 92%"
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Buy Price (৳)">
+          <input
+            type="number"
+            inputMode="decimal"
+            value={form.buy_price}
+            onChange={(e) => setForm({ ...form, buy_price: e.target.value })}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Buy from whom">
+          <input
+            value={form.bought_from}
+            onChange={(e) => setForm({ ...form, bought_from: e.target.value })}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Number">
+          <input
+            value={form.phone_number}
+            onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="NID">
+          <input
+            value={form.nid}
+            onChange={(e) => setForm({ ...form, nid: e.target.value })}
+            className={inputClass}
+          />
+        </Field>
+        {error && <p className="text-sm text-down">{error}</p>}
+        <Button full onClick={submit} disabled={saving}>
+          {saving ? "সেভ হচ্ছে..." : "পরিবর্তন সেভ করুন"}
+        </Button>
       </div>
     </Sheet>
   );

@@ -7,6 +7,8 @@ export async function GET(req: NextRequest) {
   const db = getDB();
   const status = req.nextUrl.searchParams.get("status"); // unsold | sold | null(all)
   const imei = req.nextUrl.searchParams.get("imei"); // exact match, used by the Sell sheet's IMEI lookup
+  const imeiLike = req.nextUrl.searchParams.get("imei_like"); // partial match — live suggestions while typing
+  const limitParam = req.nextUrl.searchParams.get("limit");
 
   let query = "SELECT * FROM phones WHERE 1=1";
   const binds: string[] = [];
@@ -18,7 +20,15 @@ export async function GET(req: NextRequest) {
     query += " AND imei = ?";
     binds.push(imei);
   }
+  if (imeiLike) {
+    query += " AND imei LIKE ?";
+    binds.push(`%${imeiLike}%`);
+  }
   query += " ORDER BY created_at DESC";
+  if (imeiLike) {
+    const limit = Math.min(Math.max(Number(limitParam) || 8, 1), 20);
+    query += ` LIMIT ${limit}`;
+  }
 
   const { results } = await db
     .prepare(query)

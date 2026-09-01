@@ -29,6 +29,7 @@ export default function SellSheet({
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [matchedPhone, setMatchedPhone] = useState<Phone | null>(null);
+  const [suggestions, setSuggestions] = useState<Phone[]>([]);
   const [checkingImei, setCheckingImei] = useState(false);
   const [isDue, setIsDue] = useState(false);
   const [paidNow, setPaidNow] = useState("");
@@ -36,12 +37,16 @@ export default function SellSheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // As soon as an IMEI is typed/scanned, look it up in stock so Model
-  // auto-fills and the sale can be linked to the right phone + buy price.
+  // As soon as an IMEI is typed/scanned, look it up in stock. A full exact
+  // match auto-fills Model/RAM-ROM/Battery Health straight away; a partial
+  // IMEI (just a few digits) instead shows a pick-list of matching unsold
+  // phones below the field, so the user doesn't have to type the whole
+  // number to find the right one.
   useEffect(() => {
     const imei = form.imei.trim();
     if (!imei) {
       setMatchedPhone(null);
+      setSuggestions([]);
       return;
     }
     const t = setTimeout(async () => {
@@ -52,6 +57,7 @@ export default function SellSheet({
         const found: Phone | undefined = (d.phones || [])[0];
         if (found) {
           setMatchedPhone(found);
+          setSuggestions([]);
           // Bring over what we already know about this phone from Buy
           // time, so the user doesn't have to retype RAM/ROM or Battery
           // Health for a phone that's already in stock.
@@ -63,14 +69,35 @@ export default function SellSheet({
           }));
         } else {
           setMatchedPhone(null);
+          if (imei.length >= 2) {
+            const sres = await fetch(
+              `/api/stock?imei_like=${encodeURIComponent(imei)}&status=unsold&limit=8`
+            );
+            const sd: any = await sres.json();
+            setSuggestions(sd.phones || []);
+          } else {
+            setSuggestions([]);
+          }
         }
       } catch {
         // ignore — manual entry still works if the lookup fails
       }
       setCheckingImei(false);
-    }, 400);
+    }, 300);
     return () => clearTimeout(t);
   }, [form.imei]);
+
+  function selectSuggestion(p: Phone) {
+    setMatchedPhone(p);
+    setSuggestions([]);
+    setForm((f) => ({
+      ...f,
+      imei: p.imei,
+      model: p.name_model,
+      ram_rom: p.ram_rom || f.ram_rom,
+      battery_health: p.battery_health || f.battery_health,
+    }));
+  }
 
   function reset() {
     setForm(EMPTY_FORM);
@@ -193,25 +220,49 @@ export default function SellSheet({
             />
           </Field>
           <Field label="IMEI">
-            <div className="flex gap-2">
-              <input
-                value={form.imei}
-                onChange={(e) => setForm({ ...form, imei: e.target.value })}
-                placeholder="IMEI নম্বর"
-                className={inputClass}
-              />
-              <button
-                onClick={() => setScanOpen(true)}
-                className="flex shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 px-3 text-teal"
-                aria-label="IMEI স্ক্যান করুন"
-              >
-                <ScanLine size={18} />
-              </button>
+            <div className="relative">
+              <div className="flex gap-2">
+                <input
+                  value={form.imei}
+                  onChange={(e) => setForm({ ...form, imei: e.target.value })}
+                  onBlur={() => setTimeout(() => setSuggestions([]), 150)}
+                  placeholder="কয়েক ডিজিট লিখলেই লিস্ট আসবে"
+                  className={inputClass}
+                />
+                <button
+                  onClick={() => setScanOpen(true)}
+                  className="flex shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 px-3 text-teal"
+                  aria-label="IMEI স্ক্যান করুন"
+                >
+                  <ScanLine size={18} />
+                </button>
+              </div>
+              {checkingImei && <p className="mt-1 text-xs text-ink-faint">খোঁজা হচ্ছে...</p>}
+              {matchedPhone && (
+                <p className="mt-1 text-xs text-up">স্টক থেকে পাওয়া গেছে — {matchedPhone.name_model}</p>
+              )}
+              {!matchedPhone && suggestions.length > 0 && (
+                <ul className="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-border bg-bg-elevated shadow-lg">
+                  {suggestions.map((p) => (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        onClick={() => selectSuggestion(p)}
+                        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-surface-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{p.name_model}</p>
+                          <p className="truncate text-xs text-ink-faint tabular">
+                            IMEI: {p.imei}
+                            {p.ram_rom ? ` · ${p.ram_rom}` : ""}
+                          </p>
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            {checkingImei && <p className="mt-1 text-xs text-ink-faint">খোঁজা হচ্ছে...</p>}
-            {matchedPhone && (
-              <p className="mt-1 text-xs text-up">স্টক থেকে পাওয়া গেছে — {matchedPhone.name_model}</p>
-            )}
           </Field>
           <Field label="Model">
             <input
