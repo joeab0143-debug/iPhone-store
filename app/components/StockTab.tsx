@@ -491,17 +491,26 @@ export default function StockTab() {
                 label={stickerPhone.name_model}
                 ramRom={stickerPhone.ram_rom}
                 batteryHealth={stickerPhone.battery_health}
-                price={stickerPhone.buy_price}
               />
             </div>
             <Button
               full
               onClick={() => {
-                const w = window.open("", "_blank", "width=400,height=300");
                 const node = document.getElementById("sticker-print-area");
-                if (w && node) {
+                if (!node) return;
+                // Print at the sticker's real physical size instead of
+                // letting the browser scale it to fill an A4/Letter page —
+                // set the print page's size to exactly match the sticker's
+                // rendered size (converted from CSS px to mm at 96dpi), so
+                // nothing is stretched or shrunk.
+                const rect = node.getBoundingClientRect();
+                const mmPerPx = 25.4 / 96;
+                const wMm = (rect.width * mmPerPx).toFixed(2);
+                const hMm = (rect.height * mmPerPx).toFixed(2);
+                const w = window.open("", "_blank", "width=400,height=300");
+                if (w) {
                   w.document.write(
-                    `<html><head><title>Sticker</title></head><body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh">${node.innerHTML}</body></html>`
+                    `<html><head><title>Sticker</title><style>@page{size:${wMm}mm ${hMm}mm;margin:0}html,body{margin:0;padding:0}</style></head><body style="width:${wMm}mm;height:${hMm}mm;display:flex;align-items:center;justify-content:center">${node.innerHTML}</body></html>`
                   );
                   w.document.close();
                   w.focus();
