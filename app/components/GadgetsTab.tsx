@@ -283,7 +283,7 @@ export default function GadgetsTab() {
             </Field>
             {sellPrice && sellQty && Number(sellQty) > 1 && (
               <p className="text-xs text-ink-muted">
-                মোট: ৳{money(Number(sellPrice) * Number(sellQty))} ({sellQty}টা × ৳{money(sellPrice)})
+                মোট: ৳{money(Number(sellPrice) * Number(sellQty))} ({sellQty}টা × ৳{money(Number(sellPrice))})
               </p>
             )}
             {sellError && <p className="text-sm text-down">{sellError}</p>}
