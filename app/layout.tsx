@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import OrientationFix from "./components/OrientationFix";
 
 export const metadata: Metadata = {
   title: "Phone Fantasy",
@@ -9,7 +10,12 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // NOTE: previously also had `maximumScale: 1` here to stop pinch-zoom.
+  // Removed — pinning the max scale is a known trigger for an Android
+  // Chrome/WebView bug where the page doesn't repaint at the new size
+  // after rotating the phone, leaving a blank strip on the new side until
+  // touched. text-size-adjust in globals.css now handles the original
+  // "text grows/shrinks on rotate" problem without needing this.
   themeColor: "#0a0e14",
 };
 
@@ -20,7 +26,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="bn">
-      <body>{children}</body>
+      <body>
+        <OrientationFix />
+        {children}
+      </body>
     </html>
   );
 }
