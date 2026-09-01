@@ -87,6 +87,14 @@ export interface Expense {
   category_name?: string;
 }
 
+export interface Gadget {
+  id: number;
+  buy_name: string;
+  buy_price: number;
+  sell_price: number;
+  created_at: string;
+}
+
 export interface NetProfitSummary {
   from: string;
   to: string;

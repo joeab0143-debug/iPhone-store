@@ -1,19 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { Boxes, Wallet2, TrendingUp, Smartphone } from "lucide-react";
+import { Boxes, Wallet2, TrendingUp, Smartphone, Package } from "lucide-react";
 import StockTab from "./components/StockTab";
 import ExpenseTab from "./components/ExpenseTab";
 import ProfitTab from "./components/ProfitTab";
+import GadgetsTab from "./components/GadgetsTab";
 import DashboardStats from "./components/DashboardStats";
 import BottomActionBar from "./components/BottomActionBar";
 
-type Tab = "stock" | "expense" | "profit";
+type Tab = "stock" | "expense" | "profit" | "gadgets";
 
 const TABS: { id: Tab; label: string; icon: any }[] = [
   { id: "stock", label: "স্টক", icon: Boxes },
   { id: "expense", label: "খরচ", icon: Wallet2 },
   { id: "profit", label: "প্রফিট", icon: TrendingUp },
+  { id: "gadgets", label: "Gadgets", icon: Package },
 ];
 
 export default function Home() {
@@ -43,8 +45,8 @@ export default function Home() {
         {/* Dashboard stats — always visible at the top, real-time */}
         <DashboardStats />
 
-        {/* Tab row — existing Stock/Expense/Profit, unchanged */}
-        <div className="mb-4 grid grid-cols-3 gap-1.5 rounded-2xl bg-surface p-1.5">
+        {/* Tab row — Stock/Expense/Profit/Gadgets */}
+        <div className="mb-4 grid grid-cols-4 gap-1.5 rounded-2xl bg-surface p-1.5">
           {TABS.map((t) => {
             const Icon = t.icon;
             const active = tab === t.id;
@@ -52,7 +54,7 @@ export default function Home() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold transition ${
+                className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 text-[11px] font-semibold transition ${
                   active
                     ? "bg-gold text-[#1a1400] shadow-sm"
                     : "text-ink-muted hover:text-ink"
@@ -68,6 +70,7 @@ export default function Home() {
         {tab === "stock" && <StockTab />}
         {tab === "expense" && <ExpenseTab />}
         {tab === "profit" && <ProfitTab />}
+        {tab === "gadgets" && <GadgetsTab />}
       </main>
 
       {/* Bottom action bar — Sell / Outside Sell / Buy, always accessible */}

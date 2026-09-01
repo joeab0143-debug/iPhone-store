@@ -13,6 +13,7 @@
 - **বিক্রি**: বিক্রয়মূল্য দিলে অটো প্রফিট হিসাব, Due/বাকি টগল, কাস্টমার নাম-নম্বর, আংশিক/সম্পূর্ণ বাকি পরিশোধ ট্র্যাকিং, বিক্রির সাথে সাথে PDF রিসিট ডাউনলোড
 - **খরচ**: কাস্টম ঘর (ডেজিগনেশনসহ) তৈরি করে প্রতিদিনের খরচ এন্ট্রি, অটো টোটাল
 - **নিট প্রফিট**: তারিখ-রেঞ্জ ফিল্টার সহ — স্টক প্রফিট + Outside প্রফিট − মোট খরচ
+- **Gadgets & Accessories**: আলাদা একটা ট্যাব — Buy Name, Buy Price, Sell — শুধুমাত্র এই ট্যাবে ঢুকলেই দেখা যায়, এর প্রফিট মূল ড্যাশবোর্ড/নিট প্রফিটে যোগ হয় না
 - **নিচের অ্যাকশন বার — Sell / Outside Sell / Buy** (যেকোনো ট্যাব থেকে খোলা যায়):
   - **Sell**: মূল স্টক থেকে বিক্রি — Name, Number, Model, IMEI, Price দিয়ে সরাসরি বিক্রি করে "Phone Fantasy" হেডারসহ মেমো তৈরি হয়
   - **Buy**: ফোন ক্রয় — Model Number, IMEI (স্ক্যানারসহ), RAM/ROM, Buy Price, Buy from whom, Number, NID — সাবমিট করলেই সরাসরি **স্টকে** যোগ হয়ে যায় (Stock ট্যাবে সাথে সাথে দেখা যাবে)
@@ -36,6 +37,7 @@ cp .dev.vars.example .dev.vars   # (ঐচ্ছিক, দরকার নে�
 npx wrangler d1 execute phone-fantasy-db --local --file=migrations/0001_init.sql
 npx wrangler d1 execute phone-fantasy-db --local --file=migrations/0002_buy_sell_split.sql
 npx wrangler d1 execute phone-fantasy-db --local --file=migrations/0003_phones_buy_fields.sql
+npx wrangler d1 execute phone-fantasy-db --local --file=migrations/0004_gadgets.sql
 
 # বিল্ড করে Cloudflare Pages dev সার্ভার চালান (D1 বাইন্ডিং সহ)
 npm run build
@@ -66,6 +68,7 @@ npx wrangler d1 create phone-fantasy-db
 npx wrangler d1 execute phone-fantasy-db --remote --file=migrations/0001_init.sql
 npx wrangler d1 execute phone-fantasy-db --remote --file=migrations/0002_buy_sell_split.sql
 npx wrangler d1 execute phone-fantasy-db --remote --file=migrations/0003_phones_buy_fields.sql
+npx wrangler d1 execute phone-fantasy-db --remote --file=migrations/0004_gadgets.sql
 ```
 
 > ইতিমধ্যে ডিপ্লয় করা থাকলে শুধু নতুন মাইগ্রেশনগুলো চালালেই হবে — এগুলো বিদ্যমান ডেটা মুছে না, শুধু নতুন কলাম যোগ করে।
@@ -111,6 +114,7 @@ app/
     StockTab.tsx             স্টক + বিক্রি + বাকি + বারকোড
     ExpenseTab.tsx            খরচের ঘর + এন্ট্রি
     ProfitTab.tsx             Outside Sell প্রফিট লগ + নিট প্রফিট সামারি
+    GadgetsTab.tsx            Gadgets & Accessories — স্বতন্ত্র buy/sell লগ, মূল প্রফিটে যোগ হয় না
     BottomActionBar.tsx      Sell / Outside Sell / Buy বার
     SellSheet.tsx             Sell ফর্ম (Name, Number, Model, IMEI, Price) + মেমো
     OutsideSellSheet.tsx      Outside Sell ফর্ম — শুধু Model, IMEI, Profit (স্বতন্ত্র প্রফিট লগ)
@@ -128,6 +132,7 @@ migrations/
   0001_init.sql              মূল স্কিমা
   0002_buy_sell_split.sql    outside_deals-এ Outside Sell-এর জন্য প্রয়োজনীয় কলাম (status, sell_date ইত্যাদি)
   0003_phones_buy_fields.sql phones টেবিলে Buy-ফর্মের কলাম (ram_rom, bought_from, phone_number, nid)
+  0004_gadgets.sql           নতুন gadgets টেবিল (Gadgets & Accessories ট্যাবের জন্য)
 wrangler.toml                Cloudflare কনফিগ (এখানে D1 database_id বসাতে হবে)
 ```
 
