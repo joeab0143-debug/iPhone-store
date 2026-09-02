@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Boxes, Wallet2, TrendingUp, Smartphone, Package, HandCoins } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Boxes, Wallet2, TrendingUp, Smartphone, Package, HandCoins, Settings } from "lucide-react";
 import StockTab from "./components/StockTab";
 import ExpenseTab from "./components/ExpenseTab";
 import ProfitTab from "./components/ProfitTab";
@@ -9,6 +9,7 @@ import GadgetsTab from "./components/GadgetsTab";
 import LoansTab from "./components/LoansTab";
 import DashboardStats from "./components/DashboardStats";
 import BottomActionBar from "./components/BottomActionBar";
+import SettingsSheet from "./components/SettingsSheet";
 
 type Tab = "stock" | "expense" | "profit" | "gadgets" | "loans";
 
@@ -22,6 +23,15 @@ const TABS: { id: Tab; label: string; icon: any }[] = [
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>("stock");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [username, setUsername] = useState("");
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d: any) => setUsername(d.username || ""))
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="mx-auto min-h-dvh max-w-md sm:max-w-2xl lg:max-w-5xl 2xl:max-w-6xl">
@@ -31,7 +41,7 @@ export default function Home() {
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold/15 text-gold">
             <Smartphone size={18} />
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="font-display text-lg font-bold leading-tight">
               Phone Fantasy
             </h1>
@@ -39,8 +49,21 @@ export default function Home() {
               মোবাইল শোরুম ম্যানেজমেন্ট
             </p>
           </div>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-ink-muted hover:bg-surface-2 hover:text-ink"
+            aria-label="সেটিংস"
+          >
+            <Settings size={18} />
+          </button>
         </div>
       </header>
+
+      <SettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        username={username}
+      />
 
       {/* Content */}
       <main className="px-5 pt-4">
