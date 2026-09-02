@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ScanLine, Printer, Receipt, Wallet, Search, RotateCcw, Pencil } from "lucide-react";
+import { ScanLine, Printer, Receipt, Wallet, Search, RotateCcw, Pencil, Trash2 } from "lucide-react";
 import { Button, Field, inputClass, Sheet, Badge, money, formatDate } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
 import BarcodeSticker from "./BarcodeSticker";
@@ -37,6 +37,7 @@ export default function StockTab() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [returningId, setReturningId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
@@ -255,6 +256,32 @@ export default function StockTab() {
     );
   }
 
+  // Only for phones still in stock (unsold) — deleting a phone that's
+  // already sold would leave its sale/profit history pointing at nothing,
+  // so that stays out of scope here. Deleting an unsold phone removes its
+  // buy price from Total Buy automatically (Total Cash/Stock count/Stock
+  // total-value are all computed live from the phones table on every
+  // dashboard load), so the money adjusts on its own — no extra API call
+  // needed beyond the delete itself.
+  async function deletePhone(phone: Phone) {
+    if (
+      !window.confirm(
+        `${phone.name_model} (IMEI: ${phone.imei}) — এই ফোনটি স্টক থেকে সম্পূর্ণ মুছে ফেলতে চান? এটি ফিরিয়ে আনা যাবে না।`
+      )
+    ) {
+      return;
+    }
+    setDeletingId(phone.id);
+    const res = await fetch(`/api/stock/${phone.id}`, { method: "DELETE" });
+    setDeletingId(null);
+    if (!res.ok) {
+      setError("ডিলিট করা যায়নি");
+      return;
+    }
+    emitDashboardRefresh();
+    load();
+  }
+
   function handleScanResult(code: string) {
     setScanOpen(false);
     setSearch(code);
@@ -343,13 +370,23 @@ export default function StockTab() {
 
               <div className="mt-2 flex gap-1.5" onClick={(e) => e.stopPropagation()}>
                 {p.status === "unsold" ? (
-                  <Button
-                    variant="primary"
-                    className="flex-1 !py-2 !text-xs"
-                    onClick={() => setSellPhone(p)}
-                  >
-                    বিক্রি করুন
-                  </Button>
+                  <>
+                    <Button
+                      variant="primary"
+                      className="flex-1 !py-2 !text-xs"
+                      onClick={() => setSellPhone(p)}
+                    >
+                      বিক্রি করুন
+                    </Button>
+                    <button
+                      onClick={() => deletePhone(p)}
+                      disabled={deletingId === p.id}
+                      className="flex items-center justify-center rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-ink-muted hover:text-down disabled:opacity-50"
+                      aria-label="ফোন ডিলিট করুন"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </>
                 ) : (
                   <>
                     <button
@@ -556,6 +593,10 @@ export default function StockTab() {
           setDetailsPhone(null);
           setEditPhone(p);
         }}
+        onDelete={(p) => {
+          setDetailsPhone(null);
+          deletePhone(p);
+        }}
       />
 
       {/* Edit a stock phone's own details (model, IMEI, RAM/ROM, buy price, etc.) */}
@@ -581,6 +622,7 @@ function PhoneDetailsSheet({
   onViewDue,
   onReturn,
   onEdit,
+  onDelete,
 }: {
   phone: Phone | null;
   onClose: () => void;
@@ -589,6 +631,7 @@ function PhoneDetailsSheet({
   onViewDue: (phone: Phone) => void;
   onReturn: (phone: Phone) => void;
   onEdit: (phone: Phone) => void;
+  onDelete: (phone: Phone) => void;
 }) {
   const [sale, setSale] = useState<Sale | null>(null);
 
@@ -672,9 +715,14 @@ function PhoneDetailsSheet({
         )}
 
         {phone.status === "unsold" ? (
-          <Button full onClick={() => onSell(phone)}>
-            বিক্রি করুন
-          </Button>
+          <div className="flex gap-2">
+            <Button className="flex-1" onClick={() => onSell(phone)}>
+              বিক্রি করুন
+            </Button>
+            <Button variant="danger" onClick={() => onDelete(phone)}>
+              <Trash2 size={15} />
+            </Button>
+          </div>
         ) : (
           <div className="flex gap-2">
             <Button variant="secondary" className="flex-1" onClick={() => onPrintBill(phone)}>
