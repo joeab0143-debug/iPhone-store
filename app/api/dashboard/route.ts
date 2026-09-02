@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDB } from "@/lib/db";
+import { computeCashParts, getCashAdjustment } from "@/lib/cash";
 
 export const runtime = "edge";
 
@@ -17,31 +18,29 @@ export const runtime = "edge";
 // পর্যন্ত)" প্রতি ক্যালেন্ডার মাসের শুরুতে ০ থেকে শুরু হয় — শুধু চলতি
 // মাসের সেল-প্রফিট + Outside প্রফিট বিয়োগ চলতি মাসের খরচ। পুরনো মাসের
 // হিসাব হারিয়ে যায় না, খরচ/প্রফিট ট্যাবের মাস-পিকার দিয়ে দেখা যায়।
+//
+// Total Cash's own formula (cashIn/cashOut/the manual adjustment) lives in
+// lib/cash.ts, shared with /api/cash-adjustment (Settings → "ক্যাশ ঠিক
+// করুন") so both always agree on the same numbers.
 export async function GET() {
   const db = getDB();
 
   const [
-    totalBuy,
     stockCount,
     salesToday,
-    salesPaidAllTime,
     salesProfitThisMonth,
     outsideProfitToday,
-    outsideProfitAllTime,
     outsideProfitThisMonth,
-    expenseAllTime,
     expenseThisMonth,
-    loanFlow,
-    cashAdjustment,
+    { cashIn, cashOut, totalBuyAmt },
+    cashAdjustmentAmt,
   ] = await Promise.all([
-    db.prepare("SELECT COALESCE(SUM(buy_price),0) AS total FROM phones").first<{ total: number }>(),
     db.prepare("SELECT COUNT(*) AS cnt FROM phones WHERE status = 'unsold'").first<{ cnt: number }>(),
     db
       .prepare(
         "SELECT COALESCE(SUM(selling_price),0) AS total FROM sales WHERE date(selling_date) = date('now','localtime')"
       )
       .first<{ total: number }>(),
-    db.prepare("SELECT COALESCE(SUM(paid_amount),0) AS total FROM sales").first<{ total: number }>(),
     db
       .prepare(
         "SELECT COALESCE(SUM(profit),0) AS total FROM sales WHERE strftime('%Y-%m', selling_date) = strftime('%Y-%m','now','localtime')"
@@ -53,58 +52,27 @@ export async function GET() {
       )
       .first<{ total: number }>(),
     db
-      .prepare("SELECT COALESCE(SUM(profit),0) AS total FROM outside_deals WHERE status = 'sold'")
-      .first<{ total: number }>(),
-    db
       .prepare(
         "SELECT COALESCE(SUM(profit),0) AS total FROM outside_deals WHERE status = 'sold' AND strftime('%Y-%m', sell_date) = strftime('%Y-%m','now','localtime')"
       )
       .first<{ total: number }>(),
-    db.prepare("SELECT COALESCE(SUM(amount),0) AS total FROM expenses").first<{ total: number }>(),
     db
       .prepare(
         "SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE strftime('%Y-%m', expense_date) = strftime('%Y-%m','now','localtime')"
       )
       .first<{ total: number }>(),
-    // ধার নিলে/আদায় হলে ক্যাশ বাড়ে; ধার দিলে/পরিশোধ করলে ক্যাশ কমে —
-    // all-time, কখনো রিসেট হয় না (Total Cash-এর মতোই)।
-    db
-      .prepare(
-        `SELECT
-           COALESCE(SUM(CASE WHEN la.direction='taken' AND le.kind='disburse' THEN le.amount ELSE 0 END),0) AS taken_in,
-           COALESCE(SUM(CASE WHEN la.direction='given' AND le.kind='repay' THEN le.amount ELSE 0 END),0) AS given_repaid_in,
-           COALESCE(SUM(CASE WHEN la.direction='given' AND le.kind='disburse' THEN le.amount ELSE 0 END),0) AS given_out,
-           COALESCE(SUM(CASE WHEN la.direction='taken' AND le.kind='repay' THEN le.amount ELSE 0 END),0) AS taken_repaid_out
-         FROM loan_entries le JOIN loan_accounts la ON la.id = le.account_id`
-      )
-      .first<{
-        taken_in: number;
-        given_repaid_in: number;
-        given_out: number;
-        taken_repaid_out: number;
-      }>(),
-    // One-time manual correction (see migrations/0013) — 0 unless someone's
-    // explicitly adjusted the starting cash balance. Table may not exist on
-    // an older DB that hasn't run that migration yet, hence the try/catch.
-    db
-      .prepare("SELECT amount FROM cash_adjustments WHERE id = 1")
-      .first<{ amount: number }>()
-      .catch(() => null),
+    computeCashParts(),
+    getCashAdjustment(),
   ]);
 
-  const totalBuyAmt = totalBuy?.total ?? 0;
   const stockCountAmt = stockCount?.cnt ?? 0;
   const todaySale = (salesToday?.total ?? 0) + (outsideProfitToday?.total ?? 0);
 
   // Cash on hand = actual cash received (sales' paid_amount + Outside Sell
   // profit + loans taken + loan repayments received) minus everything
-  // spent (buying stock, expenses, loans given out, loans paid back) —
-  // all-time, never resets.
-  const loanCashIn = (loanFlow?.taken_in ?? 0) + (loanFlow?.given_repaid_in ?? 0);
-  const loanCashOut = (loanFlow?.given_out ?? 0) + (loanFlow?.taken_repaid_out ?? 0);
-  const cashIn = (salesPaidAllTime?.total ?? 0) + (outsideProfitAllTime?.total ?? 0) + loanCashIn;
-  const cashOut = totalBuyAmt + (expenseAllTime?.total ?? 0) + loanCashOut;
-  const totalCash = cashIn - cashOut + (cashAdjustment?.amount ?? 0);
+  // spent (buying stock, expenses, loans given out, loans paid back), plus
+  // any manual correction — all-time, never resets.
+  const totalCash = cashIn - cashOut + cashAdjustmentAmt;
 
   // Profit (এ পর্যন্ত) — restarts at the beginning of every calendar month.
   const profitTillNow =
