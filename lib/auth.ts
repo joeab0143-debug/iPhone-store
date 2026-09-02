@@ -30,8 +30,13 @@ async function pbkdf2(password: string, salt: Uint8Array): Promise<string> {
     false,
     ["deriveBits"]
   );
+  // Cast salt to BufferSource: newer @types/node / TS DOM lib versions make
+  // Uint8Array generic over its backing buffer (Uint8Array<ArrayBufferLike>),
+  // which no longer structurally matches BufferSource (which wants
+  // ArrayBufferView<ArrayBuffer> specifically) without an explicit cast —
+  // this is purely a type-level mismatch, not a runtime one.
   const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt, iterations: ITERATIONS, hash: "SHA-256" },
+    { name: "PBKDF2", salt: salt as BufferSource, iterations: ITERATIONS, hash: "SHA-256" },
     keyMaterial,
     KEY_LENGTH_BITS
   );
