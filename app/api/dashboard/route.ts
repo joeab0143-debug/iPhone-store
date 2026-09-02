@@ -32,6 +32,7 @@ export async function GET() {
     expenseAllTime,
     expenseThisMonth,
     loanFlow,
+    cashAdjustment,
   ] = await Promise.all([
     db.prepare("SELECT COALESCE(SUM(buy_price),0) AS total FROM phones").first<{ total: number }>(),
     db.prepare("SELECT COUNT(*) AS cnt FROM phones WHERE status = 'unsold'").first<{ cnt: number }>(),
@@ -82,6 +83,13 @@ export async function GET() {
         given_out: number;
         taken_repaid_out: number;
       }>(),
+    // One-time manual correction (see migrations/0013) — 0 unless someone's
+    // explicitly adjusted the starting cash balance. Table may not exist on
+    // an older DB that hasn't run that migration yet, hence the try/catch.
+    db
+      .prepare("SELECT amount FROM cash_adjustments WHERE id = 1")
+      .first<{ amount: number }>()
+      .catch(() => null),
   ]);
 
   const totalBuyAmt = totalBuy?.total ?? 0;
@@ -96,7 +104,7 @@ export async function GET() {
   const loanCashOut = (loanFlow?.given_out ?? 0) + (loanFlow?.taken_repaid_out ?? 0);
   const cashIn = (salesPaidAllTime?.total ?? 0) + (outsideProfitAllTime?.total ?? 0) + loanCashIn;
   const cashOut = totalBuyAmt + (expenseAllTime?.total ?? 0) + loanCashOut;
-  const totalCash = cashIn - cashOut;
+  const totalCash = cashIn - cashOut + (cashAdjustment?.amount ?? 0);
 
   // Profit (এ পর্যন্ত) — restarts at the beginning of every calendar month.
   const profitTillNow =
