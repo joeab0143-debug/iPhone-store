@@ -18,12 +18,19 @@ export default function OrientationFix() {
   useEffect(() => {
     function forceReflow() {
       const body = document.body;
+      // Hiding/showing the body forces a repaint, but it also drops the
+      // page's scroll position (there's nothing to scroll while
+      // display:none is set) — save it and put it back afterwards so this
+      // never visibly moves the page.
+      const scrollX = window.scrollX;
+      const scrollY = window.scrollY;
       const prevDisplay = body.style.display;
       body.style.display = "none";
       // Reading offsetHeight forces the browser to flush layout before the
       // next line runs.
       void body.offsetHeight;
       body.style.display = prevDisplay;
+      window.scrollTo(scrollX, scrollY);
     }
 
     function onOrientationChange() {
@@ -33,11 +40,14 @@ export default function OrientationFix() {
       setTimeout(forceReflow, 300);
     }
 
+    // Only `orientationchange` — NOT the generic `resize` event. On mobile,
+    // scrolling itself fires `resize` every time the browser's address bar
+    // collapses/expands, which was triggering this reflow hack on every
+    // scroll and made the page jump back to the top mid-scroll. Rotation is
+    // already reliably caught by `orientationchange` alone.
     window.addEventListener("orientationchange", onOrientationChange);
-    window.addEventListener("resize", onOrientationChange);
     return () => {
       window.removeEventListener("orientationchange", onOrientationChange);
-      window.removeEventListener("resize", onOrientationChange);
     };
   }, []);
 
