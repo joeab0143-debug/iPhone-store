@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRequestContext } from "@cloudflare/next-on-pages";
 import { SESSION_COOKIE } from "@/lib/auth";
 
-export const runtime = "edge";
+// Note: no `export const runtime = "edge"` here — Next.js middleware always
+// runs on the Edge runtime already, and this specific export actually
+// breaks the build ("the edge runtime for rendering is currently
+// experimental. Use runtime 'experimental-edge' instead") because Next
+// treats a top-level `runtime` export as a *page* rendering-runtime
+// declaration, which doesn't apply to middleware.
 
 // Everything in the app requires a logged-in session except the login page
 // itself, the login API call, and Next's own static assets.
