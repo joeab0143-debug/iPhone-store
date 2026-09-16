@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trash2, TrendingUp, TrendingDown } from "lucide-react";
+import { Trash2, TrendingUp, TrendingDown, Download } from "lucide-react";
 import { money, formatDate, MonthPicker, currentMonthStr, monthRange } from "./ui";
 import { emitDashboardRefresh } from "@/lib/events";
+import { generateReportPDF } from "@/lib/report-pdf";
 import type { NetProfitSummary, OutsideDeal } from "@/lib/types";
 
 export default function ProfitTab() {
@@ -37,6 +38,40 @@ export default function ProfitTab() {
     await fetch(`/api/outside/${id}`, { method: "DELETE" });
     emitDashboardRefresh();
     load();
+  }
+
+  function monthLabel(m: string) {
+    const [y, mo] = m.split("-").map(Number);
+    return new Date(y, mo - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  }
+
+  function downloadReport() {
+    const previewWin = window.open("", "_blank");
+    generateReportPDF(
+      {
+        shopName: "Phone Fantasy",
+        title: "Profit Report",
+        subtitle: monthLabel(month),
+        summary: [
+          { label: "Net Profit", value: `Tk ${(summary?.net_profit ?? 0).toLocaleString()}`, tone: (summary?.net_profit ?? 0) >= 0 ? "up" : "down" },
+          { label: "Stock Profit", value: `Tk ${(summary?.stock_profit ?? 0).toLocaleString()}`, tone: "up" },
+          { label: "Outside Sell Profit", value: `Tk ${(summary?.outside_profit ?? 0).toLocaleString()}`, tone: "up" },
+          { label: "Total Expense", value: `Tk ${(summary?.total_expense ?? 0).toLocaleString()}`, tone: "down" },
+          { label: "Due Outstanding", value: `Tk ${(summary?.total_due_outstanding ?? 0).toLocaleString()}` },
+        ],
+        table: {
+          head: ["Model / IMEI", "Date", "Profit (Tk)"],
+          rows: deals.map((d) => [
+            d.model || d.name || "-",
+            (d.sell_date || d.deal_date || "-").toString().slice(0, 10),
+            d.profit.toLocaleString(),
+          ]),
+          emptyLabel: "No Outside Sell entries this month",
+        },
+        footerNote: "Generated from Phone Fantasy — Profit Tab (Outside Sell log)",
+      },
+      previewWin
+    );
   }
 
   const netPositive = (summary?.net_profit ?? 0) >= 0;
@@ -75,6 +110,12 @@ export default function ProfitTab() {
           bottom-bar Outside Sell action */}
       <div className="mb-3 flex items-center justify-between">
         <h3 className="font-display font-semibold">Outside Sell — প্রফিট লগ</h3>
+        <button
+          onClick={downloadReport}
+          className="flex items-center gap-1 text-xs font-semibold text-teal"
+        >
+          <Download size={13} /> PDF ডাউনলোড
+        </button>
       </div>
 
       {loading ? (

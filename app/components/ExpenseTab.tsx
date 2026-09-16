@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, ChevronRight } from "lucide-react";
+import { Plus, Trash2, ChevronRight, Download } from "lucide-react";
 import {
   Button,
   Field,
@@ -14,6 +14,7 @@ import {
   monthRange,
 } from "./ui";
 import { emitDashboardRefresh } from "@/lib/events";
+import { generateReportPDF } from "@/lib/report-pdf";
 import type { Expense, ExpenseCategory } from "@/lib/types";
 
 export default function ExpenseTab() {
@@ -163,6 +164,40 @@ export default function ExpenseTab() {
     ? groupedExpenses.find((g) => g.name === selectedGroup) ?? null
     : null;
 
+  // "YYYY-MM" -> "September 2026" (English only — jsPDF's font can't draw
+  // Bengali glyphs, same reasoning documented in lib/report-pdf.ts).
+  function monthLabel(m: string) {
+    const [y, mo] = m.split("-").map(Number);
+    return new Date(y, mo - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  }
+
+  function downloadReport() {
+    // Open the tab now, inside this click's user gesture — building the
+    // PDF below involves no awaits here, but this keeps the same safe
+    // pattern used everywhere else PDFs are generated in this app.
+    const previewWin = window.open("", "_blank");
+    generateReportPDF(
+      {
+        shopName: "Phone Fantasy",
+        title: "Expense Report",
+        subtitle: monthLabel(month),
+        summary: [
+          { label: "Today's Expense", value: `Tk ${totalToday.toLocaleString()}`, tone: "down" },
+          { label: "This Month's Expense", value: `Tk ${totalMonth.toLocaleString()}`, tone: "down" },
+          { label: "Categories", value: String(groupedExpenses.length) },
+          { label: "Total Entries", value: String(expenses.length) },
+        ],
+        table: {
+          head: ["Category", "Entries", "Amount (Tk)"],
+          rows: groupedExpenses.map((g) => [g.name, g.entries.length, g.total.toLocaleString()]),
+          emptyLabel: "No expense entries this month",
+        },
+        footerNote: "Generated from Phone Fantasy — Expense Tab",
+      },
+      previewWin
+    );
+  }
+
   return (
     <div className="pb-24">
       <MonthPicker value={month} onChange={setMonth} />
@@ -218,6 +253,12 @@ export default function ExpenseTab() {
 
       <div className="mb-3 flex items-center justify-between">
         <h3 className="font-display font-semibold">খরচের এন্ট্রি</h3>
+        <button
+          onClick={downloadReport}
+          className="flex items-center gap-1 text-xs font-semibold text-teal"
+        >
+          <Download size={13} /> PDF ডাউনলোড
+        </button>
       </div>
 
       {loading ? (

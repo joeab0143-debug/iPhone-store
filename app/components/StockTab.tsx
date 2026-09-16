@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ScanLine, Printer, Receipt, Wallet, Search, RotateCcw, Pencil, Trash2 } from "lucide-react";
+import { ScanLine, Printer, Receipt, Wallet, Search, RotateCcw, Pencil, Trash2, Download } from "lucide-react";
 import { Button, Field, inputClass, Sheet, Badge, money, formatDate } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
 import BarcodeSticker from "./BarcodeSticker";
 import { generateInvoicePDF } from "@/lib/invoice";
+import { generateReportPDF } from "@/lib/report-pdf";
 import { emitDashboardRefresh, DASHBOARD_REFRESH_EVENT } from "@/lib/events";
 import type { Phone, Sale } from "@/lib/types";
 
@@ -288,6 +289,36 @@ export default function StockTab() {
     setFilter("all");
   }
 
+  function downloadStockReport() {
+    const previewWin = window.open("", "_blank");
+    const filterLabel = filter === "unsold" ? "In Stock" : filter === "sold" ? "Sold" : "All";
+    const totalBuyValue = filtered.reduce((s, p) => s + Number(p.buy_price), 0);
+    generateReportPDF(
+      {
+        shopName: SHOP_NAME,
+        title: "Stock Report",
+        subtitle: search.trim() ? `${filterLabel} (filtered: "${search.trim()}")` : filterLabel,
+        summary: [
+          { label: "Total Phones", value: String(filtered.length) },
+          { label: "Total Buy Value", value: `Tk ${totalBuyValue.toLocaleString()}` },
+        ],
+        table: {
+          head: ["Model", "IMEI", "Status", "Buy Price (Tk)", "Buy Date"],
+          rows: filtered.map((p) => [
+            p.name_model,
+            p.imei,
+            p.status === "sold" ? "Sold" : "In Stock",
+            Number(p.buy_price).toLocaleString(),
+            (p.buy_date || "-").toString().slice(0, 10),
+          ]),
+          emptyLabel: "No phones match this view",
+        },
+        footerNote: "Generated from Phone Fantasy — Stock Tab",
+      },
+      previewWin
+    );
+  }
+
   return (
     <div className="pb-24">
       <div className="mb-4 flex items-center gap-2">
@@ -329,10 +360,18 @@ export default function StockTab() {
       </div>
 
       {!loading && filtered.length > 0 && (
-        <p className="mb-3 text-xs text-ink-muted">
-          {filtered.length}টি ফোন · মোট মূল্য ৳
-          {money(filtered.reduce((s, p) => s + Number(p.buy_price), 0))}
-        </p>
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs text-ink-muted">
+            {filtered.length}টি ফোন · মোট মূল্য ৳
+            {money(filtered.reduce((s, p) => s + Number(p.buy_price), 0))}
+          </p>
+          <button
+            onClick={downloadStockReport}
+            className="flex items-center gap-1 text-xs font-semibold text-teal"
+          >
+            <Download size={13} /> PDF ডাউনলোড
+          </button>
+        </div>
       )}
 
       {loading ? (
