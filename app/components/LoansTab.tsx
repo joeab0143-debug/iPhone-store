@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, ChevronDown, HandCoins, HandHeart } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, HandCoins, HandHeart, Download } from "lucide-react";
 import { Button, Field, inputClass, money, formatDate, Sheet, Badge } from "./ui";
 import { emitDashboardRefresh } from "@/lib/events";
+import { generateReportPDF } from "@/lib/report-pdf";
 import type { LoanAccount, LoanEntry } from "@/lib/types";
 
 // Loans — a per-person running ledger (loans taken from people, and loans
@@ -94,12 +95,85 @@ export default function LoansTab() {
   const totalOwedToMe = givenPending.reduce((s, a) => s + Number(a.remaining || 0), 0);
   const net = totalOwedToMe - totalOwedByMe;
 
+  const [detailKind, setDetailKind] = useState<"net" | "taken" | "given" | null>(null);
+
+  function todayLabel() {
+    return new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  }
+
+  function downloadLoanReport(kind: "net" | "taken" | "given") {
+    const previewWin = window.open("", "_blank");
+    if (kind === "taken") {
+      generateReportPDF(
+        {
+          shopName: "Phone Fantasy",
+          title: "Loans Taken Report",
+          subtitle: todayLabel(),
+          summary: [{ label: "Total Owed By Me", value: `Tk ${totalOwedByMe.toLocaleString()}`, tone: "down" }],
+          table: {
+            head: ["Person", "Total Taken (Tk)", "Remaining (Tk)"],
+            rows: takenPending.map((a) => [a.person_name, Number(a.disbursed || 0).toLocaleString(), Number(a.remaining || 0).toLocaleString()]),
+            emptyLabel: "No pending loans taken",
+          },
+          footerNote: "Generated from Phone Fantasy — Loans Tab",
+        },
+        previewWin
+      );
+    } else if (kind === "given") {
+      generateReportPDF(
+        {
+          shopName: "Phone Fantasy",
+          title: "Loans Given Report",
+          subtitle: todayLabel(),
+          summary: [{ label: "Total Owed To Me", value: `Tk ${totalOwedToMe.toLocaleString()}`, tone: "up" }],
+          table: {
+            head: ["Person", "Total Given (Tk)", "Remaining (Tk)"],
+            rows: givenPending.map((a) => [a.person_name, Number(a.disbursed || 0).toLocaleString(), Number(a.remaining || 0).toLocaleString()]),
+            emptyLabel: "No pending loans given",
+          },
+          footerNote: "Generated from Phone Fantasy — Loans Tab",
+        },
+        previewWin
+      );
+    } else {
+      generateReportPDF(
+        {
+          shopName: "Phone Fantasy",
+          title: "Net Loan Position Report",
+          subtitle: todayLabel(),
+          summary: [
+            { label: "Net Position", value: `Tk ${Math.abs(net).toLocaleString()}`, tone: net >= 0 ? "up" : "down" },
+            { label: "You Owe (Taken)", value: `Tk ${totalOwedByMe.toLocaleString()}`, tone: "down" },
+            { label: "Owed To You (Given)", value: `Tk ${totalOwedToMe.toLocaleString()}`, tone: "up" },
+          ],
+          table: {
+            head: ["Person", "Direction", "Remaining (Tk)"],
+            rows: [
+              ...takenPending.map((a) => [a.person_name, "Taken", Number(a.remaining || 0).toLocaleString()]),
+              ...givenPending.map((a) => [a.person_name, "Given", Number(a.remaining || 0).toLocaleString()]),
+            ],
+            emptyLabel: "No pending loans",
+          },
+          footerNote: "Generated from Phone Fantasy — Loans Tab",
+        },
+        previewWin
+      );
+    }
+  }
+
   return (
     <div className="pb-24">
-      <div className="mb-4 phone-card">
-        <p className="text-xs text-ink-muted">
-          নেট অবস্থান ({net >= 0 ? "মানুষ আপনাকে দিবে" : "আপনি মানুষকে দিবেন"})
-        </p>
+      <button
+        type="button"
+        onClick={() => setDetailKind("net")}
+        className="mb-4 phone-card w-full text-left"
+      >
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-ink-muted">
+            নেট অবস্থান ({net >= 0 ? "মানুষ আপনাকে দিবে" : "আপনি মানুষকে দিবেন"})
+          </p>
+          <ChevronRight size={14} className="text-ink-faint" />
+        </div>
         <p
           className={`tabular font-display text-3xl font-extrabold mt-1 ${
             net >= 0 ? "text-up" : "text-down"
@@ -108,16 +182,28 @@ export default function LoansTab() {
           ৳{money(Math.abs(net))}
         </p>
         <div className="mt-3 grid grid-cols-2 gap-2.5 text-sm">
-          <div className="rounded-xl bg-surface-2 p-2.5">
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              setDetailKind("taken");
+            }}
+            className="rounded-xl bg-surface-2 p-2.5 text-left"
+          >
             <p className="text-[11px] text-ink-muted">আপনি ধার নিয়েছেন (বাকি)</p>
             <p className="tabular font-semibold text-down">৳{money(totalOwedByMe)}</p>
           </div>
-          <div className="rounded-xl bg-surface-2 p-2.5">
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              setDetailKind("given");
+            }}
+            className="rounded-xl bg-surface-2 p-2.5 text-left"
+          >
             <p className="text-[11px] text-ink-muted">আপনি ধার দিয়েছেন (বাকি)</p>
             <p className="tabular font-semibold text-up">৳{money(totalOwedToMe)}</p>
           </div>
         </div>
-      </div>
+      </button>
 
       {loading ? (
         <p className="text-center text-sm text-ink-muted py-10">লোড হচ্ছে...</p>
@@ -205,6 +291,98 @@ export default function LoansTab() {
         </div>
       </Sheet>
 
+      <Sheet
+        open={detailKind === "net"}
+        onClose={() => setDetailKind(null)}
+        title="নেট অবস্থানের হিসাব"
+      >
+        <div className="space-y-3">
+          <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
+            {takenPending.length === 0 && givenPending.length === 0 ? (
+              <p className="py-4 text-center text-sm text-ink-muted">কোনো বকেয়া নেই</p>
+            ) : (
+              <>
+                {takenPending.map((a) => (
+                  <div key={`taken-${a.id}`} className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-ink-muted truncate">
+                      {a.person_name} <span className="text-[11px] text-ink-faint">(নিয়েছেন)</span>
+                    </p>
+                    <p className="tabular text-sm font-semibold shrink-0 text-down">৳{money(a.remaining)}</p>
+                  </div>
+                ))}
+                {givenPending.map((a) => (
+                  <div key={`given-${a.id}`} className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-ink-muted truncate">
+                      {a.person_name} <span className="text-[11px] text-ink-faint">(দিয়েছেন)</span>
+                    </p>
+                    <p className="tabular text-sm font-semibold shrink-0 text-up">৳{money(a.remaining)}</p>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+          <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
+            <p className="text-sm font-semibold">নেট অবস্থান</p>
+            <p className={`tabular font-display text-xl font-extrabold ${net >= 0 ? "text-up" : "text-down"}`}>
+              ৳{money(Math.abs(net))}
+            </p>
+          </div>
+          <DetailDownloadButton onClick={() => downloadLoanReport("net")} />
+        </div>
+      </Sheet>
+
+      <Sheet
+        open={detailKind === "taken"}
+        onClose={() => setDetailKind(null)}
+        title="আপনি যাদের কাছ থেকে ধার নিয়েছেন"
+      >
+        {takenPending.length > 0 ? (
+          <div className="space-y-3">
+            <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
+              {takenPending.map((a) => (
+                <div key={a.id} className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-ink-muted truncate">{a.person_name}</p>
+                  <p className="tabular text-sm font-semibold shrink-0 text-down">৳{money(a.remaining)}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
+              <p className="text-sm font-semibold">আপনি ধার নিয়েছেন (বাকি)</p>
+              <p className="tabular font-display text-xl font-extrabold text-down">৳{money(totalOwedByMe)}</p>
+            </div>
+            <DetailDownloadButton onClick={() => downloadLoanReport("taken")} />
+          </div>
+        ) : (
+          <p className="py-6 text-center text-sm text-ink-muted">কোনো বকেয়া ধার নেই</p>
+        )}
+      </Sheet>
+
+      <Sheet
+        open={detailKind === "given"}
+        onClose={() => setDetailKind(null)}
+        title="আপনি যাদের ধার দিয়েছেন"
+      >
+        {givenPending.length > 0 ? (
+          <div className="space-y-3">
+            <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
+              {givenPending.map((a) => (
+                <div key={a.id} className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-ink-muted truncate">{a.person_name}</p>
+                  <p className="tabular text-sm font-semibold shrink-0 text-up">৳{money(a.remaining)}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
+              <p className="text-sm font-semibold">আপনি ধার দিয়েছেন (বাকি)</p>
+              <p className="tabular font-display text-xl font-extrabold text-up">৳{money(totalOwedToMe)}</p>
+            </div>
+            <DetailDownloadButton onClick={() => downloadLoanReport("given")} />
+          </div>
+        ) : (
+          <p className="py-6 text-center text-sm text-ink-muted">কাউকে ধার দেননি</p>
+        )}
+      </Sheet>
+
       <LoanAccountSheet
         account={detailAccount}
         onClose={() => setDetailAccount(null)}
@@ -215,6 +393,18 @@ export default function LoansTab() {
         onDelete={remove}
       />
     </div>
+  );
+}
+
+function DetailDownloadButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-semibold text-teal"
+    >
+      <Download size={13} /> PDF ডাউনলোড
+    </button>
   );
 }
 
