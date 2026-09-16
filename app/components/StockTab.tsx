@@ -397,6 +397,7 @@ export default function StockTab() {
                     <Badge tone={p.status === "unsold" ? "default" : "up"}>
                       {p.status === "unsold" ? "Unsold" : "Sold"}
                     </Badge>
+                    {p.stock_type === "outside" && <Badge tone="due">Outside</Badge>}
                   </div>
                   <p className="mt-0.5 truncate text-xs text-ink-faint tabular">
                     IMEI: {p.imei}
@@ -701,9 +702,12 @@ function PhoneDetailsSheet({
     <Sheet open={!!phone} onClose={onClose} title={phone.name_model}>
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-2">
-          <Badge tone={phone.status === "unsold" ? "default" : "up"}>
-            {phone.status === "unsold" ? "Unsold" : "Sold"}
-          </Badge>
+          <div className="flex items-center gap-1.5">
+            <Badge tone={phone.status === "unsold" ? "default" : "up"}>
+              {phone.status === "unsold" ? "Unsold" : "Sold"}
+            </Badge>
+            {phone.stock_type === "outside" && <Badge tone="due">Outside</Badge>}
+          </div>
           <button
             onClick={() => onEdit(phone)}
             className="flex items-center gap-1 text-xs font-semibold text-teal"

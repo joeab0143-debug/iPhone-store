@@ -55,6 +55,7 @@ export default function ProfitTab() {
         summary: [
           { label: "Net Profit", value: `Tk ${(summary?.net_profit ?? 0).toLocaleString()}`, tone: (summary?.net_profit ?? 0) >= 0 ? "up" : "down" },
           { label: "Stock Profit", value: `Tk ${(summary?.stock_profit ?? 0).toLocaleString()}`, tone: "up" },
+          { label: "Outside Stock Profit", value: `Tk ${(summary?.outside_stock_profit ?? 0).toLocaleString()}`, tone: "up" },
           { label: "Outside Sell Profit", value: `Tk ${(summary?.outside_profit ?? 0).toLocaleString()}`, tone: "up" },
           { label: "Total Expense", value: `Tk ${(summary?.total_expense ?? 0).toLocaleString()}`, tone: "down" },
           { label: "Due Outstanding", value: `Tk ${(summary?.total_due_outstanding ?? 0).toLocaleString()}` },
@@ -74,14 +75,17 @@ export default function ProfitTab() {
     );
   }
 
-  // প্রফিট হিরো-এর নিচের ৪টা ট্যাইলের প্রতিটার জন্য আলাদা ডিটেইল শিট।
-  const [detailKind, setDetailKind] = useState<"stock" | "outside" | "expense" | "due" | null>(null);
+  // প্রফিট হিরো-এর নিচের ট্যাইলগুলোর প্রতিটার জন্য আলাদা ডিটেইল শিট।
+  const [detailKind, setDetailKind] = useState<"stock" | "outsideStock" | "outside" | "expense" | "due" | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [stockSales, setStockSales] = useState<{ name_model: string; imei: string; selling_price: number; profit: number }[] | null>(null);
+  const [outsideStockSales, setOutsideStockSales] = useState<
+    { name_model: string; imei: string; buy_date: string; buy_price: number; selling_price: number; profit: number; share_profit: number }[] | null
+  >(null);
   const [expenseCategories, setExpenseCategories] = useState<{ name: string; total: number }[] | null>(null);
   const [dueSales, setDueSales] = useState<{ name_model: string; customer_name: string | null; customer_phone: string | null; due_amount: number }[] | null>(null);
 
-  async function openDetail(kind: "stock" | "outside" | "expense" | "due") {
+  async function openDetail(kind: "stock" | "outsideStock" | "outside" | "expense" | "due") {
     setDetailKind(kind);
     if (kind === "outside") return; // already have `deals` loaded
     setDetailLoading(true);
@@ -91,12 +95,31 @@ export default function ProfitTab() {
         const res = await fetch(`/api/sales?from=${from}&to=${to}`, { cache: "no-store" });
         const data: any = res.ok ? await res.json() : { sales: [] };
         setStockSales(
-          (data.sales || []).map((s: any) => ({
-            name_model: s.name_model,
-            imei: s.imei,
-            selling_price: s.selling_price,
-            profit: s.profit,
-          }))
+          (data.sales || [])
+            .filter((s: any) => s.stock_type !== "outside")
+            .map((s: any) => ({
+              name_model: s.name_model,
+              imei: s.imei,
+              selling_price: s.selling_price,
+              profit: s.profit,
+            }))
+        );
+      } else if (kind === "outsideStock") {
+        const { from, to } = monthRange(month);
+        const res = await fetch(`/api/sales?from=${from}&to=${to}`, { cache: "no-store" });
+        const data: any = res.ok ? await res.json() : { sales: [] };
+        setOutsideStockSales(
+          (data.sales || [])
+            .filter((s: any) => s.stock_type === "outside")
+            .map((s: any) => ({
+              name_model: s.name_model,
+              imei: s.imei,
+              buy_date: s.buy_date,
+              buy_price: s.buy_price,
+              selling_price: s.selling_price,
+              profit: s.profit,
+              share_profit: Number(s.profit) * 0.5,
+            }))
         );
       } else if (kind === "expense") {
         const { from, to } = monthRange(month);
@@ -131,7 +154,7 @@ export default function ProfitTab() {
     }
   }
 
-  function downloadDetailReport(kind: "stock" | "outside" | "expense" | "due") {
+  function downloadDetailReport(kind: "stock" | "outsideStock" | "outside" | "expense" | "due") {
     const previewWin = window.open("", "_blank");
     if (kind === "stock") {
       generateReportPDF(
@@ -144,6 +167,30 @@ export default function ProfitTab() {
             head: ["Model", "IMEI", "Selling Price (Tk)", "Profit (Tk)"],
             rows: (stockSales || []).map((s) => [s.name_model, s.imei, Number(s.selling_price).toLocaleString(), Number(s.profit).toLocaleString()]),
             emptyLabel: "No sales this month",
+          },
+          footerNote: "Generated from Phone Fantasy — Profit Tab",
+        },
+        previewWin
+      );
+    } else if (kind === "outsideStock") {
+      generateReportPDF(
+        {
+          shopName: "Phone Fantasy",
+          title: "Outside Stock Profit Report",
+          subtitle: monthLabel(month),
+          summary: [{ label: "Outside Stock Profit (50% Share)", value: `Tk ${(summary?.outside_stock_profit ?? 0).toLocaleString()}`, tone: "up" }],
+          table: {
+            head: ["Model", "IMEI", "Buy Date", "Buy Price (Tk)", "Sell Price (Tk)", "Full Profit (Tk)", "Your Share (Tk)"],
+            rows: (outsideStockSales || []).map((s) => [
+              s.name_model,
+              s.imei,
+              (s.buy_date || "-").toString().slice(0, 10),
+              Number(s.buy_price).toLocaleString(),
+              Number(s.selling_price).toLocaleString(),
+              Number(s.profit).toLocaleString(),
+              Number(s.share_profit).toLocaleString(),
+            ]),
+            emptyLabel: "No outside stock sales this month",
           },
           footerNote: "Generated from Phone Fantasy — Profit Tab",
         },
@@ -226,6 +273,7 @@ export default function ProfitTab() {
 
         <div className="mt-4 grid grid-cols-2 gap-2.5 text-sm">
           <SummaryStat label="স্টক প্রফিট" value={summary?.stock_profit} tone="up" onClick={() => openDetail("stock")} />
+          <SummaryStat label="আউটসাইড স্টক প্রফিট" value={summary?.outside_stock_profit} tone="up" onClick={() => openDetail("outsideStock")} />
           <SummaryStat label="Outside প্রফিট" value={summary?.outside_profit} tone="up" onClick={() => openDetail("outside")} />
           <SummaryStat label="মোট খরচ" value={summary?.total_expense} tone="down" negative onClick={() => openDetail("expense")} />
           <SummaryStat label="বকেয়া বাকি" value={summary?.total_due_outstanding} tone="due" onClick={() => openDetail("due")} />
@@ -315,6 +363,41 @@ export default function ProfitTab() {
           </div>
         ) : (
           <p className="py-6 text-center text-sm text-ink-muted">এই মাসে কোনো সেল নেই</p>
+        )}
+      </Sheet>
+
+      <Sheet
+        open={detailKind === "outsideStock"}
+        onClose={() => setDetailKind(null)}
+        title="আউটসাইড স্টক প্রফিটের হিসাব"
+      >
+        {detailLoading && !outsideStockSales ? (
+          <p className="py-6 text-center text-sm text-ink-muted">লোড হচ্ছে...</p>
+        ) : outsideStockSales && outsideStockSales.length > 0 ? (
+          <div className="space-y-3">
+            <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
+              {outsideStockSales.map((s, i) => (
+                <div key={i} className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm text-ink-muted truncate">{s.name_model}</p>
+                    <p className="text-[11px] text-ink-faint truncate">
+                      IMEI: {s.imei} · ফুল প্রফিট: ৳{money(s.profit)}
+                    </p>
+                  </div>
+                  <p className={`tabular text-sm font-semibold shrink-0 ${s.share_profit >= 0 ? "text-up" : "text-down"}`}>
+                    {s.share_profit >= 0 ? "+" : ""}৳{money(s.share_profit)}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
+              <p className="text-sm font-semibold">আউটসাইড স্টক প্রফিট</p>
+              <p className="tabular font-display text-xl font-extrabold text-up">৳{money(summary?.outside_stock_profit)}</p>
+            </div>
+            <DetailDownloadButton onClick={() => downloadDetailReport("outsideStock")} />
+          </div>
+        ) : (
+          <p className="py-6 text-center text-sm text-ink-muted">এই মাসে কোনো আউটসাইড স্টক সেল নেই</p>
         )}
       </Sheet>
 

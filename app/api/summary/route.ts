@@ -22,17 +22,35 @@ export async function GET(req: NextRequest) {
     return { clause: parts.length ? "WHERE " + parts.join(" AND ") : "", binds };
   };
 
-  const stockWhere = dateWhere("selling_date");
+  // "Outside Stock" (migrations/0017) sales are excluded from stock_profit —
+  // only 50% of their profit counts, tallied separately below.
+  const stockWhere = dateWhere("s.selling_date");
+  const stockClause = stockWhere.clause
+    ? stockWhere.clause + " AND p.stock_type != 'outside'"
+    : "WHERE p.stock_type != 'outside'";
   const stockRow = await db
     .prepare(
-      `SELECT COALESCE(SUM(profit),0) AS total, COUNT(*) AS cnt FROM sales ${stockWhere.clause}`
+      `SELECT COALESCE(SUM(s.profit),0) AS total, COUNT(*) AS cnt
+       FROM sales s JOIN phones p ON p.id = s.phone_id ${stockClause}`
     )
     .bind(...stockWhere.binds)
     .first<{ total: number; cnt: number }>();
 
-  // Outside profit is realized at sell time (the Outside Sell sheet), not at
-  // purchase time, and only sold rows have a profit — so filter on sell_date
-  // and require status='sold' rather than filtering on the buy date.
+  const outsideStockWhere = dateWhere("s.selling_date");
+  const outsideStockClause = outsideStockWhere.clause
+    ? outsideStockWhere.clause + " AND p.stock_type = 'outside'"
+    : "WHERE p.stock_type = 'outside'";
+  const outsideStockRow = await db
+    .prepare(
+      `SELECT COALESCE(SUM(s.profit),0) AS total, COUNT(*) AS cnt
+       FROM sales s JOIN phones p ON p.id = s.phone_id ${outsideStockClause}`
+    )
+    .bind(...outsideStockWhere.binds)
+    .first<{ total: number; cnt: number }>();
+
+  // Outside Sell profit is realized at sell time (the Outside Sell sheet),
+  // not at purchase time, and only sold rows have a profit — so filter on
+  // sell_date and require status='sold' rather than filtering on buy date.
   const outsideWhere = dateWhere("sell_date");
   const outsideBaseClause = outsideWhere.clause
     ? outsideWhere.clause + " AND status = 'sold'"
@@ -58,18 +76,21 @@ export async function GET(req: NextRequest) {
 
   const stockProfit = stockRow?.total ?? 0;
   const outsideProfit = outsideRow?.total ?? 0;
+  const outsideStockProfit = (outsideStockRow?.total ?? 0) * 0.5;
   const totalExpense = expenseRow?.total ?? 0;
-  const netProfit = stockProfit + outsideProfit - totalExpense;
+  const netProfit = stockProfit + outsideProfit + outsideStockProfit - totalExpense;
 
   return NextResponse.json({
     from: from || null,
     to: to || null,
     stock_profit: stockProfit,
     outside_profit: outsideProfit,
+    outside_stock_profit: outsideStockProfit,
     total_expense: totalExpense,
     total_due_outstanding: dueRow?.total ?? 0,
     net_profit: netProfit,
     stock_sales_count: stockRow?.cnt ?? 0,
     outside_deals_count: outsideRow?.cnt ?? 0,
+    outside_stock_sales_count: outsideStockRow?.cnt ?? 0,
   });
 }

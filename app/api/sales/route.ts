@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const dueOnly = req.nextUrl.searchParams.get("due_only");
 
   let query = `
-    SELECT s.*, p.name_model, p.imei, p.buy_price, p.buy_date
+    SELECT s.*, p.name_model, p.imei, p.buy_price, p.buy_date, p.stock_type
     FROM sales s
     JOIN phones p ON p.id = s.phone_id
     WHERE 1=1
@@ -71,6 +71,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // sales.profit always stores the FULL (sell − buy) profit, regardless of
+  // stock_type — the 50%-for-"outside" split (migrations/0017) is applied
+  // only when aggregating this month's/this range's Profit (see
+  // /api/profit-breakdown and /api/summary), so a per-sale receipt or list
+  // still shows the true transaction profit.
   const profit = Number(selling_price) - Number(phone.buy_price);
   const dueFlag = is_due ? 1 : 0;
   const paidAmount = dueFlag ? Number(paid_now || 0) : Number(selling_price);

@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const db = getDB();
   const body: any = await req.json();
-  const { name_model, imei, buy_price, buy_date, ram_rom, battery_health, bought_from, phone_number, nid } = body;
+  const { name_model, imei, buy_price, buy_date, ram_rom, battery_health, bought_from, phone_number, nid, stock_type } = body;
 
   if (!name_model || !imei || buy_price === undefined) {
     return NextResponse.json(
@@ -50,11 +50,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Anything other than the literal "outside" stays the regular/default
+  // stock type — so callers that don't send this field at all (e.g. the
+  // Sell sheet's auto-create-on-unknown-IMEI path) are unaffected.
+  const stockType = stock_type === "outside" ? "outside" : "regular";
+
   try {
     const result = await db
       .prepare(
-        `INSERT INTO phones (name_model, imei, buy_price, buy_date, status, ram_rom, battery_health, bought_from, phone_number, nid)
-         VALUES (?, ?, ?, COALESCE(?, datetime('now','localtime')), 'unsold', ?, ?, ?, ?, ?)`
+        `INSERT INTO phones (name_model, imei, buy_price, buy_date, status, ram_rom, battery_health, bought_from, phone_number, nid, stock_type)
+         VALUES (?, ?, ?, COALESCE(?, datetime('now','localtime')), 'unsold', ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         name_model,
@@ -65,7 +70,8 @@ export async function POST(req: NextRequest) {
         battery_health || null,
         bought_from || null,
         phone_number || null,
-        nid || null
+        nid || null,
+        stockType
       )
       .run();
 

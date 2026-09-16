@@ -18,7 +18,11 @@ export async function computeCashParts(): Promise<{
       db
         .prepare("SELECT COALESCE(SUM(profit),0) AS total FROM outside_deals WHERE status = 'sold'")
         .first<{ total: number }>(),
-      db.prepare("SELECT COALESCE(SUM(buy_price),0) AS total FROM phones").first<{ total: number }>(),
+      // "Outside Stock" phones (migrations/0017) are bought without touching
+      // Total Cash at all — only their regular-stock counterparts count here.
+      db
+        .prepare("SELECT COALESCE(SUM(buy_price),0) AS total FROM phones WHERE stock_type != 'outside'")
+        .first<{ total: number }>(),
       db.prepare("SELECT COALESCE(SUM(amount),0) AS total FROM expenses").first<{ total: number }>(),
       db
         .prepare(

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Wallet2, CalendarCheck2, ShoppingBag, Boxes, TrendingUp, ChevronRight, Download } from "lucide-react";
-import { money, Sheet, monthRange, currentMonthStr } from "./ui";
+import { money, formatDate, Sheet, monthRange, currentMonthStr } from "./ui";
 import { DASHBOARD_REFRESH_EVENT } from "@/lib/events";
 import { generateReportPDF } from "@/lib/report-pdf";
 import type { DashboardSummary } from "@/lib/types";
@@ -17,6 +17,8 @@ interface ExpenseCategoryBreakdown {
 interface ProfitBreakdown {
   stock_profit: number;
   outside_profit: number;
+  // 50% share of profit from "Outside Stock" phone sales (migrations/0017)
+  outside_stock_profit: number;
   expense_categories: ExpenseCategoryBreakdown[];
   total_expense: number;
   net_profit: number;
@@ -59,12 +61,15 @@ interface BuyPhoneRow {
   buy_price: number;
   buy_date: string;
   status: "unsold" | "sold";
+  stock_type?: "regular" | "outside";
 }
 
 interface TotalBuyBreakdown {
-  phones: BuyPhoneRow[];
+  phones: BuyPhoneRow[]; // regular stock only — matches the cash-based "মোট ক্রয়" tile
+  outsidePhones: BuyPhoneRow[]; // "আউটসাইড স্টক" — never counted in Total Cash
   unsoldValue: number;
   soldValue: number;
+  outsideValue: number;
   total: number;
 }
 
@@ -75,6 +80,16 @@ interface StockProfitRow {
   buy_price: number;
   selling_price: number;
   profit: number;
+}
+
+interface OutsideStockProfitRow {
+  name_model: string;
+  imei: string;
+  buy_date: string;
+  buy_price: number;
+  selling_price: number;
+  profit: number; // full profit from the sale
+  share_profit: number; // 50% share that actually counts toward this month's profit
 }
 
 interface CashSalePaidRow {
@@ -94,6 +109,8 @@ interface LoanEntryRow {
 type SubDetailKind =
   | "stockProfitMonth"
   | "outsideProfitMonth"
+  | "outsideStockProfitMonth"
+  | "outsideStockList"
   | "cashSalesPaid"
   | "cashOutsideProfit"
   | "cashLoanIn";
@@ -135,6 +152,8 @@ export default function DashboardStats() {
   const [subLoading, setSubLoading] = useState(false);
   const [subStockProfit, setSubStockProfit] = useState<StockProfitRow[] | null>(null);
   const [subOutsideDeals, setSubOutsideDeals] = useState<OutsideSaleRow[] | null>(null);
+  const [subOutsideStockProfit, setSubOutsideStockProfit] = useState<OutsideStockProfitRow[] | null>(null);
+  const [subOutsideStockPhones, setSubOutsideStockPhones] = useState<BuyPhoneRow[] | null>(null);
   const [subCashSales, setSubCashSales] = useState<CashSalePaidRow[] | null>(null);
   const [subLoanIn, setSubLoanIn] = useState<LoanEntryRow[] | null>(null);
 
@@ -220,16 +239,23 @@ export default function DashboardStats() {
     try {
       const res = await fetch(`/api/stock`, { cache: "no-store" });
       const data: any = res.ok ? await res.json() : { phones: [] };
-      const phones: BuyPhoneRow[] = (data.phones || []).map((p: any) => ({
+      const allPhones: BuyPhoneRow[] = (data.phones || []).map((p: any) => ({
         name_model: p.name_model,
         imei: p.imei,
         buy_price: p.buy_price,
         buy_date: p.buy_date,
         status: p.status,
+        stock_type: p.stock_type === "outside" ? "outside" : "regular",
       }));
+      // "আউটসাইড স্টক" ফোনের ক্রয়মূল্য টোটাল ক্যাশ থেকে কাটা হয় না (lib/cash.ts),
+      // তাই এখানেও রেগুলার স্টক থেকে আলাদা রাখা হচ্ছে — unsoldValue/soldValue/total
+      // যেন ঠিক "মোট ক্রয়" ট্যাইলের সংখ্যার সাথে মিলে যায়।
+      const phones = allPhones.filter((p) => p.stock_type !== "outside");
+      const outsidePhones = allPhones.filter((p) => p.stock_type === "outside");
       const unsoldValue = phones.filter((p) => p.status === "unsold").reduce((s, p) => s + Number(p.buy_price), 0);
       const soldValue = phones.filter((p) => p.status === "sold").reduce((s, p) => s + Number(p.buy_price), 0);
-      setBuyBreakdown({ phones, unsoldValue, soldValue, total: unsoldValue + soldValue });
+      const outsideValue = outsidePhones.reduce((s, p) => s + Number(p.buy_price), 0);
+      setBuyBreakdown({ phones, outsidePhones, unsoldValue, soldValue, outsideValue, total: unsoldValue + soldValue });
     } catch {
       // transient network error
     } finally {
@@ -246,14 +272,33 @@ export default function DashboardStats() {
         const res = await fetch(`/api/sales?from=${from}&to=${to}`, { cache: "no-store" });
         const data: any = res.ok ? await res.json() : { sales: [] };
         setSubStockProfit(
-          (data.sales || []).map((s: any) => ({
-            name_model: s.name_model,
-            imei: s.imei,
-            buy_date: s.buy_date,
-            buy_price: s.buy_price,
-            selling_price: s.selling_price,
-            profit: s.profit,
-          }))
+          (data.sales || [])
+            .filter((s: any) => s.stock_type !== "outside")
+            .map((s: any) => ({
+              name_model: s.name_model,
+              imei: s.imei,
+              buy_date: s.buy_date,
+              buy_price: s.buy_price,
+              selling_price: s.selling_price,
+              profit: s.profit,
+            }))
+        );
+      } else if (kind === "outsideStockProfitMonth") {
+        const { from, to } = monthRange(currentMonthStr());
+        const res = await fetch(`/api/sales?from=${from}&to=${to}`, { cache: "no-store" });
+        const data: any = res.ok ? await res.json() : { sales: [] };
+        setSubOutsideStockProfit(
+          (data.sales || [])
+            .filter((s: any) => s.stock_type === "outside")
+            .map((s: any) => ({
+              name_model: s.name_model,
+              imei: s.imei,
+              buy_date: s.buy_date,
+              buy_price: s.buy_price,
+              selling_price: s.selling_price,
+              profit: s.profit,
+              share_profit: Number(s.profit) * 0.5,
+            }))
         );
       } else if (kind === "outsideProfitMonth") {
         // /api/outside ফিল্টার করে deal_date দিয়ে, কিন্তু মাসিক প্রফিট
@@ -303,6 +348,13 @@ export default function DashboardStats() {
       setSubLoading(false);
     }
   }, []);
+
+  // "আউটসাইড স্টক" বক্সে ট্যাপ করলে — buyBreakdown-এ ইতিমধ্যে লোড হওয়া
+  // outsidePhones থেকেই দেখানো হয়, নতুন করে fetch করার দরকার নেই।
+  function openOutsideStockList() {
+    setSubOutsideStockPhones(buyBreakdown?.outsidePhones ?? []);
+    setSubKind("outsideStockList");
+  }
 
   function downloadCashReport() {
     if (!cashBreakdown) return;
@@ -364,6 +416,7 @@ export default function DashboardStats() {
           { label: "Total Buy Value", value: `Tk ${buyBreakdown.total.toLocaleString()}`, tone: "down" },
           { label: "In Stock (Unsold)", value: `Tk ${buyBreakdown.unsoldValue.toLocaleString()}` },
           { label: "Sold", value: `Tk ${buyBreakdown.soldValue.toLocaleString()}` },
+          { label: "Outside Stock Value", value: `Tk ${buyBreakdown.outsideValue.toLocaleString()}` },
         ],
         table: {
           head: ["Model", "IMEI", "Status", "Buy Price (Tk)", "Buy Date"],
@@ -376,7 +429,7 @@ export default function DashboardStats() {
           ]),
           emptyLabel: "No phones bought yet",
         },
-        footerNote: "Generated from Phone Fantasy — Total Buy (all-time)",
+        footerNote: "Generated from Phone Fantasy — Total Buy (all-time, regular stock)",
       },
       previewWin
     );
@@ -393,6 +446,7 @@ export default function DashboardStats() {
         summary: [
           { label: "Net Profit", value: `Tk ${profitBreakdown.net_profit.toLocaleString()}`, tone: profitBreakdown.net_profit >= 0 ? "up" : "down" },
           { label: "Stock Profit", value: `Tk ${profitBreakdown.stock_profit.toLocaleString()}`, tone: "up" },
+          { label: "Outside Stock Profit", value: `Tk ${profitBreakdown.outside_stock_profit.toLocaleString()}`, tone: "up" },
           { label: "Outside Sell Profit", value: `Tk ${profitBreakdown.outside_profit.toLocaleString()}`, tone: "up" },
           { label: "Total Expense", value: `Tk ${profitBreakdown.total_expense.toLocaleString()}`, tone: "down" },
         ],
@@ -430,6 +484,52 @@ export default function DashboardStats() {
             emptyLabel: "No sales this month",
           },
           footerNote: "Generated from Phone Fantasy — Dashboard",
+        },
+        previewWin
+      );
+    } else if (subKind === "outsideStockProfitMonth") {
+      generateReportPDF(
+        {
+          shopName: "Phone Fantasy",
+          title: "Outside Stock Profit Detail",
+          subtitle: "This Month",
+          summary: [{ label: "Outside Stock Profit (50% Share)", value: `Tk ${(profitBreakdown?.outside_stock_profit ?? 0).toLocaleString()}`, tone: "up" }],
+          table: {
+            head: ["Model", "IMEI", "Buy Date", "Buy Price (Tk)", "Sell Price (Tk)", "Full Profit (Tk)", "Your Share (Tk)"],
+            rows: (subOutsideStockProfit || []).map((s) => [
+              s.name_model,
+              s.imei,
+              (s.buy_date || "-").toString().slice(0, 10),
+              Number(s.buy_price).toLocaleString(),
+              Number(s.selling_price).toLocaleString(),
+              Number(s.profit).toLocaleString(),
+              Number(s.share_profit).toLocaleString(),
+            ]),
+            emptyLabel: "No outside stock sales this month",
+          },
+          footerNote: "Generated from Phone Fantasy — Dashboard",
+        },
+        previewWin
+      );
+    } else if (subKind === "outsideStockList") {
+      generateReportPDF(
+        {
+          shopName: "Phone Fantasy",
+          title: "Outside Stock Report",
+          subtitle: `As of ${todayLabel()}`,
+          summary: [{ label: "Outside Stock Value", value: `Tk ${(buyBreakdown?.outsideValue ?? 0).toLocaleString()}` }],
+          table: {
+            head: ["Model", "IMEI", "Status", "Buy Price (Tk)", "Buy Date"],
+            rows: (subOutsideStockPhones || []).map((p) => [
+              p.name_model,
+              p.imei,
+              p.status === "sold" ? "Sold" : "In Stock",
+              Number(p.buy_price).toLocaleString(),
+              (p.buy_date || "-").toString().slice(0, 10),
+            ]),
+            emptyLabel: "No outside stock phones",
+          },
+          footerNote: "Generated from Phone Fantasy — Dashboard (Total Buy)",
         },
         previewWin
       );
@@ -653,15 +753,26 @@ export default function DashboardStats() {
           <p className="py-6 text-center text-sm text-ink-muted">লোড হচ্ছে...</p>
         ) : buyBreakdown ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-3 gap-2">
               <div className="rounded-xl bg-surface-2 p-2.5">
                 <p className="text-[11px] text-ink-muted">স্টকে আছে (Unsold)</p>
-                <p className="tabular font-semibold">৳{money(buyBreakdown.unsoldValue)}</p>
+                <p className="tabular text-sm font-semibold">৳{money(buyBreakdown.unsoldValue)}</p>
               </div>
               <div className="rounded-xl bg-surface-2 p-2.5">
                 <p className="text-[11px] text-ink-muted">বিক্রি হয়েছে (Sold)</p>
-                <p className="tabular font-semibold">৳{money(buyBreakdown.soldValue)}</p>
+                <p className="tabular text-sm font-semibold">৳{money(buyBreakdown.soldValue)}</p>
               </div>
+              <button
+                type="button"
+                onClick={openOutsideStockList}
+                className="rounded-xl bg-surface-2 p-2.5 text-left"
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <p className="text-[11px] text-ink-muted">আউটসাইড স্টক</p>
+                  <ChevronRight size={11} className="shrink-0 text-ink-faint" />
+                </div>
+                <p className="tabular text-sm font-semibold">৳{money(buyBreakdown.outsideValue)}</p>
+              </button>
             </div>
             <div className="max-h-64 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
               {buyBreakdown.phones.map((p, i) => (
@@ -693,6 +804,12 @@ export default function DashboardStats() {
                   value={profitBreakdown.stock_profit}
                   tone="up"
                   onClick={() => openSub("stockProfitMonth")}
+                />
+                <BreakdownRow
+                  label="আউটসাইড স্টক প্রফিট"
+                  value={profitBreakdown.outside_stock_profit}
+                  tone="up"
+                  onClick={() => openSub("outsideStockProfitMonth")}
                 />
                 <BreakdownRow
                   label="Outside Sell প্রফিট"
@@ -742,6 +859,10 @@ export default function DashboardStats() {
         title={
           subKind === "stockProfitMonth"
             ? "স্টক প্রফিটের ডিটেইলস (এই মাসে)"
+            : subKind === "outsideStockProfitMonth"
+            ? "আউটসাইড স্টক প্রফিটের ডিটেইলস (এই মাসে)"
+            : subKind === "outsideStockList"
+            ? "আউটসাইড স্টকের ডিটেইলস"
             : subKind === "outsideProfitMonth"
             ? "Outside Sell প্রফিটের ডিটেইলস (এই মাসে)"
             : subKind === "cashSalesPaid"
@@ -770,6 +891,50 @@ export default function DashboardStats() {
             </div>
           ) : (
             <p className="py-6 text-center text-sm text-ink-muted">এই মাসে কোনো স্টক সেল নেই</p>
+          )
+        ) : subKind === "outsideStockProfitMonth" ? (
+          subOutsideStockProfit && subOutsideStockProfit.length > 0 ? (
+            <div className="space-y-3">
+              <div className="max-h-72 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
+                {subOutsideStockProfit.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm text-ink-muted truncate">{s.name_model}</p>
+                      <p className="text-[11px] text-ink-faint truncate">
+                        IMEI: {s.imei} · ফুল প্রফিট: ৳{money(s.profit)}
+                      </p>
+                    </div>
+                    <p className={`tabular text-sm font-semibold shrink-0 ${Number(s.share_profit) >= 0 ? "text-up" : "text-down"}`}>
+                      {Number(s.share_profit) >= 0 ? "+" : ""}৳{money(s.share_profit)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <DownloadPdfButton onClick={downloadSubReport} />
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-ink-muted">এই মাসে কোনো আউটসাইড স্টক সেল নেই</p>
+          )
+        ) : subKind === "outsideStockList" ? (
+          subOutsideStockPhones && subOutsideStockPhones.length > 0 ? (
+            <div className="space-y-3">
+              <div className="max-h-72 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
+                {subOutsideStockPhones.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm text-ink-muted truncate">{p.name_model}</p>
+                      <p className="text-[11px] text-ink-faint truncate">
+                        IMEI: {p.imei} · {p.status === "sold" ? "Sold" : "Unsold"} · {formatDate(p.buy_date)}
+                      </p>
+                    </div>
+                    <p className="tabular text-sm font-semibold shrink-0 text-down">৳{money(p.buy_price)}</p>
+                  </div>
+                ))}
+              </div>
+              <DownloadPdfButton onClick={downloadSubReport} />
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-ink-muted">কোনো আউটসাইড স্টক ফোন নেই</p>
           )
         ) : subKind === "outsideProfitMonth" || subKind === "cashOutsideProfit" ? (
           subOutsideDeals && subOutsideDeals.length > 0 ? (

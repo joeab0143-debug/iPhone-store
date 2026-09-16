@@ -15,6 +15,7 @@ const EMPTY_FORM = {
   bought_from: "",
   phone_number: "",
   nid: "",
+  stock_type: "regular" as "regular" | "outside",
 };
 
 export default function BuySheet({
@@ -48,8 +49,11 @@ export default function BuySheet({
       return;
     }
     setSaving(true);
-    // Buy now adds the phone straight into the main stock (phones table) so
-    // it shows up in the Stock tab immediately — no separate "outside" bucket.
+    // Buy always adds the phone straight into the main stock (phones table)
+    // so it shows up in the Stock tab immediately — no separate table for
+    // "outside" phones. stock_type just flags whether this purchase should
+    // deduct from Total Cash (regular) or not (outside — see /api/stock and
+    // lib/cash.ts).
     const res = await fetch("/api/stock", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -62,6 +66,7 @@ export default function BuySheet({
         bought_from: form.bought_from,
         phone_number: form.phone_number || null,
         nid: form.nid || null,
+        stock_type: form.stock_type,
       }),
     });
     setSaving(false);
@@ -86,6 +91,37 @@ export default function BuySheet({
           </div>
         ) : (
           <div className="space-y-3">
+            <Field label="এই ফোনটি কোথায় যাবে?">
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-surface-2 p-1.5">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, stock_type: "regular" })}
+                  className={`rounded-lg py-2 text-sm font-semibold transition ${
+                    form.stock_type === "regular"
+                      ? "bg-gold text-[#1a1400]"
+                      : "text-ink-muted"
+                  }`}
+                >
+                  রেগুলার স্টক
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, stock_type: "outside" })}
+                  className={`rounded-lg py-2 text-sm font-semibold transition ${
+                    form.stock_type === "outside"
+                      ? "bg-gold text-[#1a1400]"
+                      : "text-ink-muted"
+                  }`}
+                >
+                  আউটসাইড স্টক
+                </button>
+              </div>
+              <p className="mt-1.5 text-[11px] text-ink-faint">
+                {form.stock_type === "outside"
+                  ? "আউটসাইড স্টক নির্বাচন করলে ক্রয়মূল্য টোটাল ক্যাশ থেকে কাটবে না — বিক্রি হলে লাভের ৫০% প্রফিটে যোগ হবে।"
+                  : "রেগুলার স্টক নির্বাচন করলে ক্রয়মূল্য টোটাল ক্যাশ থেকে কাটা হবে, আগের মতোই।"}
+              </p>
+            </Field>
             <Field label="Model Number">
               <input
                 value={form.model}
