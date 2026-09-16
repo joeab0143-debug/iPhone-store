@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Wallet2, CalendarCheck2, ShoppingBag, Boxes, TrendingUp, ChevronRight, Download } from "lucide-react";
-import { money, Sheet } from "./ui";
+import { money, Sheet, monthRange, currentMonthStr } from "./ui";
 import { DASHBOARD_REFRESH_EVENT } from "@/lib/events";
 import { generateReportPDF } from "@/lib/report-pdf";
 import type { DashboardSummary } from "@/lib/types";
@@ -67,6 +67,33 @@ interface TotalBuyBreakdown {
   total: number;
 }
 
+interface StockProfitRow {
+  name_model: string;
+  imei: string;
+  profit: number;
+}
+
+interface CashSalePaidRow {
+  name_model: string;
+  imei: string;
+  paid_amount: number;
+}
+
+interface LoanEntryRow {
+  person_name: string;
+  direction: "taken" | "given";
+  kind: "disburse" | "repay";
+  amount: number;
+  entry_date: string;
+}
+
+type SubDetailKind =
+  | "stockProfitMonth"
+  | "outsideProfitMonth"
+  | "cashSalesPaid"
+  | "cashOutsideProfit"
+  | "cashLoanIn";
+
 // "YYYY-MM-DD" for today, in the browser's local time — same approach the
 // rest of the app already uses for "today" comparisons (e.g. ExpenseTab's
 // totalToday), so this always matches what the user sees elsewhere.
@@ -97,6 +124,15 @@ export default function DashboardStats() {
   const [buyOpen, setBuyOpen] = useState(false);
   const [buyBreakdown, setBuyBreakdown] = useState<TotalBuyBreakdown | null>(null);
   const [buyLoading, setBuyLoading] = useState(false);
+
+  // নেস্টেড ডিটেইলস — ইতিমধ্যে খোলা কোনো ব্রেকডাউন শিটের ভেতরের একটা লাইনে
+  // ক্লিক করলে, ঠিক কোন কোন প্রোডাক্ট/এন্ট্রি থেকে ওই টাকাটা এলো তা দেখানো হয়।
+  const [subKind, setSubKind] = useState<SubDetailKind | null>(null);
+  const [subLoading, setSubLoading] = useState(false);
+  const [subStockProfit, setSubStockProfit] = useState<StockProfitRow[] | null>(null);
+  const [subOutsideDeals, setSubOutsideDeals] = useState<OutsideSaleRow[] | null>(null);
+  const [subCashSales, setSubCashSales] = useState<CashSalePaidRow[] | null>(null);
+  const [subLoanIn, setSubLoanIn] = useState<LoanEntryRow[] | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -194,6 +230,66 @@ export default function DashboardStats() {
       // transient network error
     } finally {
       setBuyLoading(false);
+    }
+  }, []);
+
+  const openSub = useCallback(async (kind: SubDetailKind) => {
+    setSubKind(kind);
+    setSubLoading(true);
+    try {
+      if (kind === "stockProfitMonth") {
+        const { from, to } = monthRange(currentMonthStr());
+        const res = await fetch(`/api/sales?from=${from}&to=${to}`, { cache: "no-store" });
+        const data: any = res.ok ? await res.json() : { sales: [] };
+        setSubStockProfit(
+          (data.sales || []).map((s: any) => ({ name_model: s.name_model, imei: s.imei, profit: s.profit }))
+        );
+      } else if (kind === "outsideProfitMonth") {
+        // /api/outside ফিল্টার করে deal_date দিয়ে, কিন্তু মাসিক প্রফিট
+        // হিসাব হয় sell_date দিয়ে (profit-breakdown route দ্রষ্টব্য) — তাই
+        // সবগুলো sold ডিল এনে ক্লায়েন্ট-সাইডে sell_date দিয়ে ফিল্টার করা
+        // হচ্ছে, ঠিক openTodayBreakdown-এর মতোই।
+        const monthPrefix = currentMonthStr();
+        const res = await fetch(`/api/outside?status=sold`, { cache: "no-store" });
+        const data: any = res.ok ? await res.json() : { deals: [] };
+        setSubOutsideDeals(
+          (data.deals || [])
+            .filter((d: any) => (d.sell_date || "").slice(0, 7) === monthPrefix)
+            .map((d: any) => ({ model: d.model, name: d.name, imei: d.imei, profit: d.profit }))
+        );
+      } else if (kind === "cashSalesPaid") {
+        const res = await fetch(`/api/sales`, { cache: "no-store" });
+        const data: any = res.ok ? await res.json() : { sales: [] };
+        setSubCashSales(
+          (data.sales || [])
+            .filter((s: any) => Number(s.paid_amount) > 0)
+            .map((s: any) => ({ name_model: s.name_model, imei: s.imei, paid_amount: s.paid_amount }))
+        );
+      } else if (kind === "cashOutsideProfit") {
+        const res = await fetch(`/api/outside?status=sold`, { cache: "no-store" });
+        const data: any = res.ok ? await res.json() : { deals: [] };
+        setSubOutsideDeals(
+          (data.deals || []).map((d: any) => ({ model: d.model, name: d.name, imei: d.imei, profit: d.profit }))
+        );
+      } else if (kind === "cashLoanIn") {
+        const res = await fetch(`/api/loan-entries`, { cache: "no-store" });
+        const data: any = res.ok ? await res.json() : { entries: [] };
+        setSubLoanIn(
+          (data.entries || [])
+            .filter((e: any) => (e.direction === "taken" && e.kind === "disburse") || (e.direction === "given" && e.kind === "repay"))
+            .map((e: any) => ({
+              person_name: e.person_name,
+              direction: e.direction,
+              kind: e.kind,
+              amount: e.amount,
+              entry_date: e.entry_date,
+            }))
+        );
+      }
+    } catch {
+      // transient network error
+    } finally {
+      setSubLoading(false);
     }
   }, []);
 
@@ -300,6 +396,97 @@ export default function DashboardStats() {
     );
   }
 
+  function downloadSubReport() {
+    if (!subKind) return;
+    const previewWin = window.open("", "_blank");
+    if (subKind === "stockProfitMonth") {
+      generateReportPDF(
+        {
+          shopName: "Phone Fantasy",
+          title: "Stock Profit Detail",
+          subtitle: "This Month",
+          summary: [{ label: "Stock Profit", value: `Tk ${(profitBreakdown?.stock_profit ?? 0).toLocaleString()}`, tone: "up" }],
+          table: {
+            head: ["Model", "IMEI", "Profit (Tk)"],
+            rows: (subStockProfit || []).map((s) => [s.name_model, s.imei, Number(s.profit).toLocaleString()]),
+            emptyLabel: "No sales this month",
+          },
+          footerNote: "Generated from Phone Fantasy — Dashboard",
+        },
+        previewWin
+      );
+    } else if (subKind === "outsideProfitMonth") {
+      generateReportPDF(
+        {
+          shopName: "Phone Fantasy",
+          title: "Outside Sell Profit Detail",
+          subtitle: "This Month",
+          summary: [{ label: "Outside Sell Profit", value: `Tk ${(profitBreakdown?.outside_profit ?? 0).toLocaleString()}`, tone: "up" }],
+          table: {
+            head: ["Model / IMEI", "Profit (Tk)"],
+            rows: (subOutsideDeals || []).map((d) => [d.model || d.name, Number(d.profit).toLocaleString()]),
+            emptyLabel: "No Outside Sell entries this month",
+          },
+          footerNote: "Generated from Phone Fantasy — Dashboard",
+        },
+        previewWin
+      );
+    } else if (subKind === "cashSalesPaid") {
+      generateReportPDF(
+        {
+          shopName: "Phone Fantasy",
+          title: "Sales Received Detail",
+          subtitle: `As of ${todayLabel()}`,
+          summary: [{ label: "Sales Received", value: `Tk ${(cashBreakdown?.sales_paid ?? 0).toLocaleString()}`, tone: "up" }],
+          table: {
+            head: ["Model", "IMEI", "Paid (Tk)"],
+            rows: (subCashSales || []).map((s) => [s.name_model, s.imei, Number(s.paid_amount).toLocaleString()]),
+            emptyLabel: "No sales yet",
+          },
+          footerNote: "Generated from Phone Fantasy — Dashboard (Total Cash, all-time)",
+        },
+        previewWin
+      );
+    } else if (subKind === "cashOutsideProfit") {
+      generateReportPDF(
+        {
+          shopName: "Phone Fantasy",
+          title: "Outside Sell Profit Detail",
+          subtitle: `As of ${todayLabel()}`,
+          summary: [{ label: "Outside Sell Profit", value: `Tk ${(cashBreakdown?.outside_profit ?? 0).toLocaleString()}`, tone: "up" }],
+          table: {
+            head: ["Model / IMEI", "Profit (Tk)"],
+            rows: (subOutsideDeals || []).map((d) => [d.model || d.name, Number(d.profit).toLocaleString()]),
+            emptyLabel: "No Outside Sell entries yet",
+          },
+          footerNote: "Generated from Phone Fantasy — Dashboard (Total Cash, all-time)",
+        },
+        previewWin
+      );
+    } else {
+      generateReportPDF(
+        {
+          shopName: "Phone Fantasy",
+          title: "Loan Cash-In Detail",
+          subtitle: `As of ${todayLabel()}`,
+          summary: [{ label: "Loan Cash In", value: `Tk ${(cashBreakdown?.loan_cash_in ?? 0).toLocaleString()}`, tone: "up" }],
+          table: {
+            head: ["Person", "Type", "Amount (Tk)", "Date"],
+            rows: (subLoanIn || []).map((e) => [
+              e.person_name,
+              e.direction === "taken" ? "Taken" : "Repayment Received",
+              Number(e.amount).toLocaleString(),
+              (e.entry_date || "-").toString().slice(0, 10),
+            ]),
+            emptyLabel: "No loan cash-in entries yet",
+          },
+          footerNote: "Generated from Phone Fantasy — Dashboard (Total Cash, all-time)",
+        },
+        previewWin
+      );
+    }
+  }
+
   const cashPositive = (summary?.total_cash ?? 0) >= 0;
   const profitPositive = (summary?.profit_till_now ?? 0) >= 0;
 
@@ -348,9 +535,24 @@ export default function DashboardStats() {
             <div>
               <p className="mb-2 text-xs font-semibold text-up">যা যোগ হয়েছে (ক্যাশ ইন)</p>
               <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
-                <BreakdownRow label="সেল থেকে পাওয়া টাকা" value={cashBreakdown.sales_paid} tone="up" />
-                <BreakdownRow label="Outside Sell প্রফিট" value={cashBreakdown.outside_profit} tone="up" />
-                <BreakdownRow label="ধার থেকে পাওয়া টাকা" value={cashBreakdown.loan_cash_in} tone="up" />
+                <BreakdownRow
+                  label="সেল থেকে পাওয়া টাকা"
+                  value={cashBreakdown.sales_paid}
+                  tone="up"
+                  onClick={() => openSub("cashSalesPaid")}
+                />
+                <BreakdownRow
+                  label="Outside Sell প্রফিট"
+                  value={cashBreakdown.outside_profit}
+                  tone="up"
+                  onClick={() => openSub("cashOutsideProfit")}
+                />
+                <BreakdownRow
+                  label="ধার থেকে পাওয়া টাকা"
+                  value={cashBreakdown.loan_cash_in}
+                  tone="up"
+                  onClick={() => openSub("cashLoanIn")}
+                />
               </div>
             </div>
             <div>
@@ -463,8 +665,18 @@ export default function DashboardStats() {
             <div>
               <p className="mb-2 text-xs font-semibold text-up">যা যোগ হয়েছে (লাভ)</p>
               <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
-                <BreakdownRow label="স্টক প্রফিট (এই মাসের সেল থেকে)" value={profitBreakdown.stock_profit} tone="up" />
-                <BreakdownRow label="Outside Sell প্রফিট" value={profitBreakdown.outside_profit} tone="up" />
+                <BreakdownRow
+                  label="স্টক প্রফিট (এই মাসের সেল থেকে)"
+                  value={profitBreakdown.stock_profit}
+                  tone="up"
+                  onClick={() => openSub("stockProfitMonth")}
+                />
+                <BreakdownRow
+                  label="Outside Sell প্রফিট"
+                  value={profitBreakdown.outside_profit}
+                  tone="up"
+                  onClick={() => openSub("outsideProfitMonth")}
+                />
               </div>
             </div>
 
@@ -499,6 +711,100 @@ export default function DashboardStats() {
           <p className="py-6 text-center text-sm text-ink-muted">তথ্য লোড করা যায়নি</p>
         )}
       </Sheet>
+
+      {/* ---- নেস্টেড ডিটেইলস — কোন প্রোডাক্ট/এন্ট্রি থেকে এই টাকা এলো ---- */}
+      <Sheet
+        open={subKind !== null}
+        onClose={() => setSubKind(null)}
+        title={
+          subKind === "stockProfitMonth"
+            ? "স্টক প্রফিটের ডিটেইলস (এই মাসে)"
+            : subKind === "outsideProfitMonth"
+            ? "Outside Sell প্রফিটের ডিটেইলস (এই মাসে)"
+            : subKind === "cashSalesPaid"
+            ? "সেল থেকে পাওয়া টাকার ডিটেইলস"
+            : subKind === "cashOutsideProfit"
+            ? "Outside Sell প্রফিটের ডিটেইলস (সর্বমোট)"
+            : "ধার থেকে পাওয়া টাকার ডিটেইলস"
+        }
+      >
+        {subLoading ? (
+          <p className="py-6 text-center text-sm text-ink-muted">লোড হচ্ছে...</p>
+        ) : subKind === "stockProfitMonth" ? (
+          subStockProfit && subStockProfit.length > 0 ? (
+            <div className="space-y-3">
+              <div className="max-h-72 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
+                {subStockProfit.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-ink-muted truncate">{s.name_model}</p>
+                    <p className={`tabular text-sm font-semibold shrink-0 ${Number(s.profit) >= 0 ? "text-up" : "text-down"}`}>
+                      {Number(s.profit) >= 0 ? "+" : ""}৳{money(s.profit)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <DownloadPdfButton onClick={downloadSubReport} />
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-ink-muted">এই মাসে কোনো স্টক সেল নেই</p>
+          )
+        ) : subKind === "outsideProfitMonth" || subKind === "cashOutsideProfit" ? (
+          subOutsideDeals && subOutsideDeals.length > 0 ? (
+            <div className="space-y-3">
+              <div className="max-h-72 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
+                {subOutsideDeals.map((d, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-ink-muted truncate">{d.model || d.name}</p>
+                    <p className={`tabular text-sm font-semibold shrink-0 ${Number(d.profit) >= 0 ? "text-up" : "text-down"}`}>
+                      {Number(d.profit) >= 0 ? "+" : ""}৳{money(d.profit)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <DownloadPdfButton onClick={downloadSubReport} />
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-ink-muted">কোনো Outside Sell এন্ট্রি নেই</p>
+          )
+        ) : subKind === "cashSalesPaid" ? (
+          subCashSales && subCashSales.length > 0 ? (
+            <div className="space-y-3">
+              <div className="max-h-72 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
+                {subCashSales.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-ink-muted truncate">{s.name_model}</p>
+                    <p className="tabular text-sm font-semibold shrink-0 text-up">৳{money(s.paid_amount)}</p>
+                  </div>
+                ))}
+              </div>
+              <DownloadPdfButton onClick={downloadSubReport} />
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-ink-muted">কোনো সেল এন্ট্রি নেই</p>
+          )
+        ) : subKind === "cashLoanIn" ? (
+          subLoanIn && subLoanIn.length > 0 ? (
+            <div className="space-y-3">
+              <div className="max-h-72 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
+                {subLoanIn.map((e, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-ink-muted truncate">
+                      {e.person_name}{" "}
+                      <span className="text-[11px] text-ink-faint">
+                        ({e.direction === "taken" ? "ধার নিয়েছেন" : "ফেরত দিয়েছেন"})
+                      </span>
+                    </p>
+                    <p className="tabular text-sm font-semibold shrink-0 text-up">৳{money(e.amount)}</p>
+                  </div>
+                ))}
+              </div>
+              <DownloadPdfButton onClick={downloadSubReport} />
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-ink-muted">কোনো এন্ট্রি নেই</p>
+          )
+        ) : null}
+      </Sheet>
     </div>
   );
 }
@@ -520,20 +826,33 @@ function BreakdownRow({
   value,
   tone,
   negative = false,
+  onClick,
 }: {
   label: string;
   value: number;
   tone: "up" | "down";
   negative?: boolean;
+  onClick?: () => void;
 }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
+  const inner = (
+    <>
       <p className="text-sm text-ink-muted truncate">{label}</p>
-      <p className={`tabular text-sm font-semibold shrink-0 ${tone === "up" ? "text-up" : "text-down"}`}>
-        {negative ? "−" : "+"}৳{money(Math.abs(value))}
-      </p>
-    </div>
+      <div className="flex shrink-0 items-center gap-1">
+        <p className={`tabular text-sm font-semibold ${tone === "up" ? "text-up" : "text-down"}`}>
+          {negative ? "−" : "+"}৳{money(Math.abs(value))}
+        </p>
+        {onClick && <ChevronRight size={13} className="text-ink-faint" />}
+      </div>
+    </>
   );
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className="flex w-full items-center justify-between gap-3 text-left">
+        {inner}
+      </button>
+    );
+  }
+  return <div className="flex items-center justify-between gap-3">{inner}</div>;
 }
 
 function StatTile({
