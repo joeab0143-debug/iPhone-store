@@ -14,7 +14,7 @@ const SHOP_NAME = "Phone Fantasy";
 
 export default function StockTab() {
   const [phones, setPhones] = useState<Phone[]>([]);
-  const [filter, setFilter] = useState<"all" | "unsold" | "sold">("unsold");
+  const [filter, setFilter] = useState<"all" | "unsold" | "sold" | "outside">("unsold");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -87,13 +87,17 @@ export default function StockTab() {
   const filtered = phones.filter((p) => {
     if (search.trim()) {
       const s = search.toLowerCase();
-      // While actively searching, ignore the status tab entirely — a
-      // search for an IMEI/name should find it whether the phone is
-      // currently sold or unsold.
+      // While actively searching, ignore the tab entirely — a search for
+      // an IMEI/name should find it whether the phone is currently
+      // sold/unsold or regular/outside stock.
       return (
         p.name_model.toLowerCase().includes(s) || p.imei.toLowerCase().includes(s)
       );
     }
+    // আউটসাইড স্টক এর ফোন এখন মেইন স্টক থেকে সম্পূর্ণ আলাদা — নিজস্ব ট্যাবেই
+    // শুধু দেখা যাবে, "স্টকে আছে"/"বিক্রি হয়েছে"/"সব" ট্যাবে না।
+    if (filter === "outside") return p.stock_type === "outside";
+    if (p.stock_type === "outside") return false;
     if (filter === "all") return true;
     return p.status === filter;
   });
@@ -291,7 +295,14 @@ export default function StockTab() {
 
   function downloadStockReport() {
     const previewWin = window.open("", "_blank");
-    const filterLabel = filter === "unsold" ? "In Stock" : filter === "sold" ? "Sold" : "All";
+    const filterLabel =
+      filter === "unsold"
+        ? "In Stock"
+        : filter === "outside"
+        ? "Outside Stock"
+        : filter === "sold"
+        ? "Sold"
+        : "All";
     const totalBuyValue = filtered.reduce((s, p) => s + Number(p.buy_price), 0);
     generateReportPDF(
       {
@@ -343,18 +354,24 @@ export default function StockTab() {
         </button>
       </div>
 
-      <div className="mb-4 flex gap-2">
-        {(["unsold", "sold", "all"] as const).map((f) => (
+      <div className="mb-4 flex gap-2 overflow-x-auto">
+        {(["unsold", "outside", "sold", "all"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium border ${
+            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium border ${
               filter === f
                 ? "border-teal bg-teal/15 text-teal"
                 : "border-border text-ink-muted"
             }`}
           >
-            {f === "unsold" ? "স্টকে আছে" : f === "sold" ? "বিক্রি হয়েছে" : "সব"}
+            {f === "unsold"
+              ? "স্টকে আছে"
+              : f === "outside"
+              ? "আউটসাইড স্টক"
+              : f === "sold"
+              ? "বিক্রি হয়েছে"
+              : "সব"}
           </button>
         ))}
       </div>
