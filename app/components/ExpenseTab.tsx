@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Trash2, ChevronRight } from "lucide-react";
 import {
   Button,
   Field,
@@ -36,6 +36,9 @@ export default function ExpenseTab() {
     expense_date: "",
     note: "",
   });
+
+  // নামের উপর ক্লিক করলে যে গ্রুপের ডিটেইল (তারিখ ভিত্তিক তালিকা) দেখানো হয়।
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -133,6 +136,33 @@ export default function ExpenseTab() {
   // নির্বাচিত মাসের মোট খরচ — API থেকে already সেই মাসের এন্ট্রিই আসে।
   const totalMonth = expenses.reduce((s, e) => s + Number(e.amount), 0);
 
+  // নাম/খাত অনুযায়ী এন্ট্রিগুলো একত্রে গ্রুপ করা হচ্ছে — শুধু দেখানোর সময়ের
+  // জন্য (এখানে গ্রুপিং), ডাটাবেজে কোনো ক্যাটাগরি/এন্ট্রি মার্জ বা পরিবর্তন
+  // করা হচ্ছে না। একই নামের ঘর একাধিকবার তৈরি হলেও (আলাদা category_id হলেও)
+  // এখানে নামের ভিত্তিতে একসাথে দেখানো হবে।
+  const groupedExpenses = useMemo(() => {
+    const map = new Map<string, { name: string; total: number; entries: Expense[] }>();
+    for (const e of expenses) {
+      const key = e.category_name || "অজানা";
+      if (!map.has(key)) map.set(key, { name: key, total: 0, entries: [] });
+      const g = map.get(key)!;
+      g.total += Number(e.amount);
+      g.entries.push(e);
+    }
+    // প্রতিটা গ্রুপের ভেতরের এন্ট্রি তারিখ অনুযায়ী নতুন থেকে পুরনো সাজানো
+    for (const g of map.values()) {
+      g.entries.sort(
+        (a, b) => new Date((b.expense_date || "").replace(" ", "T")).getTime() -
+          new Date((a.expense_date || "").replace(" ", "T")).getTime()
+      );
+    }
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [expenses]);
+
+  const selectedGroupData = selectedGroup
+    ? groupedExpenses.find((g) => g.name === selectedGroup) ?? null
+    : null;
+
   return (
     <div className="pb-24">
       <MonthPicker value={month} onChange={setMonth} />
@@ -192,35 +222,30 @@ export default function ExpenseTab() {
 
       {loading ? (
         <p className="text-center text-sm text-ink-muted py-10">লোড হচ্ছে...</p>
-      ) : expenses.length === 0 ? (
+      ) : groupedExpenses.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border py-10 text-center text-ink-muted">
           কোনো খরচ এন্ট্রি নেই
         </div>
       ) : (
         <ul className="space-y-2">
-          {expenses.map((e) => (
-            <li
-              key={e.id}
-              className="flex items-center justify-between rounded-xl border border-border bg-surface p-3.5"
-            >
-              <div>
-                <p className="text-sm font-medium">{e.category_name}</p>
-                <p className="text-xs text-ink-faint">
-                  {formatDate(e.expense_date)}
-                  {e.note ? ` · ${e.note}` : ""}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="tabular font-semibold text-down">
-                  -৳{money(e.amount)}
-                </span>
-                <button
-                  onClick={() => deleteExpense(e.id)}
-                  className="text-ink-faint hover:text-down"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
+          {groupedExpenses.map((g) => (
+            <li key={g.name}>
+              <button
+                type="button"
+                onClick={() => setSelectedGroup(g.name)}
+                className="flex w-full items-center justify-between rounded-xl border border-border bg-surface p-3.5 text-left transition active:scale-[0.99]"
+              >
+                <div>
+                  <p className="text-sm font-medium">{g.name}</p>
+                  <p className="text-xs text-ink-faint">{g.entries.length}টি এন্ট্রি</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="tabular font-semibold text-down">
+                    -৳{money(g.total)}
+                  </span>
+                  <ChevronRight size={16} className="text-ink-faint" />
+                </div>
+              </button>
             </li>
           ))}
         </ul>
@@ -303,6 +328,49 @@ export default function ExpenseTab() {
             {saving ? "সেভ হচ্ছে..." : "যোগ করুন"}
           </Button>
         </div>
+      </Sheet>
+
+      <Sheet
+        open={!!selectedGroup}
+        onClose={() => setSelectedGroup(null)}
+        title={selectedGroup ?? ""}
+      >
+        {selectedGroupData && selectedGroupData.entries.length > 0 ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between rounded-xl border border-border bg-surface-2 px-3.5 py-3">
+              <p className="text-sm font-semibold">মোট ({selectedGroupData.entries.length}টি এন্ট্রি)</p>
+              <p className="tabular font-display text-lg font-bold text-down">
+                -৳{money(selectedGroupData.total)}
+              </p>
+            </div>
+            <ul className="space-y-2">
+              {selectedGroupData.entries.map((e) => (
+                <li
+                  key={e.id}
+                  className="flex items-center justify-between rounded-xl border border-border bg-surface p-3.5"
+                >
+                  <div>
+                    <p className="text-sm font-medium">{formatDate(e.expense_date)}</p>
+                    {e.note && <p className="text-xs text-ink-faint mt-0.5">{e.note}</p>}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="tabular font-semibold text-down">
+                      -৳{money(e.amount)}
+                    </span>
+                    <button
+                      onClick={() => deleteExpense(e.id)}
+                      className="text-ink-faint hover:text-down"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="py-6 text-center text-sm text-ink-muted">কোনো এন্ট্রি নেই</p>
+        )}
       </Sheet>
     </div>
   );
