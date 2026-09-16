@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const dueOnly = req.nextUrl.searchParams.get("due_only");
 
   let query = `
-    SELECT s.*, p.name_model, p.imei, p.buy_price
+    SELECT s.*, p.name_model, p.imei, p.buy_price, p.buy_date
     FROM sales s
     JOIN phones p ON p.id = s.phone_id
     WHERE 1=1

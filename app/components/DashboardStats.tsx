@@ -44,6 +44,7 @@ interface OutsideSaleRow {
   name: string;
   imei: string | null;
   profit: number;
+  sell_date?: string;
 }
 
 interface TodaySaleBreakdown {
@@ -70,6 +71,9 @@ interface TotalBuyBreakdown {
 interface StockProfitRow {
   name_model: string;
   imei: string;
+  buy_date: string;
+  buy_price: number;
+  selling_price: number;
   profit: number;
 }
 
@@ -242,7 +246,14 @@ export default function DashboardStats() {
         const res = await fetch(`/api/sales?from=${from}&to=${to}`, { cache: "no-store" });
         const data: any = res.ok ? await res.json() : { sales: [] };
         setSubStockProfit(
-          (data.sales || []).map((s: any) => ({ name_model: s.name_model, imei: s.imei, profit: s.profit }))
+          (data.sales || []).map((s: any) => ({
+            name_model: s.name_model,
+            imei: s.imei,
+            buy_date: s.buy_date,
+            buy_price: s.buy_price,
+            selling_price: s.selling_price,
+            profit: s.profit,
+          }))
         );
       } else if (kind === "outsideProfitMonth") {
         // /api/outside ফিল্টার করে deal_date দিয়ে, কিন্তু মাসিক প্রফিট
@@ -255,7 +266,7 @@ export default function DashboardStats() {
         setSubOutsideDeals(
           (data.deals || [])
             .filter((d: any) => (d.sell_date || "").slice(0, 7) === monthPrefix)
-            .map((d: any) => ({ model: d.model, name: d.name, imei: d.imei, profit: d.profit }))
+            .map((d: any) => ({ model: d.model, name: d.name, imei: d.imei, profit: d.profit, sell_date: d.sell_date }))
         );
       } else if (kind === "cashSalesPaid") {
         const res = await fetch(`/api/sales`, { cache: "no-store" });
@@ -269,7 +280,7 @@ export default function DashboardStats() {
         const res = await fetch(`/api/outside?status=sold`, { cache: "no-store" });
         const data: any = res.ok ? await res.json() : { deals: [] };
         setSubOutsideDeals(
-          (data.deals || []).map((d: any) => ({ model: d.model, name: d.name, imei: d.imei, profit: d.profit }))
+          (data.deals || []).map((d: any) => ({ model: d.model, name: d.name, imei: d.imei, profit: d.profit, sell_date: d.sell_date }))
         );
       } else if (kind === "cashLoanIn") {
         const res = await fetch(`/api/loan-entries`, { cache: "no-store" });
@@ -407,8 +418,15 @@ export default function DashboardStats() {
           subtitle: "This Month",
           summary: [{ label: "Stock Profit", value: `Tk ${(profitBreakdown?.stock_profit ?? 0).toLocaleString()}`, tone: "up" }],
           table: {
-            head: ["Model", "IMEI", "Profit (Tk)"],
-            rows: (subStockProfit || []).map((s) => [s.name_model, s.imei, Number(s.profit).toLocaleString()]),
+            head: ["Model", "IMEI", "Buy Date", "Buy Price (Tk)", "Sell Price (Tk)", "Profit (Tk)"],
+            rows: (subStockProfit || []).map((s) => [
+              s.name_model,
+              s.imei,
+              (s.buy_date || "-").toString().slice(0, 10),
+              Number(s.buy_price).toLocaleString(),
+              Number(s.selling_price).toLocaleString(),
+              Number(s.profit).toLocaleString(),
+            ]),
             emptyLabel: "No sales this month",
           },
           footerNote: "Generated from Phone Fantasy — Dashboard",
@@ -423,8 +441,13 @@ export default function DashboardStats() {
           subtitle: "This Month",
           summary: [{ label: "Outside Sell Profit", value: `Tk ${(profitBreakdown?.outside_profit ?? 0).toLocaleString()}`, tone: "up" }],
           table: {
-            head: ["Model / IMEI", "Profit (Tk)"],
-            rows: (subOutsideDeals || []).map((d) => [d.model || d.name, Number(d.profit).toLocaleString()]),
+            head: ["Model", "IMEI", "Sell Date", "Profit (Tk)"],
+            rows: (subOutsideDeals || []).map((d) => [
+              d.model || d.name,
+              d.imei || "-",
+              (d.sell_date || "-").toString().slice(0, 10),
+              Number(d.profit).toLocaleString(),
+            ]),
             emptyLabel: "No Outside Sell entries this month",
           },
           footerNote: "Generated from Phone Fantasy — Dashboard",
