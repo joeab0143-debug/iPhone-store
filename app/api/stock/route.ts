@@ -9,6 +9,10 @@ export async function GET(req: NextRequest) {
   const imei = req.nextUrl.searchParams.get("imei"); // exact match, used by the Sell sheet's IMEI lookup
   const imeiLike = req.nextUrl.searchParams.get("imei_like"); // partial match — live suggestions while typing
   const limitParam = req.nextUrl.searchParams.get("limit");
+  // from/to (YYYY-MM-DD, inclusive) — used by the Buy sheet's "ক্রয় ইতিহাস
+  // ডাউনলোড" so the owner can pull just a date range instead of everything.
+  const from = req.nextUrl.searchParams.get("from");
+  const to = req.nextUrl.searchParams.get("to");
 
   let query = "SELECT * FROM phones WHERE 1=1";
   const binds: string[] = [];
@@ -23,6 +27,14 @@ export async function GET(req: NextRequest) {
   if (imeiLike) {
     query += " AND imei LIKE ?";
     binds.push(`%${imeiLike}%`);
+  }
+  if (from) {
+    query += " AND date(buy_date) >= date(?)";
+    binds.push(from);
+  }
+  if (to) {
+    query += " AND date(buy_date) <= date(?)";
+    binds.push(to);
   }
   query += " ORDER BY created_at DESC";
   if (imeiLike) {

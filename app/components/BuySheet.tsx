@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ScanLine } from "lucide-react";
+import { ScanLine, Download } from "lucide-react";
 import { Button, Field, inputClass, Sheet } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
+import { generateReportPDF } from "@/lib/report-pdf";
 import { emitDashboardRefresh } from "@/lib/events";
+
+const SHOP_NAME = "Phone Fantasy";
 
 const EMPTY_FORM = {
   model: "",
@@ -31,6 +34,15 @@ export default function BuySheet({
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
+  // ক্রয় ইতিহাস ডাউনলোড — ফোন বিক্রি হয়ে স্টক থেকে চলে গেলেও কার কাছ থেকে
+  // কী কেনা হয়েছিল সেই তথ্য (phones টেবিলে) হারিয়ে যায় না; এখান থেকে যে
+  // কোনো সময় পুরো ইতিহাস, বা ডেট রেঞ্জ বেছে, PDF আকারে নামানো যাবে।
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyFrom, setHistoryFrom] = useState("");
+  const [historyTo, setHistoryTo] = useState("");
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+
   function reset() {
     setForm(EMPTY_FORM);
     setError("");
@@ -40,6 +52,61 @@ export default function BuySheet({
   function handleClose() {
     reset();
     onClose();
+  }
+
+  async function downloadBuyHistory() {
+    setHistoryError("");
+    // Open the tab now, inside this click's user gesture — browsers block
+    // window.open() once we hit the await below.
+    const previewWin = window.open("", "_blank");
+    setHistoryLoading(true);
+    const params = new URLSearchParams();
+    if (historyFrom) params.set("from", historyFrom);
+    if (historyTo) params.set("to", historyTo);
+    let data: any;
+    try {
+      const res = await fetch(`/api/stock?${params.toString()}`);
+      data = await res.json();
+    } catch {
+      setHistoryLoading(false);
+      previewWin?.close();
+      setHistoryError("ইতিহাস লোড করা যায়নি");
+      return;
+    }
+    setHistoryLoading(false);
+    const phones: any[] = data?.phones || [];
+    const totalBuyValue = phones.reduce((s, p) => s + Number(p.buy_price), 0);
+    const subtitle =
+      historyFrom || historyTo
+        ? `${historyFrom || "শুরু থেকে"} — ${historyTo || "আজ পর্যন্ত"}`
+        : "All Time";
+    generateReportPDF(
+      {
+        shopName: SHOP_NAME,
+        title: "Buy History Report",
+        subtitle,
+        summary: [
+          { label: "Total Purchases", value: String(phones.length) },
+          { label: "Total Buy Value", value: `Tk ${totalBuyValue.toLocaleString()}` },
+        ],
+        table: {
+          head: ["Model", "IMEI", "Buy Date", "Bought From", "Number", "Buy Price (Tk)", "Type", "Status"],
+          rows: phones.map((p) => [
+            p.name_model,
+            p.imei,
+            (p.buy_date || "-").toString().slice(0, 10),
+            p.bought_from || "-",
+            p.phone_number || "-",
+            Number(p.buy_price).toLocaleString(),
+            p.stock_type === "outside" ? "Outside" : "Regular",
+            p.status === "sold" ? "Sold" : "In Stock",
+          ]),
+          emptyLabel: "এই সময়ের মধ্যে কোনো ক্রয় নেই",
+        },
+        footerNote: "Generated from Phone Fantasy — Buy History",
+      },
+      previewWin
+    );
   }
 
   async function submit() {
@@ -82,6 +149,21 @@ export default function BuySheet({
   return (
     <>
       <Sheet open={open} onClose={handleClose} title="ফোন ক্রয় (Buy)">
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-2 px-3.5 py-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">ক্রয় ইতিহাস</p>
+            <p className="mt-0.5 text-[11px] text-ink-faint">
+              কার কাছ থেকে কী কেনা হয়েছে — এ যাবতকালের বা ডেট বেছে ডাউনলোড করুন
+            </p>
+          </div>
+          <button
+            onClick={() => setHistoryOpen(true)}
+            className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-surface px-3 py-2 text-xs font-semibold text-teal"
+          >
+            <Download size={14} /> ডাউনলোড
+          </button>
+        </div>
+
         {done ? (
           <div className="py-6 text-center">
             <p className="mb-4 text-lg font-semibold text-up">ক্রয় সেভ হয়েছে — স্টকে যোগ হয়েছে ✓</p>
@@ -210,6 +292,43 @@ export default function BuySheet({
           setForm((f) => ({ ...f, imei: code }));
         }}
       />
+
+      <Sheet
+        open={historyOpen}
+        onClose={() => {
+          setHistoryOpen(false);
+          setHistoryFrom("");
+          setHistoryTo("");
+          setHistoryError("");
+        }}
+        title="ক্রয় ইতিহাস ডাউনলোড"
+      >
+        <div className="space-y-3">
+          <Field label="শুরুর তারিখ (ঐচ্ছিক)">
+            <input
+              type="date"
+              value={historyFrom}
+              onChange={(e) => setHistoryFrom(e.target.value)}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="শেষ তারিখ (ঐচ্ছিক)">
+            <input
+              type="date"
+              value={historyTo}
+              onChange={(e) => setHistoryTo(e.target.value)}
+              className={inputClass}
+            />
+          </Field>
+          <p className="text-[11px] text-ink-faint">
+            দুটোই ফাঁকা রাখলে এ যাবতকালের সকল ক্রয় ইতিহাস ডাউনলোড হবে।
+          </p>
+          {historyError && <p className="text-sm text-down">{historyError}</p>}
+          <Button full onClick={downloadBuyHistory} disabled={historyLoading}>
+            {historyLoading ? "তৈরি হচ্ছে..." : "PDF ডাউনলোড করুন"}
+          </Button>
+        </div>
+      </Sheet>
     </>
   );
 }
