@@ -49,7 +49,7 @@ export default function ProfitTab() {
     const previewWin = window.open("", "_blank");
     generateReportPDF(
       {
-        shopName: "Phone Fantasy",
+        shopName: "iPhone Store",
         title: "Profit Report",
         subtitle: monthLabel(month),
         summary: [
@@ -69,7 +69,7 @@ export default function ProfitTab() {
           ]),
           emptyLabel: "No Outside Sell entries this month",
         },
-        footerNote: "Generated from Phone Fantasy — Profit Tab (Outside Sell log)",
+        footerNote: "Generated from iPhone Store — Profit Tab (Outside Sell log)",
       },
       previewWin
     );
@@ -159,7 +159,7 @@ export default function ProfitTab() {
     if (kind === "stock") {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Stock Profit Report",
           subtitle: monthLabel(month),
           summary: [{ label: "Stock Profit", value: `Tk ${(summary?.stock_profit ?? 0).toLocaleString()}`, tone: "up" }],
@@ -168,14 +168,14 @@ export default function ProfitTab() {
             rows: (stockSales || []).map((s) => [s.name_model, s.imei, Number(s.selling_price).toLocaleString(), Number(s.profit).toLocaleString()]),
             emptyLabel: "No sales this month",
           },
-          footerNote: "Generated from Phone Fantasy — Profit Tab",
+          footerNote: "Generated from iPhone Store — Profit Tab",
         },
         previewWin
       );
     } else if (kind === "outsideStock") {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Outside Stock Profit Report",
           subtitle: monthLabel(month),
           summary: [{ label: "Outside Stock Profit (50% Share)", value: `Tk ${(summary?.outside_stock_profit ?? 0).toLocaleString()}`, tone: "up" }],
@@ -192,14 +192,14 @@ export default function ProfitTab() {
             ]),
             emptyLabel: "No outside stock sales this month",
           },
-          footerNote: "Generated from Phone Fantasy — Profit Tab",
+          footerNote: "Generated from iPhone Store — Profit Tab",
         },
         previewWin
       );
     } else if (kind === "outside") {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Outside Sell Profit Report",
           subtitle: monthLabel(month),
           summary: [{ label: "Outside Sell Profit", value: `Tk ${(summary?.outside_profit ?? 0).toLocaleString()}`, tone: "up" }],
@@ -208,14 +208,14 @@ export default function ProfitTab() {
             rows: deals.map((d) => [d.model || d.name || "-", (d.sell_date || d.deal_date || "-").toString().slice(0, 10), d.profit.toLocaleString()]),
             emptyLabel: "No Outside Sell entries this month",
           },
-          footerNote: "Generated from Phone Fantasy — Profit Tab",
+          footerNote: "Generated from iPhone Store — Profit Tab",
         },
         previewWin
       );
     } else if (kind === "expense") {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Expense Report",
           subtitle: monthLabel(month),
           summary: [{ label: "Total Expense", value: `Tk ${(summary?.total_expense ?? 0).toLocaleString()}`, tone: "down" }],
@@ -224,14 +224,14 @@ export default function ProfitTab() {
             rows: (expenseCategories || []).map((c) => [c.name, c.total.toLocaleString()]),
             emptyLabel: "No expense entries this month",
           },
-          footerNote: "Generated from Phone Fantasy — Profit Tab",
+          footerNote: "Generated from iPhone Store — Profit Tab",
         },
         previewWin
       );
     } else {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Due Outstanding Report",
           subtitle: `As of ${monthLabel(currentMonthStr())}`,
           summary: [{ label: "Total Due Outstanding", value: `Tk ${(summary?.total_due_outstanding ?? 0).toLocaleString()}` }],
@@ -240,7 +240,7 @@ export default function ProfitTab() {
             rows: (dueSales || []).map((s) => [s.name_model, s.customer_name || "-", s.customer_phone || "-", Number(s.due_amount).toLocaleString()]),
             emptyLabel: "No outstanding due",
           },
-          footerNote: "Generated from Phone Fantasy — Profit Tab (all-time)",
+          footerNote: "Generated from iPhone Store — Profit Tab (all-time)",
         },
         previewWin
       );

@@ -44,7 +44,7 @@ function LoginForm() {
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/15 text-gold">
             <Smartphone size={22} />
           </div>
-          <h1 className="font-display text-xl font-bold">Phone Fantasy</h1>
+          <h1 className="font-display text-xl font-bold">iPhone Store</h1>
           <p className="mt-1 text-xs text-ink-faint">লগইন করুন</p>
         </div>
 

@@ -1,7 +1,7 @@
--- Phone Fantasy — one-off fix for the remote (production) D1 database's
+-- iPhone Store — one-off fix for the remote (production) D1 database's
 -- migration bookkeeping.
 --
--- What happened: `wrangler d1 migrations list phone-fantasy-db --remote`
+-- What happened: `wrangler d1 migrations list iphone-store-db --remote`
 -- shows EVERY migration file (0001 through 0016) as still "pending", even
 -- though their actual effects (columns, tables, cash adjustments) are
 -- already present in the live production data. Running
@@ -31,13 +31,13 @@
 -- it only records history in wrangler's own d1_migrations table.
 --
 -- Run once with:
---   npx wrangler d1 execute phone-fantasy-db --remote --file=fix-remote-migrations-tracking.sql
+--   npx wrangler d1 execute iphone-store-db --remote --file=fix-remote-migrations-tracking.sql
 --
 -- Then confirm with:
---   npx wrangler d1 migrations list phone-fantasy-db --remote
+--   npx wrangler d1 migrations list iphone-store-db --remote
 -- (it should now show ONLY 0017_outside_stock.sql as pending), and only
 -- then run:
---   npx wrangler d1 migrations apply phone-fantasy-db --remote
+--   npx wrangler d1 migrations apply iphone-store-db --remote
 
 CREATE TABLE IF NOT EXISTS d1_migrations (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,

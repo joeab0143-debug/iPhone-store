@@ -1,4 +1,4 @@
--- Phone Fantasy — split "Outside Profit" into a Buy stage (purchase from an
+-- iPhone Store — split "Outside Profit" into a Buy stage (purchase from an
 -- individual) and an Outside Sell stage, so it mirrors the main Stock -> Sell
 -- flow instead of one combined form.
 

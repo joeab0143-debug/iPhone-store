@@ -361,7 +361,7 @@ export default function DashboardStats() {
     const previewWin = window.open("", "_blank");
     generateReportPDF(
       {
-        shopName: "Phone Fantasy",
+        shopName: "iPhone Store",
         title: "Total Cash Report",
         subtitle: `As of ${todayLabel()}`,
         summary: [
@@ -374,7 +374,7 @@ export default function DashboardStats() {
           { label: "Loan Cash Out", value: `Tk ${cashBreakdown.loan_cash_out.toLocaleString()}`, tone: "down" },
           { label: "Manual Adjustment", value: `Tk ${cashBreakdown.adjustment.toLocaleString()}` },
         ],
-        footerNote: "Generated from Phone Fantasy — Total Cash (all-time)",
+        footerNote: "Generated from iPhone Store — Total Cash (all-time)",
       },
       previewWin
     );
@@ -389,7 +389,7 @@ export default function DashboardStats() {
     ];
     generateReportPDF(
       {
-        shopName: "Phone Fantasy",
+        shopName: "iPhone Store",
         title: "Today's Sale Report",
         subtitle: todayLabel(),
         summary: [{ label: "Total (Today)", value: `Tk ${todayBreakdown.total.toLocaleString()}`, tone: "up" }],
@@ -398,7 +398,7 @@ export default function DashboardStats() {
           rows,
           emptyLabel: "No sales today",
         },
-        footerNote: "Generated from Phone Fantasy — Dashboard",
+        footerNote: "Generated from iPhone Store — Dashboard",
       },
       previewWin
     );
@@ -409,7 +409,7 @@ export default function DashboardStats() {
     const previewWin = window.open("", "_blank");
     generateReportPDF(
       {
-        shopName: "Phone Fantasy",
+        shopName: "iPhone Store",
         title: "Total Buy Report",
         subtitle: `As of ${todayLabel()}`,
         summary: [
@@ -429,7 +429,7 @@ export default function DashboardStats() {
           ]),
           emptyLabel: "No phones bought yet",
         },
-        footerNote: "Generated from Phone Fantasy — Total Buy (all-time, regular stock)",
+        footerNote: "Generated from iPhone Store — Total Buy (all-time, regular stock)",
       },
       previewWin
     );
@@ -440,7 +440,7 @@ export default function DashboardStats() {
     const previewWin = window.open("", "_blank");
     generateReportPDF(
       {
-        shopName: "Phone Fantasy",
+        shopName: "iPhone Store",
         title: "Profit Report",
         subtitle: "This Month",
         summary: [
@@ -455,7 +455,7 @@ export default function DashboardStats() {
           rows: profitBreakdown.expense_categories.map((c) => [c.name, c.total.toLocaleString()]),
           emptyLabel: "No expense entries this month",
         },
-        footerNote: "Generated from Phone Fantasy — Dashboard (This Month's Profit)",
+        footerNote: "Generated from iPhone Store — Dashboard (This Month's Profit)",
       },
       previewWin
     );
@@ -467,7 +467,7 @@ export default function DashboardStats() {
     if (subKind === "stockProfitMonth") {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Stock Profit Detail",
           subtitle: "This Month",
           summary: [{ label: "Stock Profit", value: `Tk ${(profitBreakdown?.stock_profit ?? 0).toLocaleString()}`, tone: "up" }],
@@ -483,14 +483,14 @@ export default function DashboardStats() {
             ]),
             emptyLabel: "No sales this month",
           },
-          footerNote: "Generated from Phone Fantasy — Dashboard",
+          footerNote: "Generated from iPhone Store — Dashboard",
         },
         previewWin
       );
     } else if (subKind === "outsideStockProfitMonth") {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Outside Stock Profit Detail",
           subtitle: "This Month",
           summary: [{ label: "Outside Stock Profit (50% Share)", value: `Tk ${(profitBreakdown?.outside_stock_profit ?? 0).toLocaleString()}`, tone: "up" }],
@@ -507,14 +507,14 @@ export default function DashboardStats() {
             ]),
             emptyLabel: "No outside stock sales this month",
           },
-          footerNote: "Generated from Phone Fantasy — Dashboard",
+          footerNote: "Generated from iPhone Store — Dashboard",
         },
         previewWin
       );
     } else if (subKind === "outsideStockList") {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Outside Stock Report",
           subtitle: `As of ${todayLabel()}`,
           summary: [{ label: "Outside Stock Value", value: `Tk ${(buyBreakdown?.outsideValue ?? 0).toLocaleString()}` }],
@@ -529,14 +529,14 @@ export default function DashboardStats() {
             ]),
             emptyLabel: "No outside stock phones",
           },
-          footerNote: "Generated from Phone Fantasy — Dashboard (Total Buy)",
+          footerNote: "Generated from iPhone Store — Dashboard (Total Buy)",
         },
         previewWin
       );
     } else if (subKind === "outsideProfitMonth") {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Outside Sell Profit Detail",
           subtitle: "This Month",
           summary: [{ label: "Outside Sell Profit", value: `Tk ${(profitBreakdown?.outside_profit ?? 0).toLocaleString()}`, tone: "up" }],
@@ -550,14 +550,14 @@ export default function DashboardStats() {
             ]),
             emptyLabel: "No Outside Sell entries this month",
           },
-          footerNote: "Generated from Phone Fantasy — Dashboard",
+          footerNote: "Generated from iPhone Store — Dashboard",
         },
         previewWin
       );
     } else if (subKind === "cashSalesPaid") {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Sales Received Detail",
           subtitle: `As of ${todayLabel()}`,
           summary: [{ label: "Sales Received", value: `Tk ${(cashBreakdown?.sales_paid ?? 0).toLocaleString()}`, tone: "up" }],
@@ -566,14 +566,14 @@ export default function DashboardStats() {
             rows: (subCashSales || []).map((s) => [s.name_model, s.imei, Number(s.paid_amount).toLocaleString()]),
             emptyLabel: "No sales yet",
           },
-          footerNote: "Generated from Phone Fantasy — Dashboard (Total Cash, all-time)",
+          footerNote: "Generated from iPhone Store — Dashboard (Total Cash, all-time)",
         },
         previewWin
       );
     } else if (subKind === "cashOutsideProfit") {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Outside Sell Profit Detail",
           subtitle: `As of ${todayLabel()}`,
           summary: [{ label: "Outside Sell Profit", value: `Tk ${(cashBreakdown?.outside_profit ?? 0).toLocaleString()}`, tone: "up" }],
@@ -582,14 +582,14 @@ export default function DashboardStats() {
             rows: (subOutsideDeals || []).map((d) => [d.model || d.name, Number(d.profit).toLocaleString()]),
             emptyLabel: "No Outside Sell entries yet",
           },
-          footerNote: "Generated from Phone Fantasy — Dashboard (Total Cash, all-time)",
+          footerNote: "Generated from iPhone Store — Dashboard (Total Cash, all-time)",
         },
         previewWin
       );
     } else {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Loan Cash-In Detail",
           subtitle: `As of ${todayLabel()}`,
           summary: [{ label: "Loan Cash In", value: `Tk ${(cashBreakdown?.loan_cash_in ?? 0).toLocaleString()}`, tone: "up" }],
@@ -603,7 +603,7 @@ export default function DashboardStats() {
             ]),
             emptyLabel: "No loan cash-in entries yet",
           },
-          footerNote: "Generated from Phone Fantasy — Dashboard (Total Cash, all-time)",
+          footerNote: "Generated from iPhone Store — Dashboard (Total Cash, all-time)",
         },
         previewWin
       );

@@ -1,4 +1,4 @@
--- Phone Fantasy — partial loan repayments. Mirrors the existing due_payments
+-- iPhone Store — partial loan repayments. Mirrors the existing due_payments
 -- pattern used for phone-sale dues: loans.paid_amount tracks how much has
 -- been repaid so far (against loans.amount, the original loan size), and
 -- every individual repayment is logged in loan_payments so there's a

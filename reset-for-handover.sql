@@ -1,4 +1,4 @@
--- Phone Fantasy — full data reset for client handover.
+-- iPhone Store — full data reset for client handover.
 --
 -- Wipes every business record (stock, sales, dues, expenses, gadgets,
 -- outside deals, loans) back to a clean, empty state. Table STRUCTURE is

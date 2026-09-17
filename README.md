@@ -1,4 +1,4 @@
-# Phone Fantasy 📱
+# iPhone Store 📱
 
 মোবাইল শোরুম ম্যানেজমেন্ট ওয়েব অ্যাপ — স্টক, বিক্রি, বাকি হিসাব, খরচ ও নিট প্রফিট এক জায়গায়।
 
@@ -15,7 +15,7 @@
 - **নিট প্রফিট**: তারিখ-রেঞ্জ ফিল্টার সহ — স্টক প্রফিট + Outside প্রফিট − মোট খরচ
 - **Gadgets & Accessories**: আলাদা একটা ট্যাব — Buy Name, Buy Price, Sell — শুধুমাত্র এই ট্যাবে ঢুকলেই দেখা যায়, এর প্রফিট মূল ড্যাশবোর্ড/নিট প্রফিটে যোগ হয় না
 - **নিচের অ্যাকশন বার — Sell / Outside Sell / Buy** (যেকোনো ট্যাব থেকে খোলা যায়):
-  - **Sell**: মূল স্টক থেকে বিক্রি — Name, Number, Model, IMEI, Price দিয়ে সরাসরি বিক্রি করে "Phone Fantasy" হেডারসহ মেমো তৈরি হয়
+  - **Sell**: মূল স্টক থেকে বিক্রি — Name, Number, Model, IMEI, Price দিয়ে সরাসরি বিক্রি করে "iPhone Store" হেডারসহ মেমো তৈরি হয়
   - **Buy**: ফোন ক্রয় — Model Number, IMEI (স্ক্যানারসহ), RAM/ROM, Buy Price, Buy from whom, Number, NID — সাবমিট করলেই সরাসরি **স্টকে** যোগ হয়ে যায় (Stock ট্যাবে সাথে সাথে দেখা যাবে)
   - **Outside Sell**: আলাদা একটা প্রফিট লগ, স্টকের সাথে সম্পর্কিত না — শুধু ৩টা ঘর: Model, IMEI, Profit — এই প্রফিট সরাসরি মোট প্রফিট ও ক্যাশে যোগ হয়
 - **বারকোড**: IMEI দিয়ে Code128 স্টিকার প্রিন্ট, ক্যামেরা দিয়ে স্ক্যান, এবং Bluetooth/USB হার্ডওয়্যার স্ক্যানার (keyboard-emulation মোডে) সাপোর্ট
@@ -34,15 +34,15 @@ npm install
 cp .dev.vars.example .dev.vars   # (ঐচ্ছিক, দরকার নেই local D1-এর জন্য)
 
 # লোকাল D1 ডাটাবেস বানিয়ে স্কিমা বসান
-npx wrangler d1 execute phone-fantasy-db --local --file=migrations/0001_init.sql
-npx wrangler d1 execute phone-fantasy-db --local --file=migrations/0002_buy_sell_split.sql
-npx wrangler d1 execute phone-fantasy-db --local --file=migrations/0003_phones_buy_fields.sql
-npx wrangler d1 execute phone-fantasy-db --local --file=migrations/0004_gadgets.sql
+npx wrangler d1 execute iphone-store-db --local --file=migrations/0001_init.sql
+npx wrangler d1 execute iphone-store-db --local --file=migrations/0002_buy_sell_split.sql
+npx wrangler d1 execute iphone-store-db --local --file=migrations/0003_phones_buy_fields.sql
+npx wrangler d1 execute iphone-store-db --local --file=migrations/0004_gadgets.sql
 
 # বিল্ড করে Cloudflare Pages dev সার্ভার চালান (D1 বাইন্ডিং সহ)
 npm run build
 npx @cloudflare/next-on-pages
-npx wrangler pages dev .vercel/output/static --d1 DB=phone-fantasy-db
+npx wrangler pages dev .vercel/output/static --d1 DB=iphone-store-db
 ```
 
 তারপর ব্রাউজারে `http://localhost:8788` খুলুন।
@@ -57,7 +57,7 @@ npx wrangler pages dev .vercel/output/static --d1 DB=phone-fantasy-db
 
 ```bash
 npx wrangler login
-npx wrangler d1 create phone-fantasy-db
+npx wrangler d1 create iphone-store-db
 ```
 
 এই কমান্ড থেকে যে `database_id` পাবেন, সেটা `wrangler.toml` ফাইলে `REPLACE-WITH-YOUR-D1-DATABASE-ID` জায়গায় বসান।
@@ -65,10 +65,10 @@ npx wrangler d1 create phone-fantasy-db
 ### ২. প্রোডাকশন ডাটাবেসে স্কিমা বসান
 
 ```bash
-npx wrangler d1 execute phone-fantasy-db --remote --file=migrations/0001_init.sql
-npx wrangler d1 execute phone-fantasy-db --remote --file=migrations/0002_buy_sell_split.sql
-npx wrangler d1 execute phone-fantasy-db --remote --file=migrations/0003_phones_buy_fields.sql
-npx wrangler d1 execute phone-fantasy-db --remote --file=migrations/0004_gadgets.sql
+npx wrangler d1 execute iphone-store-db --remote --file=migrations/0001_init.sql
+npx wrangler d1 execute iphone-store-db --remote --file=migrations/0002_buy_sell_split.sql
+npx wrangler d1 execute iphone-store-db --remote --file=migrations/0003_phones_buy_fields.sql
+npx wrangler d1 execute iphone-store-db --remote --file=migrations/0004_gadgets.sql
 ```
 
 > ইতিমধ্যে ডিপ্লয় করা থাকলে শুধু নতুন মাইগ্রেশনগুলো চালালেই হবে — এগুলো বিদ্যমান ডেটা মুছে না, শুধু নতুন কলাম যোগ করে।
@@ -76,17 +76,17 @@ npx wrangler d1 execute phone-fantasy-db --remote --file=migrations/0004_gadgets
 ### ৩. Cloudflare Pages প্রজেক্ট তৈরি করুন
 
 ```bash
-npx wrangler pages project create phone-fantasy
+npx wrangler pages project create iphone-store
 ```
 
 (GitHub-এ পুশ করে Git integration দিয়েও করতে পারেন — dental-platform প্রজেক্টে যেভাবে করেছিলেন সেভাবেই)
 
 ### ৪. Pages প্রজেক্টে D1 বাইন্ডিং যোগ করুন
 
-Cloudflare Dashboard → Workers & Pages → phone-fantasy → Settings → Bindings →
+Cloudflare Dashboard → Workers & Pages → iphone-store → Settings → Bindings →
 "D1 database" যোগ করুন:
 - Variable name: `DB`
-- Database: `phone-fantasy-db`
+- Database: `iphone-store-db`
 
 (Production ও Preview — দুই environment-এই যোগ করুন)
 
@@ -95,7 +95,7 @@ Cloudflare Dashboard → Workers & Pages → phone-fantasy → Settings → Bind
 ```bash
 npm run build
 npx @cloudflare/next-on-pages
-npx wrangler pages deploy .vercel/output/static --project-name=phone-fantasy
+npx wrangler pages deploy .vercel/output/static --project-name=iphone-store
 ```
 
 Git integration ব্যবহার করলে Cloudflare Dashboard-এ:

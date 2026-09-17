@@ -1,4 +1,4 @@
--- Phone Fantasy — rework Gadgets & Accessories.
+-- iPhone Store — rework Gadgets & Accessories.
 --
 -- Old model: one row per item, with buy_price AND sell_price entered
 -- together at the same time (as if every item was already sold).

@@ -43,7 +43,7 @@ export default function Home() {
           </div>
           <div className="flex-1">
             <h1 className="font-display text-lg font-bold leading-tight">
-              Phone Fantasy
+              iPhone Store
             </h1>
             <p className="text-[11px] text-ink-faint leading-tight">
               মোবাইল শোরুম ম্যানেজমেন্ট
@@ -82,7 +82,7 @@ export default function Home() {
                   onClick={() => setTab(t.id)}
                   className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-center text-[10px] font-semibold leading-tight transition ${
                     active
-                      ? "bg-gold text-[#1a1400] shadow-sm"
+                      ? "bg-gold text-white shadow-sm"
                       : "text-ink-muted hover:text-ink"
                   }`}
                 >

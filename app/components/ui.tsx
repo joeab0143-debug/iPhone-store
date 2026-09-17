@@ -23,7 +23,7 @@ export function Button({
   const base =
     "inline-flex items-center justify-center gap-2 rounded-xl font-semibold text-sm px-4 py-2.5 transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100";
   const variants: Record<string, string> = {
-    primary: "bg-gold text-[#1a1400] hover:brightness-110",
+    primary: "bg-gold text-white hover:brightness-110",
     secondary: "bg-surface-2 text-ink border border-border hover:border-teal/50",
     ghost: "bg-transparent text-ink-muted hover:text-ink",
     danger: "bg-down/15 text-down border border-down/30 hover:bg-down/25",

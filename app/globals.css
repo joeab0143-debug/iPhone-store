@@ -1,26 +1,26 @@
-@import url("https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Sora:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap");
 @import "tailwindcss";
 
 :root {
-  --bg: #0a0e14;
-  --bg-elevated: #10151d;
-  --surface: #161d27;
-  --surface-2: #1c2531;
-  --border: #253040;
-  --border-soft: #1c2431;
+  --bg: #000000;
+  --bg-elevated: #1c1c1e;
+  --surface: #1c1c1e;
+  --surface-2: #2c2c2e;
+  --border: #38383a;
+  --border-soft: #2c2c2e;
 
-  --ink: #eef2f6;
-  --ink-muted: #8b98a9;
-  --ink-faint: #566274;
+  --ink: #f5f5f7;
+  --ink-muted: #98989d;
+  --ink-faint: #636366;
 
-  --gold: #f2b705;
-  --gold-soft: #4a3a10;
-  --teal: #22d3c7;
-  --teal-soft: #0f3a37;
+  --gold: #0a84ff;
+  --gold-soft: #16233a;
+  --teal: #5e5ce6;
+  --teal-soft: #201f42;
 
-  --up: #34d399;
-  --down: #f2555a;
-  --due: #f2b705;
+  --up: #30d158;
+  --down: #ff453a;
+  --due: #ff9f0a;
 }
 
 @theme inline {
@@ -37,8 +37,8 @@
   --color-up: var(--up);
   --color-down: var(--down);
   --color-due: var(--due);
-  --font-display: "Sora", "Hind Siliguri", sans-serif;
-  --font-body: "Hind Siliguri", "Sora", sans-serif;
+  --font-display: "Inter", "Hind Siliguri", sans-serif;
+  --font-body: "Hind Siliguri", "Inter", sans-serif;
   --font-num: "JetBrains Mono", monospace;
 }
 
@@ -103,7 +103,7 @@ body {
   inset: 0;
   border-radius: 28px;
   padding: 1px;
-  background: linear-gradient(165deg, rgba(242, 183, 5, 0.18), transparent 40%);
+  background: linear-gradient(165deg, rgba(10, 132, 255, 0.22), transparent 40%);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;

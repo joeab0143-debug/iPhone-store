@@ -44,7 +44,7 @@ export default function GadgetsTab() {
       const sold = gadgets.filter((g) => Number(g.sold_count || 0) > 0);
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Gadgets Profit Report",
           subtitle: `As of ${todayLabel()}`,
           summary: [{ label: "Total Profit", value: `Tk ${totalProfit.toLocaleString()}`, tone: totalProfit >= 0 ? "up" : "down" }],
@@ -53,14 +53,14 @@ export default function GadgetsTab() {
             rows: sold.map((g) => [g.buy_name, Number(g.sold_count || 0), Number(g.total_sell || 0).toLocaleString(), Number(g.total_profit || 0).toLocaleString()]),
             emptyLabel: "No gadgets sold yet",
           },
-          footerNote: "Generated from Phone Fantasy — Gadgets & Accessories",
+          footerNote: "Generated from iPhone Store — Gadgets & Accessories",
         },
         previewWin
       );
     } else if (kind === "buy") {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Gadgets Buy Report",
           subtitle: `As of ${todayLabel()}`,
           summary: [{ label: "Total Buy Value", value: `Tk ${totalBuy.toLocaleString()}`, tone: "down" }],
@@ -74,7 +74,7 @@ export default function GadgetsTab() {
             ]),
             emptyLabel: "No gadgets bought yet",
           },
-          footerNote: "Generated from Phone Fantasy — Gadgets & Accessories",
+          footerNote: "Generated from iPhone Store — Gadgets & Accessories",
         },
         previewWin
       );
@@ -82,7 +82,7 @@ export default function GadgetsTab() {
       const sold = gadgets.filter((g) => Number(g.total_sell || 0) > 0);
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Gadgets Sell Report",
           subtitle: `As of ${todayLabel()}`,
           summary: [{ label: "Total Sell", value: `Tk ${totalSell.toLocaleString()}`, tone: "up" }],
@@ -91,7 +91,7 @@ export default function GadgetsTab() {
             rows: sold.map((g) => [g.buy_name, Number(g.sold_count || 0), Number(g.total_sell || 0).toLocaleString()]),
             emptyLabel: "No gadgets sold yet",
           },
-          footerNote: "Generated from Phone Fantasy — Gadgets & Accessories",
+          footerNote: "Generated from iPhone Store — Gadgets & Accessories",
         },
         previewWin
       );
@@ -292,7 +292,7 @@ export default function GadgetsTab() {
 
       <button
         onClick={() => setAddOpen(true)}
-        className="no-print fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-[#1a1400] shadow-lg shadow-gold/20 active:scale-95"
+        className="no-print fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-white shadow-lg shadow-gold/20 active:scale-95"
         aria-label="নতুন এন্ট্রি যোগ করুন"
       >
         <Plus size={26} />

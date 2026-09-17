@@ -7,7 +7,7 @@ import BarcodeScanner from "./BarcodeScanner";
 import { generateReportPDF } from "@/lib/report-pdf";
 import { emitDashboardRefresh } from "@/lib/events";
 
-const SHOP_NAME = "Phone Fantasy";
+const SHOP_NAME = "iPhone Store";
 
 const EMPTY_FORM = {
   model: "",
@@ -104,7 +104,7 @@ export default function BuySheet({
           ]),
           emptyLabel: "এই সময়ের মধ্যে কোনো ক্রয় নেই",
         },
-        footerNote: "Generated from Phone Fantasy — Buy History",
+        footerNote: "Generated from iPhone Store — Buy History",
       },
       previewWin
     );
@@ -181,7 +181,7 @@ export default function BuySheet({
                   onClick={() => setForm({ ...form, stock_type: "regular" })}
                   className={`rounded-lg py-2 text-sm font-semibold transition ${
                     form.stock_type === "regular"
-                      ? "bg-gold text-[#1a1400]"
+                      ? "bg-gold text-white"
                       : "text-ink-muted"
                   }`}
                 >
@@ -192,7 +192,7 @@ export default function BuySheet({
                   onClick={() => setForm({ ...form, stock_type: "outside" })}
                   className={`rounded-lg py-2 text-sm font-semibold transition ${
                     form.stock_type === "outside"
-                      ? "bg-gold text-[#1a1400]"
+                      ? "bg-gold text-white"
                       : "text-ink-muted"
                   }`}
                 >

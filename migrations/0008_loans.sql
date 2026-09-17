@@ -1,4 +1,4 @@
--- Phone Fantasy — Loans tab: personal loan tracking, separate from the shop's
+-- iPhone Store — Loans tab: personal loan tracking, separate from the shop's
 -- cash flow (not summed into Total Cash / Profit anywhere, same as
 -- Gadgets & Accessories — this is a private ledger for the user).
 --

@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# cloudflare local dev state (contains local D1 sqlite data — never commit)
+.wrangler/
+.wrangler-old-phonefantasy-cache/

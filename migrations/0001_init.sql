@@ -1,4 +1,4 @@
--- Phone Fantasy — Cloudflare D1 schema
+-- iPhone Store — Cloudflare D1 schema
 
 CREATE TABLE IF NOT EXISTS phones (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

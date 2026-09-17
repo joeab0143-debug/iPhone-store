@@ -178,7 +178,7 @@ export default function ExpenseTab() {
     const previewWin = window.open("", "_blank");
     generateReportPDF(
       {
-        shopName: "Phone Fantasy",
+        shopName: "iPhone Store",
         title: "Expense Report",
         subtitle: monthLabel(month),
         summary: [
@@ -192,7 +192,7 @@ export default function ExpenseTab() {
           rows: groupedExpenses.map((g) => [g.name, g.entries.length, g.total.toLocaleString()]),
           emptyLabel: "No expense entries this month",
         },
-        footerNote: "Generated from Phone Fantasy — Expense Tab",
+        footerNote: "Generated from iPhone Store — Expense Tab",
       },
       previewWin
     );
@@ -295,7 +295,7 @@ export default function ExpenseTab() {
       <button
         onClick={() => setEntryOpen(true)}
         disabled={categories.length === 0}
-        className="no-print fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-[#1a1400] shadow-lg shadow-gold/20 active:scale-95 disabled:opacity-40"
+        className="no-print fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-white shadow-lg shadow-gold/20 active:scale-95 disabled:opacity-40"
         aria-label="নতুন খরচ যোগ করুন"
       >
         <Plus size={26} />

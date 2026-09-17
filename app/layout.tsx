@@ -3,7 +3,7 @@ import "./globals.css";
 import OrientationFix from "./components/OrientationFix";
 
 export const metadata: Metadata = {
-  title: "Phone Fantasy",
+  title: "iPhone Store",
   description: "মোবাইল শোরুম ম্যানেজমেন্ট — স্টক, খরচ ও প্রফিট এক জায়গায়",
 };
 
@@ -16,7 +16,7 @@ export const viewport: Viewport = {
   // after rotating the phone, leaving a blank strip on the new side until
   // touched. text-size-adjust in globals.css now handles the original
   // "text grows/shrinks on rotate" problem without needing this.
-  themeColor: "#0a0e14",
+  themeColor: "#000000",
 };
 
 export default function RootLayout({

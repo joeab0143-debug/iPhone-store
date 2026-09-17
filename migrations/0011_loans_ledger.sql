@@ -1,4 +1,4 @@
--- Phone Fantasy — Loans as a per-person running ledger instead of one row
+-- iPhone Store — Loans as a per-person running ledger instead of one row
 -- per transaction. Taking/giving a loan to the same person (same
 -- direction) now merges into a single account so the Loans tab shows one
 -- line per person with a running balance, and tapping in shows the full

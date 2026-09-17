@@ -106,7 +106,7 @@ export default function LoansTab() {
     if (kind === "taken") {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Loans Taken Report",
           subtitle: todayLabel(),
           summary: [{ label: "Total Owed By Me", value: `Tk ${totalOwedByMe.toLocaleString()}`, tone: "down" }],
@@ -115,14 +115,14 @@ export default function LoansTab() {
             rows: takenPending.map((a) => [a.person_name, Number(a.disbursed || 0).toLocaleString(), Number(a.remaining || 0).toLocaleString()]),
             emptyLabel: "No pending loans taken",
           },
-          footerNote: "Generated from Phone Fantasy — Loans Tab",
+          footerNote: "Generated from iPhone Store — Loans Tab",
         },
         previewWin
       );
     } else if (kind === "given") {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Loans Given Report",
           subtitle: todayLabel(),
           summary: [{ label: "Total Owed To Me", value: `Tk ${totalOwedToMe.toLocaleString()}`, tone: "up" }],
@@ -131,14 +131,14 @@ export default function LoansTab() {
             rows: givenPending.map((a) => [a.person_name, Number(a.disbursed || 0).toLocaleString(), Number(a.remaining || 0).toLocaleString()]),
             emptyLabel: "No pending loans given",
           },
-          footerNote: "Generated from Phone Fantasy — Loans Tab",
+          footerNote: "Generated from iPhone Store — Loans Tab",
         },
         previewWin
       );
     } else {
       generateReportPDF(
         {
-          shopName: "Phone Fantasy",
+          shopName: "iPhone Store",
           title: "Net Loan Position Report",
           subtitle: todayLabel(),
           summary: [
@@ -154,7 +154,7 @@ export default function LoansTab() {
             ],
             emptyLabel: "No pending loans",
           },
-          footerNote: "Generated from Phone Fantasy — Loans Tab",
+          footerNote: "Generated from iPhone Store — Loans Tab",
         },
         previewWin
       );
@@ -236,7 +236,7 @@ export default function LoansTab() {
 
       <button
         onClick={() => openAdd(direction)}
-        className="no-print fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-[#1a1400] shadow-lg shadow-gold/20 active:scale-95"
+        className="no-print fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-white shadow-lg shadow-gold/20 active:scale-95"
         aria-label="নতুন ধার যোগ করুন"
       >
         <Plus size={26} />
@@ -252,7 +252,7 @@ export default function LoansTab() {
             <button
               onClick={() => setDirection("taken")}
               className={`rounded-lg py-2 text-xs font-semibold transition ${
-                direction === "taken" ? "bg-gold text-[#1a1400]" : "text-ink-muted"
+                direction === "taken" ? "bg-gold text-white" : "text-ink-muted"
               }`}
             >
               ধার নিয়েছি
@@ -260,7 +260,7 @@ export default function LoansTab() {
             <button
               onClick={() => setDirection("given")}
               className={`rounded-lg py-2 text-xs font-semibold transition ${
-                direction === "given" ? "bg-gold text-[#1a1400]" : "text-ink-muted"
+                direction === "given" ? "bg-gold text-white" : "text-ink-muted"
               }`}
             >
               ধার দিয়েছি

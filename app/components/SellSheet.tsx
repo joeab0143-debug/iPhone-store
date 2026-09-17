@@ -8,7 +8,7 @@ import { generateInvoicePDF } from "@/lib/invoice";
 import { emitDashboardRefresh } from "@/lib/events";
 import type { Phone } from "@/lib/types";
 
-const SHOP_NAME = "Phone Fantasy";
+const SHOP_NAME = "iPhone Store";
 
 const EMPTY_FORM = {
   customer_name: "",

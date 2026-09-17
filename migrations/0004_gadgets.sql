@@ -1,4 +1,4 @@
--- Phone Fantasy — Gadgets & Accessories: a standalone buy/sell log, separate
+-- iPhone Store — Gadgets & Accessories: a standalone buy/sell log, separate
 -- from the main phone business. Its profit is intentionally NOT included in
 -- any dashboard stat or the Profit tab's net profit — it only shows inside
 -- the Gadgets & Accessories tab itself, for the user to check when needed.

@@ -1,4 +1,4 @@
--- Phone Fantasy — Buy tab now adds phones directly into the main stock
+-- iPhone Store — Buy tab now adds phones directly into the main stock
 -- (phones table) instead of a separate outside_deals bucket, so "স্টক"
 -- always reflects everything bought, regardless of source.
 --

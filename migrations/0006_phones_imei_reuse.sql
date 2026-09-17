@@ -1,4 +1,4 @@
--- Phone Fantasy — allow the same IMEI to be entered again after that phone
+-- iPhone Store — allow the same IMEI to be entered again after that phone
 -- has been sold (e.g. bought back, or a fresh restock of a returned unit).
 -- SQLite can't drop an inline UNIQUE constraint with ALTER TABLE, so the
 -- table is rebuilt without it; a partial unique index then enforces the

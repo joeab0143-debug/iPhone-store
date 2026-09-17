@@ -10,7 +10,7 @@ import { generateReportPDF } from "@/lib/report-pdf";
 import { emitDashboardRefresh, DASHBOARD_REFRESH_EVENT } from "@/lib/events";
 import type { Phone, Sale } from "@/lib/types";
 
-const SHOP_NAME = "Phone Fantasy";
+const SHOP_NAME = "iPhone Store";
 
 export default function StockTab() {
   const [phones, setPhones] = useState<Phone[]>([]);
@@ -324,7 +324,7 @@ export default function StockTab() {
           ]),
           emptyLabel: "No phones match this view",
         },
-        footerNote: "Generated from Phone Fantasy — Stock Tab",
+        footerNote: "Generated from iPhone Store — Stock Tab",
       },
       previewWin
     );
