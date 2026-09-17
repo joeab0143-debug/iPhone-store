@@ -90,13 +90,14 @@ export default function BuySheet({
           { label: "Total Buy Value", value: `Tk ${totalBuyValue.toLocaleString()}` },
         ],
         table: {
-          head: ["Model", "IMEI", "Buy Date", "Bought From", "Number", "Buy Price (Tk)", "Type", "Status"],
+          head: ["Model", "IMEI", "Buy Date", "Bought From", "Number", "NID", "Buy Price (Tk)", "Type", "Status"],
           rows: phones.map((p) => [
             p.name_model,
             p.imei,
             (p.buy_date || "-").toString().slice(0, 10),
             p.bought_from || "-",
             p.phone_number || "-",
+            p.nid || "-",
             Number(p.buy_price).toLocaleString(),
             p.stock_type === "outside" ? "Outside" : "Regular",
             p.status === "sold" ? "Sold" : "In Stock",
