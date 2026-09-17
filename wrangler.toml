@@ -1,9 +1,10 @@
 name = "iphone-store"
 compatibility_date = "2026-01-01"
 compatibility_flags = ["nodejs_compat"]
+account_id = "5633796a101a130a965f83be7a863ab1"
 pages_build_output_dir = ".vercel/output/static"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "iphone-store-db"
-database_id = "REPLACE-WITH-YOUR-D1-DATABASE-ID"
+database_id = "ade15ecc-c720-4240-aff9-f345c8d94104"
