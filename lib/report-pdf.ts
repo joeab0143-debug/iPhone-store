@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-// Shared PDF report builder for the "PDF ডাউনলোড" buttons on the Expense,
+// Shared PDF report builder for the "Download PDF" buttons on the Expense,
 // Profit and Stock tabs. Mirrors the visual language of lib/invoice.ts
 // (gold header band, same color palette) but uses a normal A4 page + a
 // jspdf-autotable table instead of the narrow receipt layout, since these

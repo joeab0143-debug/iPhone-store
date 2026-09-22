@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Smartphone,
   Boxes,
@@ -12,6 +13,7 @@ import {
   PackagePlus,
   Settings,
   Languages,
+  ClipboardCheck,
 } from "lucide-react";
 import { useLang } from "@/lib/i18n";
 
@@ -24,6 +26,7 @@ export type TabId =
   | "sell"
   | "outside-sell"
   | "buy"
+  | "approvals"
   | "settings";
 
 // Full-height blue nav rail. Every main section of the app lives here now —
@@ -35,11 +38,35 @@ export type TabId =
 export default function Sidebar({
   tab,
   onChange,
+  role,
 }: {
   tab: TabId;
   onChange: (t: TabId) => void;
+  role?: "admin" | "pos_manager" | "";
 }) {
   const { lang, setLang, t } = useLang();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // The Approvals badge only matters to an admin — a POS Manager never
+  // sees this nav item at all, so there's nothing to poll for them.
+  useEffect(() => {
+    if (role !== "admin") return;
+    let cancelled = false;
+    function loadCount() {
+      fetch("/api/pending-approvals?status=pending")
+        .then((r) => r.json())
+        .then((d: any) => {
+          if (!cancelled) setPendingCount(Array.isArray(d.approvals) ? d.approvals.length : 0);
+        })
+        .catch(() => {});
+    }
+    loadCount();
+    const interval = setInterval(loadCount, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [role, tab]);
 
   const NAV: { id: TabId; label: string; icon: any }[] = [
     { id: "stock", label: t("sidebar.stock"), icon: Boxes },
@@ -89,6 +116,29 @@ export default function Sidebar({
             </button>
           );
         })}
+
+        {/* Admin-only: review/approve or reject what the POS Manager has
+            queued. A POS Manager never sees this item. */}
+        {role === "admin" && (
+          <button
+            onClick={() => onChange("approvals")}
+            className={`nav-item flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left sm:px-3 ${
+              tab === "approvals"
+                ? "bg-sidebar-active-bg text-sidebar-active-ink shadow-sm"
+                : "text-sidebar-ink-muted hover:text-white"
+            }`}
+          >
+            <ClipboardCheck size={18} className="shrink-0" />
+            <span className="hidden min-w-0 flex-1 truncate text-[13px] font-semibold sm:block">
+              {t("sidebar.approvals")}
+            </span>
+            {pendingCount > 0 && (
+              <span className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-due px-1 text-[10px] font-bold text-white">
+                {pendingCount}
+              </span>
+            )}
+          </button>
+        )}
       </nav>
 
       {/* Language toggle — EN / বাং, persists via localStorage */}

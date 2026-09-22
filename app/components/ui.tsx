@@ -79,8 +79,11 @@ export function Sheet({
   const { t } = useLang();
   const sheetResetLabel = t("common.reset_form");
   if (!open) return null;
+  // Full-width, no card chrome (no max-width cap, rounded corners, border,
+  // or shadow) -- fills the same space as any other tab (Stock, Gadgets,
+  // etc.), matching the doc comment above: this is a page, not a popup.
   return (
-    <div className="w-full max-w-3xl rounded-3xl bg-surface border border-border shadow-sm p-5 sm:p-6">
+    <div className="w-full pb-24">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="font-display text-lg font-semibold">{title}</h3>
         <button

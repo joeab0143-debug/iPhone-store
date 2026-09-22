@@ -44,7 +44,7 @@ export async function middleware(req: NextRequest) {
   }
 
   if (pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "লগইন করা নেই" }, { status: 401 });
+    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
   }
 
   const loginUrl = new URL("/login", req.url);

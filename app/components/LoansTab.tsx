@@ -80,8 +80,13 @@ export default function LoansTab() {
 
   async function remove(id: number) {
     if (!confirm(t("loans.delete_confirm"))) return;
-    await fetch(`/api/loans/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/loans/${id}`, { method: "DELETE" });
+    const d: any = await res.json().catch(() => ({}));
     setDetailAccount(null);
+    if (d.pending) {
+      window.alert(t("approvals.pending_submitted_message"));
+      return;
+    }
     emitDashboardRefresh();
     load();
   }

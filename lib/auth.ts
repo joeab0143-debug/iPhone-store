@@ -79,3 +79,48 @@ export function newSessionToken(): string {
 
 export const SESSION_COOKIE = "pf_session";
 export const SESSION_DAYS = 30;
+
+// --- Roles: admin (the single app_credentials row, always present) and an
+// optional POS Manager (pos_manager_credentials, zero-or-one row, created
+// from Settings). A session's `role` column (see migration 0019) says which
+// account logged in, so every route can branch without a second lookup.
+
+export type UserRole = "admin" | "pos_manager";
+
+export interface SessionUser {
+  role: UserRole;
+  username: string;
+}
+
+// Resolves the logged-in user (role + username) for the current session
+// token, or null if there's no valid session. Every route that needs to
+// know who's calling -- to gate a mutation, or to show "who's logged in" --
+// should go through this instead of re-querying app_sessions by hand.
+export async function getSessionUser(
+  db: import("@cloudflare/workers-types").D1Database,
+  token: string | undefined
+): Promise<SessionUser | null> {
+  if (!token) return null;
+
+  const session = await db
+    .prepare(
+      "SELECT role FROM app_sessions WHERE token = ? AND expires_at > datetime('now','localtime')"
+    )
+    .bind(token)
+    .first<{ role: string }>();
+  if (!session) return null;
+
+  const role: UserRole = session.role === "pos_manager" ? "pos_manager" : "admin";
+
+  if (role === "pos_manager") {
+    const cred = await db
+      .prepare("SELECT username FROM pos_manager_credentials WHERE id = 1")
+      .first<{ username: string }>();
+    return { role, username: cred?.username || "pos_manager" };
+  }
+
+  const cred = await db
+    .prepare("SELECT username FROM app_credentials WHERE id = 1")
+    .first<{ username: string }>();
+  return { role, username: cred?.username || "admin" };
+}

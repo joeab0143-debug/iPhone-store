@@ -11,10 +11,10 @@ export function compressImageFile(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error("ছবি পড়া যায়নি"));
+    reader.onerror = () => reject(new Error("Could not read image"));
     reader.onload = () => {
       const img = new Image();
-      img.onerror = () => reject(new Error("ছবি লোড করা যায়নি"));
+      img.onerror = () => reject(new Error("Could not load image"));
       img.onload = () => {
         let { width, height } = img;
         if (width > maxDim || height > maxDim) {
@@ -31,7 +31,7 @@ export function compressImageFile(
         canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-          reject(new Error("canvas সাপোর্ট নেই"));
+          reject(new Error("canvas not supported"));
           return;
         }
         ctx.drawImage(img, 0, 0, width, height);

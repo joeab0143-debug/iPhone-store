@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { computeCashParts, getCashAdjustment, setCashAdjustment } from "@/lib/cash";
+import { getDB } from "@/lib/db";
+import { getSessionUser, SESSION_COOKIE } from "@/lib/auth";
 
 export const runtime = "edge";
 
@@ -18,7 +20,16 @@ export async function GET() {
   return NextResponse.json({ current_total_cash: cashIn - cashOut + adjustment });
 }
 
+// Directly overrides the cash total, bypassing every record -- too
+// sensitive to queue for approval, so it is simply not available to a POS
+// Manager at all (admin-only), unlike Edit/Delete/Buy elsewhere in the app.
 export async function PATCH(req: NextRequest) {
+  const db = getDB();
+  const user = await getSessionUser(db, req.cookies.get(SESSION_COOKIE)?.value);
+  if (!user || user.role !== "admin") {
+    return NextResponse.json({ error: "Admin only" }, { status: 403 });
+  }
+
   const body: any = await req.json().catch(() => ({}));
   const newTotalCash = Number(body.new_total_cash);
 

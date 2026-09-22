@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDB } from "@/lib/db";
+import { getSessionUser, SESSION_COOKIE } from "@/lib/auth";
+import { queueApproval } from "@/lib/approvals";
+import { applyLoanAccountDelete } from "@/lib/approvalActions";
 
 export const runtime = "edge";
 
-// Full detail for one loan account — its totals plus the complete
+// Full detail for one loan account -- its totals plus the complete
 // chronological history of every amount taken/given and every repayment.
 // Powers the "View Details" drill-down in the Loans tab.
 export async function GET(
@@ -41,7 +44,7 @@ export async function GET(
   return NextResponse.json({ account, entries });
 }
 
-// Deletes the whole account and its entire history — used when a loan was
+// Deletes the whole account and its entire history -- used when a loan was
 // entered by mistake, not for settling one (settling is just a repay entry
 // for the full remaining amount, via /api/loan-payments).
 export async function DELETE(
@@ -49,7 +52,35 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   const db = getDB();
-  await db.prepare("DELETE FROM loan_entries WHERE account_id = ?").bind(params.id).run();
-  await db.prepare("DELETE FROM loan_accounts WHERE id = ?").bind(params.id).run();
+  const user = await getSessionUser(db, req.cookies.get(SESSION_COOKIE)?.value);
+  if (!user) {
+    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+  }
+
+  if (user.role === "pos_manager") {
+    const current = await db
+      .prepare("SELECT direction, person_name FROM loan_accounts WHERE id = ?")
+      .bind(params.id)
+      .first<{ direction: string; person_name: string }>();
+    if (!current) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    const id = await queueApproval(db, {
+      actionType: "delete",
+      resourceType: "loan_account",
+      resourceId: params.id,
+      resourceLabel: `${current.person_name} (${current.direction})`,
+      requestedBy: user.username,
+    });
+    return NextResponse.json(
+      { pending: true, approvalId: id, message: "Submitted for admin approval" },
+      { status: 202 }
+    );
+  }
+
+  const result = await applyLoanAccountDelete(db, params.id);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
+  }
   return NextResponse.json({ ok: true });
 }

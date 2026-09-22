@@ -235,9 +235,15 @@ export default function StockTab() {
     setReturningId(phone.id);
     const delRes = await fetch(`/api/sales/${sale.id}`, { method: "DELETE" });
     setReturningId(null);
+    const delData: any = await delRes.json().catch(() => ({}));
     if (!delRes.ok) {
       previewWin?.close();
-      setError(t("stock.return_failed"));
+      setError(delData.error || t("stock.return_failed"));
+      return;
+    }
+    if (delData.pending) {
+      previewWin?.close();
+      window.alert(t("approvals.pending_submitted_message"));
       return;
     }
     emitDashboardRefresh();
@@ -281,8 +287,13 @@ export default function StockTab() {
     setDeletingId(phone.id);
     const res = await fetch(`/api/stock/${phone.id}`, { method: "DELETE" });
     setDeletingId(null);
+    const d: any = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(t("stock.delete_failed"));
+      setError(d.error || t("stock.delete_failed"));
+      return;
+    }
+    if (d.pending) {
+      window.alert(t("approvals.pending_submitted_message"));
       return;
     }
     emitDashboardRefresh();
@@ -967,9 +978,14 @@ function EditPhoneSheet({
       }),
     });
     setSaving(false);
+    const d: any = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const d: any = await res.json().catch(() => ({}));
       setError(d.error || t("stock.save_failed"));
+      return;
+    }
+    if (d.pending) {
+      window.alert(t("approvals.pending_submitted_message"));
+      onClose();
       return;
     }
     onSaved();

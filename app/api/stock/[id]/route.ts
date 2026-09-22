@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDB } from "@/lib/db";
+import { getSessionUser, SESSION_COOKIE } from "@/lib/auth";
+import { queueApproval } from "@/lib/approvals";
+import { applyPhoneEdit, applyPhoneDelete } from "@/lib/approvalActions";
 
 export const runtime = "edge";
 
@@ -26,67 +29,51 @@ export async function GET(
 }
 
 // Lets the user correct any of a stock phone's own details after it's
-// already been bought — a typo in the model/IMEI, a wrong RAM/ROM or Buy
+// already been bought -- a typo in the model/IMEI, a wrong RAM/ROM or Buy
 // Price, etc. Every field is optional (COALESCE keeps whatever isn't
 // sent), so a partial edit only touches what actually changed.
+//
+// A POS Manager's edit doesn't apply here -- it's queued in
+// pending_approvals instead, and only takes effect once an admin approves
+// it from the Approvals tab.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const db = getDB();
-  const body: any = await req.json();
-  const {
-    name_model,
-    imei,
-    buy_price,
-    buy_date,
-    ram_rom,
-    battery_health,
-    bought_from,
-    phone_number,
-    nid,
-  } = body;
-
-  try {
-    await db
-      .prepare(
-        `UPDATE phones SET
-          name_model = COALESCE(?, name_model),
-          imei = COALESCE(?, imei),
-          buy_price = COALESCE(?, buy_price),
-          buy_date = COALESCE(?, buy_date),
-          ram_rom = COALESCE(?, ram_rom),
-          battery_health = COALESCE(?, battery_health),
-          bought_from = COALESCE(?, bought_from),
-          phone_number = COALESCE(?, phone_number),
-          nid = COALESCE(?, nid)
-         WHERE id = ?`
-      )
-      .bind(
-        name_model ?? null,
-        imei ?? null,
-        buy_price ?? null,
-        buy_date ?? null,
-        ram_rom ?? null,
-        battery_health ?? null,
-        bought_from ?? null,
-        phone_number ?? null,
-        nid ?? null,
-        params.id
-      )
-      .run();
-  } catch (e: any) {
-    // Same partial-unique-index rule as adding a new phone: no two
-    // currently-unsold rows may share an IMEI.
-    if (String(e.message || e).includes("UNIQUE")) {
-      return NextResponse.json(
-        { error: "Another phone with this IMEI is already in stock (Unsold)" },
-        { status: 409 }
-      );
-    }
-    return NextResponse.json({ error: "Could not save" }, { status: 500 });
+  const user = await getSessionUser(db, req.cookies.get(SESSION_COOKIE)?.value);
+  if (!user) {
+    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
   }
 
+  const body: any = await req.json();
+
+  if (user.role === "pos_manager") {
+    const current = await db
+      .prepare("SELECT name_model, imei FROM phones WHERE id = ?")
+      .bind(params.id)
+      .first<{ name_model: string; imei: string }>();
+    if (!current) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    const id = await queueApproval(db, {
+      actionType: "edit",
+      resourceType: "phone",
+      resourceId: params.id,
+      resourceLabel: `${body.name_model || current.name_model} (IMEI: ${body.imei || current.imei})`,
+      payload: body,
+      requestedBy: user.username,
+    });
+    return NextResponse.json(
+      { pending: true, approvalId: id, message: "Submitted for admin approval" },
+      { status: 202 }
+    );
+  }
+
+  const result = await applyPhoneEdit(db, params.id, body);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
+  }
   return NextResponse.json({ ok: true });
 }
 
@@ -95,6 +82,35 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   const db = getDB();
-  await db.prepare("DELETE FROM phones WHERE id = ?").bind(params.id).run();
+  const user = await getSessionUser(db, req.cookies.get(SESSION_COOKIE)?.value);
+  if (!user) {
+    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+  }
+
+  if (user.role === "pos_manager") {
+    const current = await db
+      .prepare("SELECT name_model, imei FROM phones WHERE id = ?")
+      .bind(params.id)
+      .first<{ name_model: string; imei: string }>();
+    if (!current) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    const id = await queueApproval(db, {
+      actionType: "delete",
+      resourceType: "phone",
+      resourceId: params.id,
+      resourceLabel: `${current.name_model} (IMEI: ${current.imei})`,
+      requestedBy: user.username,
+    });
+    return NextResponse.json(
+      { pending: true, approvalId: id, message: "Submitted for admin approval" },
+      { status: 202 }
+    );
+  }
+
+  const result = await applyPhoneDelete(db, params.id);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
+  }
   return NextResponse.json({ ok: true });
 }

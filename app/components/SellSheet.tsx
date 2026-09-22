@@ -143,7 +143,7 @@ export default function SellSheet({
       const addRes = await fetch("/api/stock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name_model: form.model, imei: form.imei, buy_price: 0 }),
+        body: JSON.stringify({ name_model: form.model, imei: form.imei, buy_price: 0, auto_create: true }),
       });
       const addData: any = await addRes.json().catch(() => ({}));
       if (!addRes.ok) {

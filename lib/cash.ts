@@ -2,7 +2,7 @@ import { getDB } from "@/lib/db";
 
 // Shared by /api/dashboard and /api/cash-adjustment so both always agree on
 // what "Total Cash" is built from. Everything here is all-time and never
-// resets (unlike "প্রফিট এ পর্যন্ত", which is month-scoped).
+// resets (unlike "Profit (So Far)", which is month-scoped).
 //
 // Total Cash = cashIn - cashOut + the manual adjustment (see
 // getCashAdjustment/setCashAdjustment below and migrations/0013+).

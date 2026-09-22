@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDB } from "@/lib/db";
+import { getSessionUser, SESSION_COOKIE } from "@/lib/auth";
+import { queueApproval } from "@/lib/approvals";
+import { applyOutsideDealEdit, applyOutsideDealDelete } from "@/lib/approvalActions";
 
 export const runtime = "edge";
 
@@ -11,80 +14,40 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   const db = getDB();
+  const user = await getSessionUser(db, req.cookies.get(SESSION_COOKIE)?.value);
+  if (!user) {
+    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+  }
+
   const body: any = await req.json();
-  const {
-    name,
-    model,
-    imei,
-    ram_rom,
-    bought_from,
-    buy_price,
-    nid,
-    phone_number,
-    sell_price,
-    profit,
-    deal_date,
-    status,
-    customer_name,
-    customer_phone,
-    sell_date,
-  } = body;
 
   const current = await db
-    .prepare("SELECT buy_price FROM outside_deals WHERE id = ?")
+    .prepare("SELECT name, model, imei FROM outside_deals WHERE id = ?")
     .bind(params.id)
-    .first<{ buy_price: number }>();
-
+    .first<{ name: string; model: string; imei: string }>();
   if (!current) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const effectiveBuyPrice = buy_price ?? current.buy_price;
-  const computedProfit =
-    sell_price !== undefined && sell_price !== null && sell_price !== ""
-      ? Number(sell_price) - Number(effectiveBuyPrice || 0)
-      : profit;
+  if (user.role === "pos_manager") {
+    const id = await queueApproval(db, {
+      actionType: "edit",
+      resourceType: "outside_deal",
+      resourceId: params.id,
+      resourceLabel: `${body.model || current.model || current.name} (IMEI: ${body.imei || current.imei})`,
+      payload: body,
+      requestedBy: user.username,
+    });
+    return NextResponse.json(
+      { pending: true, approvalId: id, message: "Submitted for admin approval" },
+      { status: 202 }
+    );
+  }
 
-  await db
-    .prepare(
-      `UPDATE outside_deals SET
-        name = COALESCE(?, name),
-        model = COALESCE(?, model),
-        imei = COALESCE(?, imei),
-        ram_rom = COALESCE(?, ram_rom),
-        bought_from = COALESCE(?, bought_from),
-        buy_price = COALESCE(?, buy_price),
-        nid = COALESCE(?, nid),
-        phone_number = COALESCE(?, phone_number),
-        sell_price = COALESCE(?, sell_price),
-        profit = COALESCE(?, profit),
-        status = COALESCE(?, status),
-        customer_name = COALESCE(?, customer_name),
-        customer_phone = COALESCE(?, customer_phone),
-        sell_date = COALESCE(?, sell_date),
-        deal_date = COALESCE(?, deal_date)
-       WHERE id = ?`
-    )
-    .bind(
-      name ?? null,
-      model ?? null,
-      imei ?? null,
-      ram_rom ?? null,
-      bought_from ?? null,
-      buy_price ?? null,
-      nid ?? null,
-      phone_number ?? null,
-      sell_price ?? null,
-      computedProfit ?? null,
-      status ?? null,
-      customer_name ?? null,
-      customer_phone ?? null,
-      sell_date ?? null,
-      deal_date ?? null,
-      params.id
-    )
-    .run();
-
+  const result = await applyOutsideDealEdit(db, params.id, body);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
+  }
   return NextResponse.json({ ok: true });
 }
 
@@ -93,6 +56,35 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   const db = getDB();
-  await db.prepare("DELETE FROM outside_deals WHERE id = ?").bind(params.id).run();
+  const user = await getSessionUser(db, req.cookies.get(SESSION_COOKIE)?.value);
+  if (!user) {
+    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+  }
+
+  if (user.role === "pos_manager") {
+    const current = await db
+      .prepare("SELECT name, model, imei FROM outside_deals WHERE id = ?")
+      .bind(params.id)
+      .first<{ name: string; model: string; imei: string }>();
+    if (!current) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    const id = await queueApproval(db, {
+      actionType: "delete",
+      resourceType: "outside_deal",
+      resourceId: params.id,
+      resourceLabel: `${current.model || current.name} (IMEI: ${current.imei})`,
+      requestedBy: user.username,
+    });
+    return NextResponse.json(
+      { pending: true, approvalId: id, message: "Submitted for admin approval" },
+      { status: 202 }
+    );
+  }
+
+  const result = await applyOutsideDealDelete(db, params.id);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
+  }
   return NextResponse.json({ ok: true });
 }

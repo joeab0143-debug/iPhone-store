@@ -13,21 +13,26 @@ import SellSheet from "./components/SellSheet";
 import OutsideSellSheet from "./components/OutsideSellSheet";
 import BuySheet from "./components/BuySheet";
 import SettingsSheet from "./components/SettingsSheet";
+import ApprovalsTab from "./components/ApprovalsTab";
 
 export default function Home() {
   const [tab, setTab] = useState<TabId>("stock");
   const [username, setUsername] = useState("");
+  const [role, setRole] = useState<"admin" | "pos_manager" | "">("");
 
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
-      .then((d: any) => setUsername(d.username || ""))
+      .then((d: any) => {
+        setUsername(d.username || "");
+        setRole(d.role || "");
+      })
       .catch(() => {});
   }, []);
 
   return (
     <div className="min-h-dvh w-full">
-      <Sidebar tab={tab} onChange={setTab} />
+      <Sidebar tab={tab} onChange={setTab} role={role} />
 
       <main className="min-w-0 ml-[68px] sm:ml-[212px] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 lg:px-8">
         <div className="mx-auto w-full max-w-[1600px]">
@@ -47,8 +52,9 @@ export default function Home() {
               <OutsideSellSheet open onClose={() => {}} />
             )}
             {tab === "buy" && <BuySheet open onClose={() => {}} />}
+            {tab === "approvals" && role === "admin" && <ApprovalsTab />}
             {tab === "settings" && (
-              <SettingsSheet open onClose={() => {}} username={username} />
+              <SettingsSheet open onClose={() => {}} username={username} role={role} />
             )}
           </div>
         </div>

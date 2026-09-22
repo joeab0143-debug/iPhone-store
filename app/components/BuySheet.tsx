@@ -230,9 +230,14 @@ export default function BuySheet({
       }),
     });
     setSaving(false);
+    const d: any = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const d: any = await res.json().catch(() => ({}));
       setError(d.error || t("common.save_could_not"));
+      return;
+    }
+    if (d.pending) {
+      window.alert(t("approvals.pending_submitted_message"));
+      handleClose();
       return;
     }
     emitDashboardRefresh();

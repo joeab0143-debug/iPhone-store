@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Wallet } from "lucide-react";
+import { LogOut, Wallet, UserCog } from "lucide-react";
 import { Button, Field, Sheet, inputClass, money } from "./ui";
 import { emitDashboardRefresh } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
@@ -11,10 +11,12 @@ export default function SettingsSheet({
   open,
   onClose,
   username,
+  role,
 }: {
   open: boolean;
   onClose: () => void;
   username: string;
+  role?: "admin" | "pos_manager" | "";
 }) {
   const router = useRouter();
   const { t } = useLang();
@@ -33,15 +35,35 @@ export default function SettingsSheet({
   const [cashError, setCashError] = useState("");
   const [cashSuccess, setCashSuccess] = useState("");
 
+  // POS Manager account (admin-only section) — whoever the shop owner
+  // hands day-to-day POS access to, with Edit/Delete/Buy gated behind the
+  // admin's approval (see the Approvals tab).
+  const [posManagerUsername, setPosManagerUsername] = useState<string | null>(null);
+  const [posFormUsername, setPosFormUsername] = useState("");
+  const [posFormPassword, setPosFormPassword] = useState("");
+  const [posSaving, setPosSaving] = useState(false);
+  const [posError, setPosError] = useState("");
+  const [posSuccess, setPosSuccess] = useState("");
+
+  const isAdmin = role === "admin";
+
   // Fetch the live Total Cash every time the sheet opens, so it's never
   // showing a stale number by the time someone goes to correct it.
   useEffect(() => {
-    if (!open) return;
+    if (!open || !isAdmin) return;
     fetch("/api/cash-adjustment")
       .then((r) => r.json())
       .then((d: any) => setCurrentCash(typeof d.current_total_cash === "number" ? d.current_total_cash : null))
       .catch(() => {});
-  }, [open]);
+  }, [open, isAdmin]);
+
+  useEffect(() => {
+    if (!open || !isAdmin) return;
+    fetch("/api/pos-manager")
+      .then((r) => r.json())
+      .then((d: any) => setPosManagerUsername(d.exists ? d.username : null))
+      .catch(() => {});
+  }, [open, isAdmin]);
 
   function reset() {
     setCurrentPassword("");
@@ -53,6 +75,10 @@ export default function SettingsSheet({
     setNewCash("");
     setCashError("");
     setCashSuccess("");
+    setPosFormUsername("");
+    setPosFormPassword("");
+    setPosError("");
+    setPosSuccess("");
   }
 
   function handleClose() {
@@ -90,6 +116,46 @@ export default function SettingsSheet({
     setNewCash("");
     setCashSuccess(t("settings.cash_updated"));
     emitDashboardRefresh();
+  }
+
+  async function saveposManager() {
+    setPosError("");
+    setPosSuccess("");
+    if (!posFormUsername.trim() || !posFormPassword) {
+      setPosError(t("settings.pos_manager_username_password_required"));
+      return;
+    }
+    setPosSaving(true);
+    const res = await fetch("/api/pos-manager", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: posFormUsername.trim(), password: posFormPassword }),
+    });
+    setPosSaving(false);
+    const d: any = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setPosError(d.error || t("common.save_could_not"));
+      return;
+    }
+    setPosManagerUsername(d.username);
+    setPosFormUsername("");
+    setPosFormPassword("");
+    setPosSuccess(t("settings.pos_manager_saved"));
+  }
+
+  async function removePosManager() {
+    if (!window.confirm(t("settings.pos_manager_remove_confirm"))) return;
+    setPosSaving(true);
+    setPosError("");
+    setPosSuccess("");
+    const res = await fetch("/api/pos-manager", { method: "DELETE" });
+    setPosSaving(false);
+    if (!res.ok) {
+      setPosError(t("common.save_could_not"));
+      return;
+    }
+    setPosManagerUsername(null);
+    setPosSuccess(t("settings.pos_manager_removed"));
   }
 
   async function submit() {
@@ -145,33 +211,80 @@ export default function SettingsSheet({
           <p className="font-medium">{username}</p>
         </div>
 
-        <div className="space-y-3 border-t border-border-soft pt-4">
-          <p className="flex items-center gap-1.5 text-sm font-semibold">
-            <Wallet size={15} /> {t("settings.fix_cash_heading")}
-          </p>
-          <div className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5">
-            <p className="text-xs text-ink-faint">{t("settings.current_total_cash")}</p>
-            <p className="tabular font-medium">
-              ৳{currentCash !== null ? money(currentCash) : "..."}
+        {isAdmin && (
+          <div className="space-y-3 border-t border-border-soft pt-4">
+            <p className="flex items-center gap-1.5 text-sm font-semibold">
+              <Wallet size={15} /> {t("settings.fix_cash_heading")}
             </p>
+            <div className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5">
+              <p className="text-xs text-ink-faint">{t("settings.current_total_cash")}</p>
+              <p className="tabular font-medium">
+                ৳{currentCash !== null ? money(currentCash) : "..."}
+              </p>
+            </div>
+            <Field label={t("settings.new_total_cash_label")}>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={newCash}
+                onChange={(e) => setNewCash(e.target.value)}
+                placeholder="0"
+                className={inputClass}
+              />
+            </Field>
+            {cashError && <p className="text-sm text-down">{cashError}</p>}
+            {cashSuccess && <p className="text-sm text-up">{cashSuccess}</p>}
+            <Button full variant="secondary" onClick={submitCashFix} disabled={cashSaving}>
+              {cashSaving ? t("settings.cash_saving") : t("settings.cash_fix_button")}
+            </Button>
+            <p className="text-xs text-ink-faint">{t("settings.cash_note")}</p>
           </div>
-          <Field label={t("settings.new_total_cash_label")}>
-            <input
-              type="number"
-              inputMode="decimal"
-              value={newCash}
-              onChange={(e) => setNewCash(e.target.value)}
-              placeholder="0"
-              className={inputClass}
-            />
-          </Field>
-          {cashError && <p className="text-sm text-down">{cashError}</p>}
-          {cashSuccess && <p className="text-sm text-up">{cashSuccess}</p>}
-          <Button full variant="secondary" onClick={submitCashFix} disabled={cashSaving}>
-            {cashSaving ? t("settings.cash_saving") : t("settings.cash_fix_button")}
-          </Button>
-          <p className="text-xs text-ink-faint">{t("settings.cash_note")}</p>
-        </div>
+        )}
+
+        {isAdmin && (
+          <div className="space-y-3 border-t border-border-soft pt-4">
+            <p className="flex items-center gap-1.5 text-sm font-semibold">
+              <UserCog size={15} /> {t("settings.pos_manager_heading")}
+            </p>
+            <p className="text-xs text-ink-faint">{t("settings.pos_manager_description")}</p>
+            <div className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5">
+              <p className="text-xs text-ink-faint">
+                {posManagerUsername
+                  ? t("settings.pos_manager_exists_label")
+                  : t("settings.pos_manager_none")}
+              </p>
+              {posManagerUsername && <p className="font-medium">{posManagerUsername}</p>}
+            </div>
+            <Field label={t("settings.pos_manager_username_label")}>
+              <input
+                value={posFormUsername}
+                onChange={(e) => setPosFormUsername(e.target.value)}
+                placeholder={posManagerUsername || ""}
+                autoComplete="off"
+                className={inputClass}
+              />
+            </Field>
+            <Field label={t("settings.pos_manager_password_label")}>
+              <input
+                type="password"
+                value={posFormPassword}
+                onChange={(e) => setPosFormPassword(e.target.value)}
+                autoComplete="new-password"
+                className={inputClass}
+              />
+            </Field>
+            {posError && <p className="text-sm text-down">{posError}</p>}
+            {posSuccess && <p className="text-sm text-up">{posSuccess}</p>}
+            <Button full variant="secondary" onClick={saveposManager} disabled={posSaving}>
+              {t("settings.pos_manager_save_button")}
+            </Button>
+            {posManagerUsername && (
+              <Button full variant="danger" onClick={removePosManager} disabled={posSaving}>
+                {t("settings.pos_manager_remove_button")}
+              </Button>
+            )}
+          </div>
+        )}
 
         <div className="space-y-3 border-t border-border-soft pt-4">
           <p className="text-sm font-semibold">{t("settings.change_credentials_heading")}</p>

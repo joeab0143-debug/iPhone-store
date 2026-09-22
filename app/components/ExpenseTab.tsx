@@ -87,7 +87,12 @@ export default function ExpenseTab() {
 
   async function deleteCategory(id: number) {
     if (!confirm(t("expense.delete_category_confirm"))) return;
-    await fetch(`/api/expense-categories/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/expense-categories/${id}`, { method: "DELETE" });
+    const d: any = await res.json().catch(() => ({}));
+    if (d.pending) {
+      window.alert(t("approvals.pending_submitted_message"));
+      return;
+    }
     load();
   }
 
@@ -120,7 +125,12 @@ export default function ExpenseTab() {
   }
 
   async function deleteExpense(id: number) {
-    await fetch(`/api/expenses/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/expenses/${id}`, { method: "DELETE" });
+    const d: any = await res.json().catch(() => ({}));
+    if (d.pending) {
+      window.alert(t("approvals.pending_submitted_message"));
+      return;
+    }
     emitDashboardRefresh();
     load();
   }
