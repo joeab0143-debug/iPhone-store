@@ -2,25 +2,34 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #000000;
-  --bg-elevated: #1c1c1e;
-  --surface: #1c1c1e;
-  --surface-2: #2c2c2e;
-  --border: #38383a;
-  --border-soft: #2c2c2e;
+  --bg: #f4f6fa;
+  --bg-elevated: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #eef1f6;
+  --border: #e1e5ee;
+  --border-soft: #edf0f5;
 
-  --ink: #f5f5f7;
-  --ink-muted: #98989d;
-  --ink-faint: #636366;
+  --ink: #14171f;
+  --ink-muted: #6b7280;
+  --ink-faint: #9aa1ae;
 
   --gold: #0a84ff;
-  --gold-soft: #16233a;
+  --gold-soft: #e7f2ff;
   --teal: #5e5ce6;
-  --teal-soft: #201f42;
+  --teal-soft: #eeecfe;
 
-  --up: #30d158;
-  --down: #ff453a;
-  --due: #ff9f0a;
+  --up: #16a34a;
+  --down: #dc2626;
+  --due: #d97706;
+
+  /* Sidebar — blue theme, white text/icons; the active item flips to a
+     white pill with blue text so it reads clearly against the blue rail. */
+  --sidebar-bg: #0a84ff;
+  --sidebar-bg-2: #0972df;
+  --sidebar-ink: #ffffff;
+  --sidebar-ink-muted: rgba(255, 255, 255, 0.72);
+  --sidebar-active-bg: #ffffff;
+  --sidebar-active-ink: #0a84ff;
 }
 
 @theme inline {
@@ -37,6 +46,12 @@
   --color-up: var(--up);
   --color-down: var(--down);
   --color-due: var(--due);
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-bg-2: var(--sidebar-bg-2);
+  --color-sidebar-ink: var(--sidebar-ink);
+  --color-sidebar-ink-muted: var(--sidebar-ink-muted);
+  --color-sidebar-active-bg: var(--sidebar-active-bg);
+  --color-sidebar-active-ink: var(--sidebar-active-ink);
   --font-display: "Inter", "Hind Siliguri", sans-serif;
   --font-body: "Hind Siliguri", "Inter", sans-serif;
   --font-num: "JetBrains Mono", monospace;
@@ -47,7 +62,7 @@
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
   /* Mobile browsers (esp. Android Chrome/Samsung Internet) silently bump the
      base text size up/down to "fit the column" when the device rotates —
      this is what makes the whole layout look zoomed in/out after rotating.
@@ -81,10 +96,11 @@ body {
 .phone-card {
   position: relative;
   border-radius: 28px;
-  background: linear-gradient(165deg, var(--surface) 0%, var(--bg-elevated) 100%);
+  background: linear-gradient(165deg, var(--surface) 0%, var(--bg) 100%);
   border: 1px solid var(--border);
   padding: 22px 20px 20px;
   overflow: hidden;
+  box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04), 0 6px 20px rgba(20, 23, 31, 0.05);
 }
 .phone-card::before {
   content: "";
@@ -103,7 +119,7 @@ body {
   inset: 0;
   border-radius: 28px;
   padding: 1px;
-  background: linear-gradient(165deg, rgba(10, 132, 255, 0.22), transparent 40%);
+  background: linear-gradient(165deg, rgba(10, 132, 255, 0.18), transparent 40%);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -116,6 +132,18 @@ body {
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Sidebar nav item — grows slightly on hover and snaps back the instant the
+   pointer leaves; the active item is switched to a solid white pill. */
+.nav-item {
+  transition: transform 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+.nav-item:hover {
+  transform: scale(1.05);
+}
+.nav-item:active {
+  transform: scale(0.98);
 }
 
 @media print {

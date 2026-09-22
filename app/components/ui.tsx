@@ -60,6 +60,10 @@ export function Field({
 export const inputClass =
   "w-full rounded-xl bg-surface-2 border border-border px-3.5 py-2.5 text-ink placeholder:text-ink-faint focus:border-teal outline-none transition tabular";
 
+// Renders as a normal in-page panel (a "tab"), not a popup — the sidebar
+// controls which one is mounted, so there is never an overlay to dismiss.
+// The corner button just resets the form back to blank; it doesn't close
+// or navigate anywhere.
 export function Sheet({
   open,
   onClose,
@@ -73,24 +77,19 @@ export function Sheet({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="relative z-10 w-full sm:max-w-md max-h-[90dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-bg-elevated border border-border p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-display text-lg font-semibold">{title}</h3>
-          <button
-            onClick={onClose}
-            className="rounded-full p-1.5 text-ink-muted hover:bg-surface-2 hover:text-ink"
-            aria-label="বন্ধ করুন"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        {children}
+    <div className="w-full max-w-3xl rounded-3xl bg-surface border border-border shadow-sm p-5 sm:p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-display text-lg font-semibold">{title}</h3>
+        <button
+          onClick={onClose}
+          className="rounded-full p-1.5 text-ink-muted hover:bg-surface-2 hover:text-ink transition"
+          aria-label="ফর্ম রিসেট করুন"
+          title="ফর্ম রিসেট করুন"
+        >
+          <X size={20} />
+        </button>
       </div>
+      {children}
     </div>
   );
 }
