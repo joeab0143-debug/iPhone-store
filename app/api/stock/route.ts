@@ -53,7 +53,22 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const db = getDB();
   const body: any = await req.json();
-  const { name_model, imei, buy_price, buy_date, ram_rom, battery_health, bought_from, phone_number, nid, stock_type } = body;
+  const {
+    name_model,
+    imei,
+    buy_price,
+    buy_date,
+    ram_rom,
+    battery_health,
+    bought_from,
+    phone_number,
+    nid,
+    stock_type,
+    seller_type,
+    nid_front_photo,
+    nid_back_photo,
+    person_photo,
+  } = body;
 
   if (!name_model || !imei || buy_price === undefined) {
     return NextResponse.json(
@@ -67,11 +82,16 @@ export async function POST(req: NextRequest) {
   // Sell sheet's auto-create-on-unknown-IMEI path) are unaffected.
   const stockType = stock_type === "outside" ? "outside" : "regular";
 
+  // "individual" (ব্যক্তিগত ফোন) requires the NID + person photos, captured
+  // and compressed on the client; anything else stays the default supplier
+  // purchase and carries no photos.
+  const sellerType = seller_type === "individual" ? "individual" : "supplier";
+
   try {
     const result = await db
       .prepare(
-        `INSERT INTO phones (name_model, imei, buy_price, buy_date, status, ram_rom, battery_health, bought_from, phone_number, nid, stock_type)
-         VALUES (?, ?, ?, COALESCE(?, datetime('now','localtime')), 'unsold', ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO phones (name_model, imei, buy_price, buy_date, status, ram_rom, battery_health, bought_from, phone_number, nid, stock_type, seller_type, nid_front_photo, nid_back_photo, person_photo)
+         VALUES (?, ?, ?, COALESCE(?, datetime('now','localtime')), 'unsold', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         name_model,
@@ -83,7 +103,11 @@ export async function POST(req: NextRequest) {
         bought_from || null,
         phone_number || null,
         nid || null,
-        stockType
+        stockType,
+        sellerType,
+        sellerType === "individual" ? nid_front_photo || null : null,
+        sellerType === "individual" ? nid_back_photo || null : null,
+        sellerType === "individual" ? person_photo || null : null
       )
       .run();
 

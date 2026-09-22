@@ -31,11 +31,12 @@ export default function Home() {
 
       <main className="min-w-0 ml-[68px] sm:ml-[212px] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 lg:px-8">
         <div className="mx-auto w-full max-w-[1600px]">
-          {/* Dashboard stats — always visible at the top, real-time */}
-          <DashboardStats />
+          {/* Dashboard stats — only on the স্টক (home) tab now, not repeated
+              on every tab */}
+          {tab === "stock" && <DashboardStats />}
 
           {/* Selected sidebar item's panel — rendered inline, never a popup */}
-          <div className="mt-5">
+          <div className={tab === "stock" ? "mt-5" : ""}>
             {tab === "stock" && <StockTab />}
             {tab === "expense" && <ExpenseTab />}
             {tab === "profit" && <ProfitTab />}

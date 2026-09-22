@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ScanLine, Download } from "lucide-react";
+import { ScanLine, Download, Camera } from "lucide-react";
 import { Button, Field, inputClass, Sheet } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
 import { generateReportPDF } from "@/lib/report-pdf";
 import { emitDashboardRefresh } from "@/lib/events";
+import { compressImageFile } from "@/lib/image";
 
 const SHOP_NAME = "iPhone Store";
 
@@ -19,7 +20,83 @@ const EMPTY_FORM = {
   phone_number: "",
   nid: "",
   stock_type: "regular" as "regular" | "outside",
+  seller_type: "supplier" as "supplier" | "individual",
+  nid_front_photo: "",
+  nid_back_photo: "",
+  person_photo: "",
 };
+
+// A single photo capture slot: shows a "ছবি তুলুন" button, opens the
+// device camera (rear camera — this is the shop owner photographing the
+// card/person in front of them), then compresses the shot down before it
+// ever touches state so the DB row stays small. Tap again to retake.
+function PhotoField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (dataUrl: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    try {
+      const dataUrl = await compressImageFile(file);
+      onChange(dataUrl);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Field label={label}>
+      {value ? (
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-2 p-2">
+          <img
+            src={value}
+            alt={label}
+            className="h-16 w-16 shrink-0 rounded-lg object-cover"
+          />
+          <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-center text-xs font-semibold text-teal">
+            <Camera size={14} />
+            {busy ? "প্রসেস হচ্ছে..." : "আবার তুলুন"}
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleFile}
+              disabled={busy}
+            />
+          </label>
+        </div>
+      ) : (
+        <label
+          className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-2 px-3.5 py-3 text-sm font-semibold ${
+            busy ? "text-ink-faint" : "text-teal"
+          }`}
+        >
+          <Camera size={16} />
+          {busy ? "প্রসেস হচ্ছে..." : "ছবি তুলুন"}
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleFile}
+            disabled={busy}
+          />
+        </label>
+      )}
+    </Field>
+  );
+}
 
 export default function BuySheet({
   open,
@@ -116,6 +193,13 @@ export default function BuySheet({
       setError("Model Number, IMEI, Buy Price ও Buy from whom — এই ঘরগুলো পূরণ করুন");
       return;
     }
+    if (
+      form.seller_type === "individual" &&
+      (!form.nid_front_photo || !form.nid_back_photo || !form.person_photo)
+    ) {
+      setError("ব্যক্তিগত ফোন কিনলে এন আইডি কার্ডের ২ পাশ ও ব্যবহারকারীর ছবি — তিনটাই তুলতে হবে");
+      return;
+    }
     setSaving(true);
     // Buy always adds the phone straight into the main stock (phones table)
     // so it shows up in the Stock tab immediately — no separate table for
@@ -135,6 +219,10 @@ export default function BuySheet({
         phone_number: form.phone_number || null,
         nid: form.nid || null,
         stock_type: form.stock_type,
+        seller_type: form.seller_type,
+        nid_front_photo: form.seller_type === "individual" ? form.nid_front_photo : null,
+        nid_back_photo: form.seller_type === "individual" ? form.nid_back_photo : null,
+        person_photo: form.seller_type === "individual" ? form.person_photo : null,
       }),
     });
     setSaving(false);
@@ -205,6 +293,59 @@ export default function BuySheet({
                   : "রেগুলার স্টক নির্বাচন করলে ক্রয়মূল্য টোটাল ক্যাশ থেকে কাটা হবে, আগের মতোই।"}
               </p>
             </Field>
+            <Field label="বিক্রেতার ধরন">
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-surface-2 p-1.5">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, seller_type: "supplier" })}
+                  className={`rounded-lg py-2 text-sm font-semibold transition ${
+                    form.seller_type === "supplier"
+                      ? "bg-gold text-white"
+                      : "text-ink-muted"
+                  }`}
+                >
+                  সাপ্লায়ার
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, seller_type: "individual" })}
+                  className={`rounded-lg py-2 text-sm font-semibold transition ${
+                    form.seller_type === "individual"
+                      ? "bg-gold text-white"
+                      : "text-ink-muted"
+                  }`}
+                >
+                  ব্যক্তিগত ফোন
+                </button>
+              </div>
+              {form.seller_type === "individual" && (
+                <p className="mt-1.5 text-[11px] text-ink-faint">
+                  ব্যক্তির কাছ থেকে সরাসরি কিনলে জবাবদিহিতার জন্য এন আইডি কার্ডের
+                  দুই পাশ ও তার একটা ছবি তুলে রাখা হবে।
+                </p>
+              )}
+            </Field>
+
+            {form.seller_type === "individual" && (
+              <>
+                <PhotoField
+                  label="এন আই ডি কার্ডের ১ম পেজ"
+                  value={form.nid_front_photo}
+                  onChange={(v) => setForm({ ...form, nid_front_photo: v })}
+                />
+                <PhotoField
+                  label="এন আই ডি কার্ডের ২য় পেজ"
+                  value={form.nid_back_photo}
+                  onChange={(v) => setForm({ ...form, nid_back_photo: v })}
+                />
+                <PhotoField
+                  label="ব্যবহারকারীর ছবি"
+                  value={form.person_photo}
+                  onChange={(v) => setForm({ ...form, person_photo: v })}
+                />
+              </>
+            )}
+
             <Field label="Model Number">
               <input
                 value={form.model}
