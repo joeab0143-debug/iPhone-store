@@ -31,7 +31,7 @@ export default function Home() {
 
       <main className="min-w-0 ml-[68px] sm:ml-[212px] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 lg:px-8">
         <div className="mx-auto w-full max-w-[1600px]">
-          {/* Dashboard stats — only on the স্টক (home) tab now, not repeated
+          {/* Dashboard stats — only on the Stock (home) tab now, not repeated
               on every tab */}
           {tab === "stock" && <DashboardStats />}
 

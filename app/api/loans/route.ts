@@ -46,11 +46,11 @@ export async function POST(req: NextRequest) {
   const { direction, person_name, amount, loan_date } = body;
 
   if (direction !== "taken" && direction !== "given") {
-    return NextResponse.json({ error: "সঠিক ধরন দিন" }, { status: 400 });
+    return NextResponse.json({ error: "Select a valid type" }, { status: 400 });
   }
   const name = String(person_name || "").trim();
   if (!name || amount === undefined || Number(amount) <= 0) {
-    return NextResponse.json({ error: "সব ঘর পূরণ করুন" }, { status: 400 });
+    return NextResponse.json({ error: "Fill in all fields" }, { status: 400 });
   }
 
   const existing = await db

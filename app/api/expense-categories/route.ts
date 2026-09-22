@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   const { name, designation } = body;
 
   if (!name) {
-    return NextResponse.json({ error: "নাম আবশ্যক" }, { status: 400 });
+    return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
 
   const result = await db

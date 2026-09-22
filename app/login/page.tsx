@@ -4,10 +4,12 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Lock, Smartphone } from "lucide-react";
 import { Button, Field, inputClass } from "../components/ui";
+import { useLang } from "@/lib/i18n";
 
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const { t } = useLang();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
@@ -17,7 +19,7 @@ function LoginForm() {
     e.preventDefault();
     setError("");
     if (!username || !password) {
-      setError("ইউজার আইডি ও পাসওয়ার্ড দিন");
+      setError(t("login.validation"));
       return;
     }
     setSaving(true);
@@ -29,7 +31,7 @@ function LoginForm() {
     setSaving(false);
     if (!res.ok) {
       const d: any = await res.json().catch(() => ({}));
-      setError(d.error || "লগইন ব্যর্থ হয়েছে");
+      setError(d.error || t("login.failed"));
       return;
     }
     const next = params.get("next") || "/";
@@ -45,11 +47,11 @@ function LoginForm() {
             <Smartphone size={22} />
           </div>
           <h1 className="font-display text-xl font-bold">iPhone Store</h1>
-          <p className="mt-1 text-xs text-ink-faint">লগইন করুন</p>
+          <p className="mt-1 text-xs text-ink-faint">{t("login.heading")}</p>
         </div>
 
         <form onSubmit={submit} className="space-y-3">
-          <Field label="ইউজার আইডি">
+          <Field label={t("login.username_label")}>
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -57,7 +59,7 @@ function LoginForm() {
               className={inputClass}
             />
           </Field>
-          <Field label="পাসওয়ার্ড">
+          <Field label={t("login.password_label")}>
             <input
               type="password"
               value={password}
@@ -69,7 +71,7 @@ function LoginForm() {
           {error && <p className="text-sm text-down">{error}</p>}
           <Button type="submit" full disabled={saving} className="mt-1">
             <Lock size={16} />
-            {saving ? "চেক করা হচ্ছে..." : "লগইন"}
+            {saving ? t("login.checking") : t("login.button")}
           </Button>
         </form>
       </div>

@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   const db = getDB();
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   if (!token) {
-    return NextResponse.json({ error: "লগইন করা নেই" }, { status: 401 });
+    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
   }
 
   const session = await db
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     .bind(token)
     .first();
   if (!session) {
-    return NextResponse.json({ error: "লগইন করা নেই" }, { status: 401 });
+    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
   }
 
   const cred: any = await db

@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   const { username, password } = body;
 
   if (!username || !password) {
-    return NextResponse.json({ error: "ইউজার আইডি ও পাসওয়ার্ড দিন" }, { status: 400 });
+    return NextResponse.json({ error: "Enter user ID and password" }, { status: 400 });
   }
 
   const cred: any = await db
@@ -18,18 +18,18 @@ export async function POST(req: NextRequest) {
     .first();
 
   if (!cred) {
-    return NextResponse.json({ error: "লগইন সেটআপ করা নেই" }, { status: 500 });
+    return NextResponse.json({ error: "Login is not set up" }, { status: 500 });
   }
 
   if (
     String(username).trim().toLowerCase() !== String(cred.username).trim().toLowerCase()
   ) {
-    return NextResponse.json({ error: "ভুল ইউজার আইডি বা পাসওয়ার্ড" }, { status: 401 });
+    return NextResponse.json({ error: "Incorrect user ID or password" }, { status: 401 });
   }
 
   const ok = await verifyPassword(password, cred.password_salt, cred.password_hash);
   if (!ok) {
-    return NextResponse.json({ error: "ভুল ইউজার আইডি বা পাসওয়ার্ড" }, { status: 401 });
+    return NextResponse.json({ error: "Incorrect user ID or password" }, { status: 401 });
   }
 
   const token = newSessionToken();

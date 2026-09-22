@@ -3,7 +3,7 @@ import { getDB } from "@/lib/db";
 
 export const runtime = "edge";
 
-// Also used by the Outside Sell sheet to "close" a purchase: it PATCHes
+// Also used by the Used Phone sheet to "close" a purchase: it PATCHes
 // { sell_price, customer_name, customer_phone, status: "sold", sell_date }
 // onto the outside_deals row that the Buy sheet created earlier.
 export async function PATCH(
@@ -36,7 +36,7 @@ export async function PATCH(
     .first<{ buy_price: number }>();
 
   if (!current) {
-    return NextResponse.json({ error: "পাওয়া যায়নি" }, { status: 404 });
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const effectiveBuyPrice = buy_price ?? current.buy_price;

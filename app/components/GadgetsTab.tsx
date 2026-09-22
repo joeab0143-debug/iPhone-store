@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Trash2, Tag, ChevronRight, Download } from "lucide-react";
 import { Button, Field, inputClass, money, formatDate, Sheet, Badge } from "./ui";
 import { generateReportPDF } from "@/lib/report-pdf";
+import { useLang } from "@/lib/i18n";
 import type { Gadget } from "@/lib/types";
 
 // Gadgets & Accessories — a private buy/sell log for the user's own
@@ -16,6 +17,7 @@ import type { Gadget } from "@/lib/types";
 // own manually-entered sell price — remaining stock shrinks by one each
 // time until it hits zero.
 export default function GadgetsTab() {
+  const { t } = useLang();
   const [gadgets, setGadgets] = useState<Gadget[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -29,9 +31,9 @@ export default function GadgetsTab() {
   const [sellSaving, setSellSaving] = useState(false);
   const [sellError, setSellError] = useState("");
 
-  // "কোন কোন গ্যাজেট মিলে এই সংখ্যাটা তৈরি হলো" — তিনটা সামারি ট্যাইলের
-  // (প্রফিট/ক্রয়/বিক্রি) প্রতিটার জন্য আলাদা ডিটেইল শিট। gadgets state
-  // ইতিমধ্যে সবকিছু ধরে রাখে বলে নতুন কোনো fetch লাগছে না।
+  // Which gadgets make up each number — a separate detail sheet for each
+  // of the three summary tiles (profit/buy/sell). The `gadgets` state
+  // already holds everything, so no extra fetch is needed here.
   const [detailKind, setDetailKind] = useState<"profit" | "buy" | "sell" | null>(null);
 
   function todayLabel() {
@@ -113,7 +115,7 @@ export default function GadgetsTab() {
   async function submit() {
     setError("");
     if (!form.buy_name || !form.buy_price || !form.quantity) {
-      setError("সব ঘর পূরণ করুন");
+      setError(t("gadgets.all_fields_required"));
       return;
     }
     setSaving(true);
@@ -129,7 +131,7 @@ export default function GadgetsTab() {
     setSaving(false);
     if (!res.ok) {
       const d: any = await res.json().catch(() => ({}));
-      setError(d.error || "সেভ করা যায়নি");
+      setError(d.error || t("gadgets.save_failed"));
       return;
     }
     setForm({ buy_name: "", buy_price: "", quantity: "1" });
@@ -138,7 +140,7 @@ export default function GadgetsTab() {
   }
 
   async function deleteGadget(id: number) {
-    if (!confirm("এই এন্ট্রিটি মুছে ফেলবেন?")) return;
+    if (!confirm(t("gadgets.delete_confirm"))) return;
     await fetch(`/api/gadgets/${id}`, { method: "DELETE" });
     load();
   }
@@ -156,15 +158,15 @@ export default function GadgetsTab() {
     const remaining = Number(sellTarget.quantity) - Number(sellTarget.sold_count || 0);
     const qty = Math.floor(Number(sellQty));
     if (!sellPrice || Number(sellPrice) <= 0) {
-      setSellError("সঠিক Sell দাম দিন");
+      setSellError(t("gadgets.invalid_sell_price"));
       return;
     }
     if (!qty || qty < 1) {
-      setSellError("সঠিক Quantity দিন");
+      setSellError(t("gadgets.invalid_quantity"));
       return;
     }
     if (qty > remaining) {
-      setSellError(`স্টকে আছে মাত্র ${remaining}টা — এর বেশি বিক্রি করা যাবে না`);
+      setSellError(t("gadgets.exceeds_stock").replace("{remaining}", String(remaining)));
       return;
     }
     setSellSaving(true);
@@ -176,7 +178,7 @@ export default function GadgetsTab() {
     setSellSaving(false);
     if (!res.ok) {
       const d: any = await res.json().catch(() => ({}));
-      setSellError(d.error || "সেভ করা যায়নি");
+      setSellError(d.error || t("gadgets.save_failed"));
       return;
     }
     setSellTarget(null);
@@ -195,7 +197,7 @@ export default function GadgetsTab() {
         className="mb-4 phone-card w-full text-left transition active:scale-[0.99]"
       >
         <div className="flex items-center justify-between">
-          <p className="text-xs text-ink-muted">Gadgets প্রফিট (শুধু এখানেই দেখা যাবে — মোট প্রফিটে যোগ হয় না)</p>
+          <p className="text-xs text-ink-muted">{t("gadgets.hero_label")}</p>
           <ChevronRight size={16} className="text-ink-faint" />
         </div>
         <p
@@ -213,7 +215,7 @@ export default function GadgetsTab() {
             }}
             className="rounded-xl bg-surface-2 p-2.5 text-left"
           >
-            <p className="text-[11px] text-ink-muted">মোট ক্রয় (Buy)</p>
+            <p className="text-[11px] text-ink-muted">{t("gadgets.total_buy")}</p>
             <p className="tabular font-semibold">৳{money(totalBuy)}</p>
           </div>
           <div
@@ -223,17 +225,17 @@ export default function GadgetsTab() {
             }}
             className="rounded-xl bg-surface-2 p-2.5 text-left"
           >
-            <p className="text-[11px] text-ink-muted">মোট বিক্রি (Sell)</p>
+            <p className="text-[11px] text-ink-muted">{t("gadgets.total_sell")}</p>
             <p className="tabular font-semibold">৳{money(totalSell)}</p>
           </div>
         </div>
       </button>
 
       {loading ? (
-        <p className="text-center text-sm text-ink-muted py-10">লোড হচ্ছে...</p>
+        <p className="text-center text-sm text-ink-muted py-10">{t("gadgets.loading")}</p>
       ) : gadgets.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border py-12 text-center text-ink-muted">
-          কোনো এন্ট্রি নেই — নতুন যোগ করুন
+          {t("gadgets.no_entries")}
         </div>
       ) : (
         <ul className="space-y-2">
@@ -263,7 +265,9 @@ export default function GadgetsTab() {
                 <div className="mt-2.5 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
                     <Badge tone={soldOut ? "default" : "up"}>
-                      স্টকে আছে: {remaining} / {g.quantity}
+                      {t("gadgets.stock_status")
+                        .replace("{remaining}", String(remaining))
+                        .replace("{quantity}", String(g.quantity))}
                     </Badge>
                     {Number(g.sold_count || 0) > 0 && (
                       <span
@@ -293,7 +297,7 @@ export default function GadgetsTab() {
       <button
         onClick={() => setAddOpen(true)}
         className="no-print fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-white shadow-lg shadow-gold/20 active:scale-95"
-        aria-label="নতুন এন্ট্রি যোগ করুন"
+        aria-label={t("gadgets.add_new_aria")}
       >
         <Plus size={26} />
       </button>
@@ -304,11 +308,11 @@ export default function GadgetsTab() {
             <input
               value={form.buy_name}
               onChange={(e) => setForm({ ...form, buy_name: e.target.value })}
-              placeholder="যেমন: Earphone, Charger, Cover"
+              placeholder={t("gadgets.buy_name_placeholder")}
               className={inputClass}
             />
           </Field>
-          <Field label="Buy Price (৳ / প্রতি পিস)">
+          <Field label={t("gadgets.buy_price_label")}>
             <input
               type="number"
               inputMode="decimal"
@@ -331,7 +335,7 @@ export default function GadgetsTab() {
           </Field>
           {error && <p className="text-sm text-down">{error}</p>}
           <Button full onClick={submit} disabled={saving}>
-            {saving ? "সেভ হচ্ছে..." : "যোগ করুন"}
+            {saving ? t("gadgets.saving") : t("gadgets.add_button")}
           </Button>
         </div>
       </Sheet>
@@ -344,10 +348,14 @@ export default function GadgetsTab() {
         {sellTarget && (
           <div className="space-y-3">
             <p className="text-xs text-ink-muted">
-              Buy দাম ছিল ৳{money(sellTarget.buy_price)} / unit · স্টকে আছে{" "}
-              {Number(sellTarget.quantity) - Number(sellTarget.sold_count || 0)}টা
+              {t("gadgets.sell_info")
+                .replace("{price}", money(sellTarget.buy_price))
+                .replace(
+                  "{remaining}",
+                  String(Number(sellTarget.quantity) - Number(sellTarget.sold_count || 0))
+                )}
             </p>
-            <Field label="Sell দাম (৳ / প্রতি পিস)">
+            <Field label={t("gadgets.sell_price_label")}>
               <input
                 type="number"
                 inputMode="decimal"
@@ -358,7 +366,7 @@ export default function GadgetsTab() {
                 className={inputClass}
               />
             </Field>
-            <Field label="কয়টা বিক্রি করছেন (Quantity)">
+            <Field label={t("gadgets.sell_qty_label")}>
               <input
                 type="number"
                 inputMode="numeric"
@@ -372,12 +380,15 @@ export default function GadgetsTab() {
             </Field>
             {sellPrice && sellQty && Number(sellQty) > 1 && (
               <p className="text-xs text-ink-muted">
-                মোট: ৳{money(Number(sellPrice) * Number(sellQty))} ({sellQty}টা × ৳{money(Number(sellPrice))})
+                {t("gadgets.sell_total_summary")
+                  .replace("{total}", money(Number(sellPrice) * Number(sellQty)))
+                  .replace("{qty}", sellQty)
+                  .replace("{price}", money(Number(sellPrice)))}
               </p>
             )}
             {sellError && <p className="text-sm text-down">{sellError}</p>}
             <Button full onClick={confirmSell} disabled={sellSaving}>
-              {sellSaving ? "সেভ হচ্ছে..." : "বিক্রি নিশ্চিত করুন"}
+              {sellSaving ? t("gadgets.saving") : t("gadgets.confirm_sell_button")}
             </Button>
           </div>
         )}
@@ -388,17 +399,17 @@ export default function GadgetsTab() {
         onClose={() => setDetailKind(null)}
         title={
           detailKind === "profit"
-            ? "Gadgets প্রফিটের হিসাব"
+            ? t("gadgets.detail_profit_title")
             : detailKind === "buy"
-            ? "মোট ক্রয়ের (Buy) হিসাব"
-            : "মোট বিক্রির (Sell) হিসাব"
+            ? t("gadgets.detail_buy_title")
+            : t("gadgets.detail_sell_title")
         }
       >
         {detailKind === "profit" && (
           <div className="space-y-3">
             {gadgets.filter((g) => Number(g.sold_count || 0) > 0).length === 0 ? (
               <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-ink-muted">
-                এখনো কোনো গ্যাজেট বিক্রি হয়নি
+                {t("gadgets.no_gadgets_sold")}
               </p>
             ) : (
               <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
@@ -407,7 +418,10 @@ export default function GadgetsTab() {
                   .map((g) => (
                     <div key={g.id} className="flex items-center justify-between gap-3">
                       <p className="text-sm text-ink-muted truncate">
-                        {g.buy_name} <span className="text-ink-faint">({g.sold_count}টি বিক্রি)</span>
+                        {g.buy_name}{" "}
+                        <span className="text-ink-faint">
+                          {t("gadgets.sold_count_suffix").replace("{count}", String(g.sold_count))}
+                        </span>
                       </p>
                       <p className={`tabular text-sm font-semibold shrink-0 ${Number(g.total_profit) >= 0 ? "text-up" : "text-down"}`}>
                         {Number(g.total_profit) >= 0 ? "+" : ""}৳{money(g.total_profit)}
@@ -417,7 +431,7 @@ export default function GadgetsTab() {
               </div>
             )}
             <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">মোট প্রফিট</p>
+              <p className="text-sm font-semibold">{t("gadgets.total_profit_label")}</p>
               <p className={`tabular font-display text-xl font-extrabold ${totalProfit >= 0 ? "text-up" : "text-down"}`}>
                 ৳{money(totalProfit)}
               </p>
@@ -427,7 +441,7 @@ export default function GadgetsTab() {
               onClick={() => downloadGadgetReport("profit")}
               className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-semibold text-teal"
             >
-              <Download size={13} /> PDF ডাউনলোড
+              <Download size={13} /> {t("gadgets.download_pdf")}
             </button>
           </div>
         )}
@@ -436,14 +450,19 @@ export default function GadgetsTab() {
           <div className="space-y-3">
             {gadgets.length === 0 ? (
               <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-ink-muted">
-                এখনো কোনো গ্যাজেট কেনা হয়নি
+                {t("gadgets.no_gadgets_bought")}
               </p>
             ) : (
               <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
                 {gadgets.map((g) => (
                   <div key={g.id} className="flex items-center justify-between gap-3">
                     <p className="text-sm text-ink-muted truncate">
-                      {g.buy_name} <span className="text-ink-faint">({g.quantity}টি × ৳{money(g.buy_price)})</span>
+                      {g.buy_name}{" "}
+                      <span className="text-ink-faint">
+                        {t("gadgets.qty_times_price_suffix")
+                          .replace("{qty}", String(g.quantity))
+                          .replace("{price}", money(g.buy_price))}
+                      </span>
                     </p>
                     <p className="tabular text-sm font-semibold shrink-0 text-down">
                       −৳{money(Number(g.buy_price) * Number(g.quantity))}
@@ -453,7 +472,7 @@ export default function GadgetsTab() {
               </div>
             )}
             <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">মোট ক্রয়</p>
+              <p className="text-sm font-semibold">{t("gadgets.total_buy_label")}</p>
               <p className="tabular font-display text-xl font-extrabold text-down">৳{money(totalBuy)}</p>
             </div>
             <button
@@ -461,7 +480,7 @@ export default function GadgetsTab() {
               onClick={() => downloadGadgetReport("buy")}
               className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-semibold text-teal"
             >
-              <Download size={13} /> PDF ডাউনলোড
+              <Download size={13} /> {t("gadgets.download_pdf")}
             </button>
           </div>
         )}
@@ -470,7 +489,7 @@ export default function GadgetsTab() {
           <div className="space-y-3">
             {gadgets.filter((g) => Number(g.total_sell || 0) > 0).length === 0 ? (
               <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-ink-muted">
-                এখনো কোনো গ্যাজেট বিক্রি হয়নি
+                {t("gadgets.no_gadgets_sold")}
               </p>
             ) : (
               <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
@@ -479,7 +498,10 @@ export default function GadgetsTab() {
                   .map((g) => (
                     <div key={g.id} className="flex items-center justify-between gap-3">
                       <p className="text-sm text-ink-muted truncate">
-                        {g.buy_name} <span className="text-ink-faint">({g.sold_count}টি বিক্রি)</span>
+                        {g.buy_name}{" "}
+                        <span className="text-ink-faint">
+                          {t("gadgets.sold_count_suffix").replace("{count}", String(g.sold_count))}
+                        </span>
                       </p>
                       <p className="tabular text-sm font-semibold shrink-0 text-up">+৳{money(g.total_sell)}</p>
                     </div>
@@ -487,7 +509,7 @@ export default function GadgetsTab() {
               </div>
             )}
             <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">মোট বিক্রি</p>
+              <p className="text-sm font-semibold">{t("gadgets.total_sell_label")}</p>
               <p className="tabular font-display text-xl font-extrabold text-up">৳{money(totalSell)}</p>
             </div>
             <button
@@ -495,7 +517,7 @@ export default function GadgetsTab() {
               onClick={() => downloadGadgetReport("sell")}
               className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-semibold text-teal"
             >
-              <Download size={13} /> PDF ডাউনলোড
+              <Download size={13} /> {t("gadgets.download_pdf")}
             </button>
           </div>
         )}

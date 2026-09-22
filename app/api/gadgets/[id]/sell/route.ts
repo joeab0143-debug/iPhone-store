@@ -17,10 +17,10 @@ export async function POST(
   const quantity = Math.floor(Number(body.quantity ?? 1));
 
   if (!sellPrice || sellPrice <= 0) {
-    return NextResponse.json({ error: "সঠিক Sell দাম দিন" }, { status: 400 });
+    return NextResponse.json({ error: "Enter a valid Sell price" }, { status: 400 });
   }
   if (!quantity || quantity < 1) {
-    return NextResponse.json({ error: "সঠিক Quantity দিন" }, { status: 400 });
+    return NextResponse.json({ error: "Enter a valid Quantity" }, { status: 400 });
   }
 
   const gadget = await db
@@ -35,16 +35,16 @@ export async function POST(
     .first<{ id: number; buy_price: number; quantity: number; sold_count: number }>();
 
   if (!gadget) {
-    return NextResponse.json({ error: "এন্ট্রি পাওয়া যায়নি" }, { status: 404 });
+    return NextResponse.json({ error: "Entry not found" }, { status: 404 });
   }
 
   const remaining = gadget.quantity - gadget.sold_count;
   if (remaining <= 0) {
-    return NextResponse.json({ error: "স্টক শেষ — বিক্রি করার মতো কিছু নেই" }, { status: 409 });
+    return NextResponse.json({ error: "Out of stock — nothing to sell" }, { status: 409 });
   }
   if (quantity > remaining) {
     return NextResponse.json(
-      { error: `স্টকে আছে মাত্র ${remaining}টা — এর বেশি বিক্রি করা যাবে না` },
+      { error: `Only ${remaining} left in stock — cannot sell more than that` },
       { status: 409 }
     );
   }

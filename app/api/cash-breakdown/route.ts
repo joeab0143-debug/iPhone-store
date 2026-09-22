@@ -4,7 +4,7 @@ import { computeCashParts, getCashAdjustment } from "@/lib/cash";
 
 export const runtime = "edge";
 
-// Read-only, all-time breakdown of exactly what makes up "টোটাল ক্যাশ" —
+// Read-only, all-time breakdown of exactly what makes up "Total Cash" —
 // backs the clickable detail view under that dashboard tile. Uses the same
 // computeCashParts()/getCashAdjustment() helpers as /api/dashboard and
 // /api/cash-adjustment, so these numbers can never disagree with the

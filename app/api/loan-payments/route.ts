@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   const { account_id, amount, note, paid_date } = body;
 
   if (!account_id || !amount || Number(amount) <= 0) {
-    return NextResponse.json({ error: "বৈধ পরিমাণ দিন" }, { status: 400 });
+    return NextResponse.json({ error: "Enter a valid amount" }, { status: 400 });
   }
 
   const agg = await db
@@ -25,13 +25,13 @@ export async function POST(req: NextRequest) {
     .first<{ disbursed: number; repaid: number }>();
 
   if (!agg || Number(agg.disbursed) === 0) {
-    return NextResponse.json({ error: "এন্ট্রি পাওয়া যায়নি" }, { status: 404 });
+    return NextResponse.json({ error: "Entry not found" }, { status: 404 });
   }
 
   const remaining = Number(agg.disbursed) - Number(agg.repaid);
   if (Number(amount) > remaining) {
     return NextResponse.json(
-      { error: "বাকি থাকা পরিমাণের চেয়ে বেশি দেওয়া যাবে না" },
+      { error: "Cannot pay more than the outstanding amount" },
       { status: 400 }
     );
   }

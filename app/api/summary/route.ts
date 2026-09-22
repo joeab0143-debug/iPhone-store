@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     .bind(...outsideStockWhere.binds)
     .first<{ total: number; cnt: number }>();
 
-  // Outside Sell profit is realized at sell time (the Outside Sell sheet),
+  // Used Phone profit is realized at sell time (the Used Phone sheet),
   // not at purchase time, and only sold rows have a profit — so filter on
   // sell_date and require status='sold' rather than filtering on buy date.
   const outsideWhere = dateWhere("sell_date");

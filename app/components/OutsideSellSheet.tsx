@@ -5,10 +5,12 @@ import { ScanLine } from "lucide-react";
 import { Button, Field, inputClass, Sheet } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
 import { emitDashboardRefresh } from "@/lib/events";
+import { useLang } from "@/lib/i18n";
 
-// Outside Sell is a standalone profit log — no invoice, no stock lookup.
-// Just record what was sold (Model, IMEI) and the profit made on it; that
-// profit adds straight into the total/net profit and cash.
+// Used Phone (formerly "Outside Sell") is a standalone profit log — no
+// invoice, no stock lookup. Just record what was sold (Model, IMEI) and
+// the profit made on it; that profit adds straight into the total/net
+// profit and cash.
 const EMPTY_FORM = {
   model: "",
   imei: "",
@@ -22,6 +24,7 @@ export default function OutsideSellSheet({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useLang();
   const [form, setForm] = useState(EMPTY_FORM);
   const [scanOpen, setScanOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -42,7 +45,7 @@ export default function OutsideSellSheet({
   async function submit() {
     setError("");
     if (!form.model || !form.imei || form.profit === "") {
-      setError("Model, IMEI ও Profit — সব ঘর পূরণ করুন");
+      setError(t("used_phone.validation_required"));
       return;
     }
     setSaving(true);
@@ -59,7 +62,7 @@ export default function OutsideSellSheet({
     setSaving(false);
     if (!res.ok) {
       const d: any = await res.json().catch(() => ({}));
-      setError(d.error || "সেভ করা যায়নি");
+      setError(d.error || t("common.save_could_not"));
       return;
     }
     emitDashboardRefresh();
@@ -68,42 +71,42 @@ export default function OutsideSellSheet({
 
   return (
     <>
-      <Sheet open={open} onClose={handleClose} title="Outside Sell">
+      <Sheet open={open} onClose={handleClose} title={t("used_phone.title")}>
         {done ? (
           <div className="py-6 text-center">
-            <p className="mb-4 text-lg font-semibold text-up">প্রফিট যোগ হয়েছে ✓</p>
+            <p className="mb-4 text-lg font-semibold text-up">{t("used_phone.saved_success")}</p>
             <Button full onClick={reset}>
-              আরেকটা Outside Sell যোগ করুন
+              {t("used_phone.add_another")}
             </Button>
           </div>
         ) : (
           <div className="space-y-3">
-            <Field label="Model">
+            <Field label={t("used_phone.model_label")}>
               <input
                 value={form.model}
                 onChange={(e) => setForm({ ...form, model: e.target.value })}
-                placeholder="যেমন: iPhone 12, 128GB"
+                placeholder={t("used_phone.model_placeholder")}
                 className={inputClass}
               />
             </Field>
-            <Field label="IMEI">
+            <Field label={t("used_phone.imei_label")}>
               <div className="flex gap-2">
                 <input
                   value={form.imei}
                   onChange={(e) => setForm({ ...form, imei: e.target.value })}
-                  placeholder="IMEI নম্বর"
+                  placeholder={t("used_phone.imei_placeholder")}
                   className={inputClass}
                 />
                 <button
                   onClick={() => setScanOpen(true)}
                   className="flex shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 px-3 text-teal"
-                  aria-label="IMEI স্ক্যান করুন"
+                  aria-label={t("used_phone.imei_scan_aria")}
                 >
                   <ScanLine size={18} />
                 </button>
               </div>
             </Field>
-            <Field label="Profit (৳)">
+            <Field label={t("used_phone.profit_label")}>
               <input
                 type="number"
                 inputMode="decimal"
@@ -115,7 +118,7 @@ export default function OutsideSellSheet({
             </Field>
             {error && <p className="text-sm text-down">{error}</p>}
             <Button full onClick={submit} disabled={saving}>
-              {saving ? "সেভ হচ্ছে..." : "সেভ করুন"}
+              {saving ? t("used_phone.saving") : t("used_phone.save_button")}
             </Button>
           </div>
         )}

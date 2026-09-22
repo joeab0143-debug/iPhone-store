@@ -1,0 +1,605 @@
+"use client";
+
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+
+export type Lang = "en" | "bn";
+
+type Entry = { en: string; bn: string };
+
+// Central dictionary — every user-facing string in the app, keyed by a
+// short "component.name" id. English is the default language; Bengali is
+// available from the toggle in the sidebar. Components call t("key") and
+// get the string in whichever language is currently selected. Grown
+// file-by-file as each screen is translated.
+export const STRINGS: Record<string, Entry> = {
+  // --- app shell -----------------------------------------------------
+  "app.title": { en: "iPhone Store", bn: "iPhone Store" },
+  "app.tagline": { en: "Mobile Shop Management", bn: "মোবাইল শোরুম ম্যানেজমেন্ট" },
+
+  // --- sidebar ---------------------------------------------------------
+  "sidebar.stock": { en: "Stock", bn: "স্টক" },
+  "sidebar.expense": { en: "Expense", bn: "খরচ" },
+  "sidebar.profit": { en: "Profit", bn: "প্রফিট" },
+  "sidebar.gadgets": { en: "Gadgets", bn: "Gadgets" },
+  "sidebar.loans": { en: "Loans", bn: "ধার" },
+  "sidebar.sell": { en: "Sell", bn: "বিক্রি" },
+  "sidebar.used_phone": { en: "Used Phone", bn: "ব্যবহৃত ফোন" },
+  "sidebar.buy": { en: "Buy", bn: "কিনুন" },
+  "sidebar.settings": { en: "Settings", bn: "সেটিংস" },
+  "sidebar.language": { en: "Language", bn: "ভাষা" },
+
+  // --- shared (ui.tsx / BarcodeScanner) --------------------------------
+  "common.reset_form": { en: "Reset form", bn: "ফর্ম রিসেট করুন" },
+  "common.prev_month": { en: "Previous month", bn: "আগের মাস" },
+  "common.next_month": { en: "Next month", bn: "পরের মাস" },
+  "common.close": { en: "Close", bn: "বন্ধ করুন" },
+  "common.save_could_not": { en: "Could not save", bn: "সেভ করা যায়নি" },
+
+  // --- Buy sheet ---------------------------------------------------------
+  "buy.title": { en: "Buy Phone", bn: "ফোন ক্রয় (Buy)" },
+  "buy.history_label": { en: "Purchase History", bn: "ক্রয় ইতিহাস" },
+  "buy.history_desc": {
+    en: "What was bought from whom — download all-time or a chosen date range",
+    bn: "কার কাছ থেকে কী কেনা হয়েছে — এ যাবতকালের বা ডেট বেছে ডাউনলোড করুন",
+  },
+  "buy.download": { en: "Download", bn: "ডাউনলোড" },
+  "buy.saved_success": { en: "Purchase saved — added to stock ✓", bn: "ক্রয় সেভ হয়েছে — স্টকে যোগ হয়েছে ✓" },
+  "buy.buy_another": { en: "Buy another phone", bn: "আরেকটা ফোন ক্রয় করুন" },
+  "buy.destination_label": { en: "Where should this phone go?", bn: "এই ফোনটি কোথায় যাবে?" },
+  "buy.regular_stock": { en: "Regular Stock", bn: "রেগুলার স্টক" },
+  "buy.outside_stock": { en: "Outside Stock", bn: "আউটসাইড স্টক" },
+  "buy.outside_stock_note": {
+    en: "Choosing Outside Stock won't deduct the buy price from Total Cash — when sold, 50% of the profit is added to Profit.",
+    bn: "আউটসাইড স্টক নির্বাচন করলে ক্রয়মূল্য টোটাল ক্যাশ থেকে কাটবে না — বিক্রি হলে লাভের ৫০% প্রফিটে যোগ হবে।",
+  },
+  "buy.regular_stock_note": {
+    en: "Choosing Regular Stock deducts the buy price from Total Cash, same as before.",
+    bn: "রেগুলার স্টক নির্বাচন করলে ক্রয়মূল্য টোটাল ক্যাশ থেকে কাটা হবে, আগের মতোই।",
+  },
+  "buy.seller_type_label": { en: "Seller Type", bn: "বিক্রেতার ধরন" },
+  "buy.seller_supplier": { en: "Supplier", bn: "সাপ্লায়ার" },
+  "buy.seller_individual": { en: "Individual", bn: "ব্যক্তিগত ফোন" },
+  "buy.seller_individual_note": {
+    en: "When buying directly from an individual, both sides of their NID card and their photo will be kept for accountability.",
+    bn: "ব্যক্তির কাছ থেকে সরাসরি কিনলে জবাবদিহিতার জন্য এন আইডি কার্ডের দুই পাশ ও তার একটা ছবি তুলে রাখা হবে।",
+  },
+  "buy.nid_front": { en: "NID Card — Page 1", bn: "এন আই ডি কার্ডের ১ম পেজ" },
+  "buy.nid_back": { en: "NID Card — Page 2", bn: "এন আই ডি কার্ডের ২য় পেজ" },
+  "buy.person_photo": { en: "Person's Photo", bn: "ব্যবহারকারীর ছবি" },
+  "buy.photo_processing": { en: "Processing...", bn: "প্রসেস হচ্ছে..." },
+  "buy.photo_retake": { en: "Retake", bn: "আবার তুলুন" },
+  "buy.photo_take": { en: "Take Photo", bn: "ছবি তুলুন" },
+  "buy.model_label": { en: "Model Number", bn: "Model Number" },
+  "buy.model_placeholder": { en: "e.g. iPhone 12, 128GB", bn: "যেমন: iPhone 12, 128GB" },
+  "buy.imei_label": { en: "IMEI", bn: "IMEI" },
+  "buy.imei_placeholder": { en: "IMEI number", bn: "IMEI নম্বর" },
+  "buy.imei_scan_aria": { en: "Scan IMEI", bn: "IMEI স্ক্যান করুন" },
+  "buy.ram_rom_label": { en: "RAM/ROM", bn: "RAM/ROM" },
+  "buy.ram_rom_placeholder": { en: "e.g. 4/64 GB", bn: "যেমন: 4/64 GB" },
+  "buy.battery_label": { en: "Battery Health (optional)", bn: "Battery Health (ঐচ্ছিক)" },
+  "buy.battery_placeholder": { en: "e.g. 92%", bn: "যেমন: 92%" },
+  "buy.price_label": { en: "Buy Price (৳)", bn: "Buy Price (৳)" },
+  "buy.bought_from_label": { en: "Buy from whom", bn: "কার কাছ থেকে কেনা হয়েছে" },
+  "buy.number_label": { en: "Number", bn: "নম্বর" },
+  "buy.nid_label": { en: "NID", bn: "NID" },
+  "buy.validation_required": {
+    en: "Please fill in Model Number, IMEI, Buy Price and Buy from whom",
+    bn: "Model Number, IMEI, Buy Price ও Buy from whom — এই ঘরগুলো পূরণ করুন",
+  },
+  "buy.validation_photos": {
+    en: "Buying from an individual needs all three photos: both sides of the NID card and the person's photo",
+    bn: "ব্যক্তিগত ফোন কিনলে এন আইডি কার্ডের ২ পাশ ও ব্যবহারকারীর ছবি — তিনটাই তুলতে হবে",
+  },
+  "buy.saving": { en: "Saving...", bn: "সেভ হচ্ছে..." },
+  "buy.save_button": { en: "Save Purchase", bn: "ক্রয় সেভ করুন" },
+  "buy.history_title": { en: "Download Purchase History", bn: "ক্রয় ইতিহাস ডাউনলোড" },
+  "buy.history_from": { en: "Start Date (optional)", bn: "শুরুর তারিখ (ঐচ্ছিক)" },
+  "buy.history_to": { en: "End Date (optional)", bn: "শেষ তারিখ (ঐচ্ছিক)" },
+  "buy.history_note": {
+    en: "Leaving both empty downloads the full all-time purchase history.",
+    bn: "দুটোই ফাঁকা রাখলে এ যাবতকালের সকল ক্রয় ইতিহাস ডাউনলোড হবে।",
+  },
+  "buy.history_generating": { en: "Generating...", bn: "তৈরি হচ্ছে..." },
+  "buy.history_download_pdf": { en: "Download PDF", bn: "PDF ডাউনলোড করুন" },
+  "buy.history_load_failed": { en: "Could not load history", bn: "ইতিহাস লোড করা যায়নি" },
+  "buy.pdf_empty": { en: "No purchases in this period", bn: "এই সময়ের মধ্যে কোনো ক্রয় নেই" },
+  "buy.pdf_from_start": { en: "from the start", bn: "শুরু থেকে" },
+  "buy.pdf_until_today": { en: "until today", bn: "আজ পর্যন্ত" },
+
+  // --- Sell sheet --------------------------------------------------------
+  "sell.title": { en: "Sell Phone", bn: "ফোন বিক্রি (Sell)" },
+  "sell.name_label": { en: "Name", bn: "নাম" },
+  "sell.number_label": { en: "Number", bn: "নম্বর" },
+  "sell.imei_label": { en: "IMEI", bn: "IMEI" },
+  "sell.imei_placeholder": { en: "Type a few digits and a list will appear", bn: "কয়েক ডিজিট লিখলেই লিস্ট আসবে" },
+  "sell.imei_scan_aria": { en: "Scan IMEI", bn: "IMEI স্ক্যান করুন" },
+  "sell.searching": { en: "Searching...", bn: "খোঁজা হচ্ছে..." },
+  "sell.found_in_stock": { en: "Found in stock —", bn: "স্টক থেকে পাওয়া গেছে —" },
+  "sell.model_label": { en: "Model", bn: "Model" },
+  "sell.model_placeholder": { en: "Phone name and model", bn: "ফোনের নাম ও মডেল" },
+  "sell.ram_rom_label": { en: "RAM/ROM (optional)", bn: "RAM/ROM (ঐচ্ছিক)" },
+  "sell.ram_rom_placeholder": { en: "e.g. 4/64 GB", bn: "যেমন: 4/64 GB" },
+  "sell.battery_label": { en: "Battery Health (optional)", bn: "Battery Health (ঐচ্ছিক)" },
+  "sell.battery_placeholder": { en: "e.g. 92%", bn: "যেমন: 92%" },
+  "sell.price_label": { en: "Price (৳)", bn: "Price (৳)" },
+  "sell.due_checkbox": { en: "Due Sale (Due)", bn: "বাকি বিক্রি (Due)" },
+  "sell.paid_now_label": { en: "Amount paid now (advance, 0 if none)", bn: "এখন কত টাকা দিলো (অগ্রিম, না দিলে ০)" },
+  "sell.validation_all_fields": { en: "Please fill in all fields", bn: "সব ঘর পূরণ করুন" },
+  "sell.already_sold": { en: "This phone has already been sold", bn: "এই ফোনটি ইতিমধ্যে বিক্রি হয়ে গেছে" },
+  "sell.saving": { en: "Saving...", bn: "সেভ হচ্ছে..." },
+  "sell.confirm_button": { en: "Confirm Sale & Generate Memo", bn: "বিক্রি নিশ্চিত করুন ও মেমো বানান" },
+
+  // --- Used Phone (was "Outside Sell") sheet ------------------------------
+  "used_phone.title": { en: "Used Phone", bn: "ব্যবহৃত ফোন (Used Phone)" },
+  "used_phone.model_label": { en: "Model", bn: "Model" },
+  "used_phone.model_placeholder": { en: "e.g. iPhone 12, 128GB", bn: "যেমন: iPhone 12, 128GB" },
+  "used_phone.imei_label": { en: "IMEI", bn: "IMEI" },
+  "used_phone.imei_scan_aria": { en: "Scan IMEI", bn: "IMEI স্ক্যান করুন" },
+  "used_phone.imei_placeholder": { en: "IMEI number", bn: "IMEI নম্বর" },
+  "used_phone.profit_label": { en: "Profit (৳)", bn: "Profit (৳)" },
+  "used_phone.validation_required": { en: "Please fill in Model, IMEI and Profit", bn: "Model, IMEI ও Profit পূরণ করুন" },
+  "used_phone.saving": { en: "Saving...", bn: "সেভ হচ্ছে..." },
+  "used_phone.save_button": { en: "Save Used Phone Sale", bn: "Used Phone সেভ করুন" },
+  "used_phone.saved_success": { en: "Saved ✓ — added to Used Phone profit", bn: "সেভ হয়েছে ✓ — Used Phone প্রফিটে যোগ হয়েছে" },
+  "used_phone.add_another": { en: "Add another entry", bn: "আরেকটা এন্ট্রি যোগ করুন" },
+
+  // --- Settings sheet ------------------------------------------------
+  "settings.title": { en: "Settings", bn: "সেটিংস" },
+  "settings.current_username_label": { en: "Current User ID", bn: "বর্তমান ইউজার আইডি" },
+  "settings.fix_cash_heading": { en: "Fix Total Cash", bn: "টোটাল ক্যাশ ঠিক করুন" },
+  "settings.current_total_cash": { en: "Current Total Cash", bn: "বর্তমান টোটাল ক্যাশ" },
+  "settings.new_total_cash_label": { en: "New Total Cash (৳)", bn: "নতুন টোটাল ক্যাশ (৳)" },
+  "settings.cash_invalid": { en: "Please enter a valid amount", bn: "সঠিক টাকার পরিমাণ দিন" },
+  "settings.cash_confirm": {
+    en: "Change Total Cash from ৳{from} to ৳{to}? Stock/sales data won't change.",
+    bn: "টোটাল ক্যাশ ৳{from} থেকে ৳{to} করবেন? স্টক/সেলের কোনো তথ্য বদলাবে না।",
+  },
+  "settings.cash_saving": { en: "Saving...", bn: "সেভ হচ্ছে..." },
+  "settings.cash_fix_button": { en: "Fix Cash", bn: "ক্যাশ ঠিক করুন" },
+  "settings.cash_updated": { en: "Total Cash updated ✓", bn: "টোটাল ক্যাশ আপডেট হয়েছে ✓" },
+  "settings.cash_note": {
+    en: "This only corrects the Total Cash figure — it doesn't change stock, sales, expenses or any other data.",
+    bn: "এটা শুধু টোটাল ক্যাশের হিসাব ঠিক করে — স্টক, সেল, খরচ বা অন্য কোনো তথ্য বদলায় না।",
+  },
+  "settings.change_credentials_heading": { en: "Change User ID / Password", bn: "ইউজার আইডি / পাসওয়ার্ড পরিবর্তন" },
+  "settings.current_password_label": { en: "Current Password", bn: "বর্তমান পাসওয়ার্ড" },
+  "settings.new_username_label": { en: "New User ID (optional)", bn: "নতুন ইউজার আইডি (ঐচ্ছিক)" },
+  "settings.new_password_label": { en: "New Password (optional, min 6 characters)", bn: "নতুন পাসওয়ার্ড (ঐচ্ছিক, কমপক্ষে ৬ অক্ষর)" },
+  "settings.confirm_password_label": { en: "Re-enter New Password", bn: "নতুন পাসওয়ার্ড আবার লিখুন" },
+  "settings.enter_current_password": { en: "Please enter your current password", bn: "বর্তমান পাসওয়ার্ড দিন" },
+  "settings.password_mismatch": { en: "New passwords don't match", bn: "নতুন পাসওয়ার্ড দুই ঘরে মিলছে না" },
+  "settings.need_username_or_password": {
+    en: "Enter at least a new User ID or Password",
+    bn: "নতুন ইউজার আইডি বা পাসওয়ার্ড অন্তত একটি দিন",
+  },
+  "settings.saving": { en: "Saving...", bn: "সেভ হচ্ছে..." },
+  "settings.save_button": { en: "Save", bn: "সেভ করুন" },
+  "settings.saved_success": { en: "Saved ✓", bn: "সেভ হয়েছে ✓" },
+  "settings.logging_out": { en: "Logging out...", bn: "লগআউট হচ্ছে..." },
+  "settings.logout_button": { en: "Log Out", bn: "লগআউট" },
+
+  // --- Login page ------------------------------------------------------
+  "login.heading": { en: "Log In", bn: "লগইন করুন" },
+  "login.username_label": { en: "User ID", bn: "ইউজার আইডি" },
+  "login.password_label": { en: "Password", bn: "পাসওয়ার্ড" },
+  "login.validation": { en: "Please enter User ID and Password", bn: "ইউজার আইডি ও পাসওয়ার্ড দিন" },
+  "login.failed": { en: "Login failed", bn: "লগইন ব্যর্থ হয়েছে" },
+  "login.checking": { en: "Checking...", bn: "চেক করা হচ্ছে..." },
+  "login.button": { en: "Log In", bn: "লগইন" },
+
+  // --- Barcode scanner -------------------------------------------------
+  "scanner.heading": { en: "Scan Barcode", bn: "বারকোড স্ক্যান করুন" },
+  "scanner.hardware_mode": { en: "Hardware Scanner", bn: "হার্ডওয়্যার স্ক্যানার" },
+  "scanner.camera_mode": { en: "Camera", bn: "ক্যামেরা" },
+  "scanner.hardware_hint": {
+    en: "Point the scanner at the barcode — it will auto-fill below",
+    bn: "স্ক্যানার দিয়ে বারকোডে পয়েন্ট করুন — নিচের ঘরে অটো বসে যাবে",
+  },
+  "scanner.hardware_placeholder": { en: "Scan or type...", bn: "স্ক্যান করুন বা টাইপ করুন..." },
+  "scanner.search_button": { en: "Search", bn: "খুঁজুন" },
+  "scanner.camera_permission_note": {
+    en: "Allow the browser camera access in camera mode",
+    bn: "ক্যামেরা মোডে ব্রাউজারকে ক্যামেরা অ্যাক্সেসের অনুমতি দিন",
+  },
+
+  // --- expense tab -----------------------------------------------------
+  "expense.today": { en: "Today's Expense", bn: "আজকের খরচ" },
+  "expense.this_month": { en: "This Month's Expense", bn: "এই মাসের খরচ" },
+  "expense.categories_heading": { en: "Expense Categories", bn: "খরচের ঘরসমূহ" },
+  "expense.new_category": { en: "+ New Category", bn: "+ নতুন ঘর" },
+  "expense.no_categories": {
+    en: "No expense categories created yet — e.g. electricity bill, shop rent, staff salary",
+    bn: "এখনো কোনো খরচের ঘর তৈরি হয়নি — যেমন: কারেন্ট বিল, দোকান ভাড়া, স্টাফ বেতন ইত্যাদি",
+  },
+  "expense.entries_heading": { en: "Expense Entries", bn: "খরচের এন্ট্রি" },
+  "expense.download_pdf": { en: "Download PDF", bn: "PDF ডাউনলোড" },
+  "expense.loading": { en: "Loading...", bn: "লোড হচ্ছে..." },
+  "expense.no_entries": { en: "No expense entries", bn: "কোনো খরচ এন্ট্রি নেই" },
+  "expense.entries_count": { en: "{count} entries", bn: "{count}টি এন্ট্রি" },
+  "expense.total_entries_count": { en: "Total ({count} entries)", bn: "মোট ({count}টি এন্ট্রি)" },
+  "expense.add_new_aria": { en: "Add new expense", bn: "নতুন খরচ যোগ করুন" },
+  "expense.new_category_title": { en: "New Expense Category", bn: "নতুন খরচের ঘর" },
+  "expense.category_name_label": {
+    en: "Category name (e.g. electricity bill, shop rent)",
+    bn: "ঘরের নাম (যেমন: কারেন্ট বিল, দোকান ভাড়া)",
+  },
+  "expense.designation_label": {
+    en: "Designation (optional, e.g. staff position)",
+    bn: "ডেজিগনেশন (ঐচ্ছিক, যেমন: স্টাফের পদবী)",
+  },
+  "expense.saving": { en: "Saving...", bn: "সেভ হচ্ছে..." },
+  "expense.create": { en: "Create", bn: "তৈরি করুন" },
+  "expense.new_entry_title": { en: "New Expense Entry", bn: "নতুন খরচ এন্ট্রি" },
+  "expense.select_category_label": { en: "Select category", bn: "ঘর বাছাই করুন" },
+  "expense.select_placeholder": { en: "— Select —", bn: "— বাছাই করুন —" },
+  "expense.amount_label": { en: "Amount (৳)", bn: "পরিমাণ (৳)" },
+  "expense.date_label": {
+    en: "Date (leave blank for today's date)",
+    bn: "তারিখ (ফাঁকা রাখলে আজকের তারিখ বসবে)",
+  },
+  "expense.note_label": { en: "Note (optional)", bn: "নোট (ঐচ্ছিক)" },
+  "expense.add_button": { en: "Add", bn: "যোগ করুন" },
+  "expense.name_required": { en: "Enter category name", bn: "ঘরের নাম দিন" },
+  "expense.save_failed": { en: "Could not save", bn: "সেভ করা যায়নি" },
+  "expense.delete_category_confirm": {
+    en: "This category and all its expense entries will be deleted. Are you sure?",
+    bn: "এই ঘরটি ও এর সব খরচ এন্ট্রি মুছে যাবে। নিশ্চিত?",
+  },
+  "expense.category_and_amount_required": { en: "Enter category and amount", bn: "ঘর ও পরিমাণ দিন" },
+  "expense.unknown_category": { en: "Unknown", bn: "অজানা" },
+
+  // --- profit tab -----------------------------------------------------
+  "profit.net_profit_label": { en: "Net Profit (Selected Month)", bn: "নিট প্রফিট (নির্বাচিত মাসে)" },
+  "profit.stock_profit": { en: "Stock Profit", bn: "স্টক প্রফিট" },
+  "profit.outside_stock_profit": { en: "Outside Stock Profit", bn: "আউটসাইড স্টক প্রফিট" },
+  "profit.used_phone_profit": { en: "Used Phone Profit", bn: "Used Phone প্রফিট" },
+  "profit.total_expense": { en: "Total Expense", bn: "মোট খরচ" },
+  "profit.due_outstanding": { en: "Due Outstanding", bn: "বকেয়া বাকি" },
+  "profit.used_phone_log_heading": { en: "Used Phone — Profit Log", bn: "Used Phone — প্রফিট লগ" },
+  "profit.download_pdf": { en: "Download PDF", bn: "PDF ডাউনলোড" },
+  "profit.loading": { en: "Loading...", bn: "লোড হচ্ছে..." },
+  "profit.no_entries_period": {
+    en: "No entries in this period — add one from the Used Phone button below",
+    bn: "এই সময়ে কোনো এন্ট্রি নেই — নিচের Used Phone বাটন থেকে যোগ করুন",
+  },
+  "profit.stock_detail_title": { en: "Stock Profit Breakdown", bn: "স্টক প্রফিটের হিসাব" },
+  "profit.outside_stock_detail_title": { en: "Outside Stock Profit Breakdown", bn: "আউটসাইড স্টক প্রফিটের হিসাব" },
+  "profit.used_phone_detail_title": { en: "Used Phone Profit Breakdown", bn: "Used Phone প্রফিটের হিসাব" },
+  "profit.expense_detail_title": { en: "Total Expense Breakdown (by Category)", bn: "মোট খরচের হিসাব (খাত অনুযায়ী)" },
+  "profit.due_detail_title": { en: "Due Outstanding Breakdown", bn: "বকেয়া বাকির হিসাব" },
+  "profit.full_profit_prefix": { en: "Full Profit: ৳", bn: "ফুল প্রফিট: ৳" },
+  "profit.total_due_label": { en: "Total Due", bn: "মোট বকেয়া" },
+  "profit.no_sales_month": { en: "No sales this month", bn: "এই মাসে কোনো সেল নেই" },
+  "profit.no_outside_stock_sales_month": { en: "No outside stock sales this month", bn: "এই মাসে কোনো আউটসাইড স্টক সেল নেই" },
+  "profit.no_used_phone_entries_month": { en: "No Used Phone entries this month", bn: "এই মাসে কোনো Used Phone এন্ট্রি নেই" },
+  "profit.no_expense_entries_month": { en: "No expense entries this month", bn: "এই মাসে কোনো খরচ এন্ট্রি নেই" },
+  "profit.no_due": { en: "No due outstanding", bn: "কোনো বকেয়া নেই" },
+
+  // --- gadgets tab -----------------------------------------------------
+  "gadgets.hero_label": {
+    en: "Gadgets Profit (shown here only — not added to total profit)",
+    bn: "Gadgets প্রফিট (শুধু এখানেই দেখা যাবে — মোট প্রফিটে যোগ হয় না)",
+  },
+  "gadgets.total_buy": { en: "Total Buy", bn: "মোট ক্রয় (Buy)" },
+  "gadgets.total_sell": { en: "Total Sell", bn: "মোট বিক্রি (Sell)" },
+  "gadgets.loading": { en: "Loading...", bn: "লোড হচ্ছে..." },
+  "gadgets.no_entries": { en: "No entries — add a new one", bn: "কোনো এন্ট্রি নেই — নতুন যোগ করুন" },
+  "gadgets.stock_status": {
+    en: "In stock: {remaining} / {quantity}",
+    bn: "স্টকে আছে: {remaining} / {quantity}",
+  },
+  "gadgets.add_new_aria": { en: "Add new entry", bn: "নতুন এন্ট্রি যোগ করুন" },
+  "gadgets.buy_name_placeholder": {
+    en: "e.g. Earphone, Charger, Cover",
+    bn: "যেমন: Earphone, Charger, Cover",
+  },
+  "gadgets.buy_price_label": { en: "Buy Price (৳ / per piece)", bn: "Buy Price (৳ / প্রতি পিস)" },
+  "gadgets.saving": { en: "Saving...", bn: "সেভ হচ্ছে..." },
+  "gadgets.add_button": { en: "Add", bn: "যোগ করুন" },
+  "gadgets.all_fields_required": { en: "Fill in all fields", bn: "সব ঘর পূরণ করুন" },
+  "gadgets.save_failed": { en: "Could not save", bn: "সেভ করা যায়নি" },
+  "gadgets.delete_confirm": { en: "Delete this entry?", bn: "এই এন্ট্রিটি মুছে ফেলবেন?" },
+  "gadgets.sell_info": {
+    en: "Buy price was ৳{price} / unit · {remaining} in stock",
+    bn: "Buy দাম ছিল ৳{price} / unit · স্টকে আছে {remaining}টা",
+  },
+  "gadgets.sell_price_label": { en: "Sell Price (৳ / per piece)", bn: "Sell দাম (৳ / প্রতি পিস)" },
+  "gadgets.sell_qty_label": {
+    en: "How many are you selling (Quantity)",
+    bn: "কয়টা বিক্রি করছেন (Quantity)",
+  },
+  "gadgets.sell_total_summary": {
+    en: "Total: ৳{total} ({qty} × ৳{price})",
+    bn: "মোট: ৳{total} ({qty}টা × ৳{price})",
+  },
+  "gadgets.confirm_sell_button": { en: "Confirm Sell", bn: "বিক্রি নিশ্চিত করুন" },
+  "gadgets.invalid_sell_price": { en: "Enter a valid Sell price", bn: "সঠিক Sell দাম দিন" },
+  "gadgets.invalid_quantity": { en: "Enter a valid Quantity", bn: "সঠিক Quantity দিন" },
+  "gadgets.exceeds_stock": {
+    en: "Only {remaining} left in stock — can't sell more than that",
+    bn: "স্টকে আছে মাত্র {remaining}টা — এর বেশি বিক্রি করা যাবে না",
+  },
+  "gadgets.detail_profit_title": { en: "Gadgets Profit Breakdown", bn: "Gadgets প্রফিটের হিসাব" },
+  "gadgets.detail_buy_title": { en: "Total Buy Breakdown", bn: "মোট ক্রয়ের (Buy) হিসাব" },
+  "gadgets.detail_sell_title": { en: "Total Sell Breakdown", bn: "মোট বিক্রির (Sell) হিসাব" },
+  "gadgets.no_gadgets_sold": { en: "No gadgets sold yet", bn: "এখনো কোনো গ্যাজেট বিক্রি হয়নি" },
+  "gadgets.sold_count_suffix": { en: "({count} sold)", bn: "({count}টি বিক্রি)" },
+  "gadgets.total_profit_label": { en: "Total Profit", bn: "মোট প্রফিট" },
+  "gadgets.download_pdf": { en: "Download PDF", bn: "PDF ডাউনলোড" },
+  "gadgets.no_gadgets_bought": { en: "No gadgets bought yet", bn: "এখনো কোনো গ্যাজেট কেনা হয়নি" },
+  "gadgets.qty_times_price_suffix": {
+    en: "({qty} × ৳{price})",
+    bn: "({qty}টি × ৳{price})",
+  },
+  "gadgets.total_buy_label": { en: "Total Buy", bn: "মোট ক্রয়" },
+  "gadgets.total_sell_label": { en: "Total Sell", bn: "মোট বিক্রি" },
+
+  // --- loans tab -------------------------------------------------------
+  "loans.all_fields_required": { en: "Fill in all fields", bn: "সব ঘর পূরণ করুন" },
+  "loans.save_failed": { en: "Could not save", bn: "সেভ করা যায়নি" },
+  "loans.delete_confirm": {
+    en: "This entry and all its history will be permanently deleted. Are you sure?",
+    bn: "এই এন্ট্রি ও এর সব হিস্ট্রি একেবারে মুছে যাবে। নিশ্চিত?",
+  },
+  "loans.net_position_prefix": { en: "Net Position", bn: "নেট অবস্থান" },
+  "loans.people_owe_you": { en: "people owe you", bn: "মানুষ আপনাকে দিবে" },
+  "loans.you_owe_people": { en: "you owe people", bn: "আপনি মানুষকে দিবেন" },
+  "loans.you_owe_pending": { en: "You've Borrowed (Pending)", bn: "আপনি ধার নিয়েছেন (বাকি)" },
+  "loans.you_lent_pending": { en: "You've Lent (Pending)", bn: "আপনি ধার দিয়েছেন (বাকি)" },
+  "loans.loading": { en: "Loading...", bn: "লোড হচ্ছে..." },
+  "loans.section_taken_title": { en: "Loans Taken", bn: "ধার নিয়েছি (Loans Taken)" },
+  "loans.section_given_title": { en: "Loans Given", bn: "ধার দিয়েছি (Loans Given)" },
+  "loans.no_loans": { en: "No loans", bn: "কোনো ধার নেই" },
+  "loans.havent_lent": { en: "You haven't lent to anyone", bn: "কাউকে ধার দেননি" },
+  "loans.add_button_short": { en: "+ Add", bn: "+ যোগ করুন" },
+  "loans.add_new_aria": { en: "Add new loan", bn: "নতুন ধার যোগ করুন" },
+  "loans.new_entry_title_taken": { en: "Loan Taken — New Entry", bn: "ধার নিয়েছি — নতুন এন্ট্রি" },
+  "loans.new_entry_title_given": { en: "Loan Given — New Entry", bn: "ধার দিয়েছি — নতুন এন্ট্রি" },
+  "loans.taken_label": { en: "Taken", bn: "ধার নিয়েছি" },
+  "loans.given_label": { en: "Given", bn: "ধার দিয়েছি" },
+  "loans.from_whom_label": { en: "Borrowed from whom", bn: "কার কাছ থেকে নিলেন" },
+  "loans.to_whom_label": { en: "Given to whom", bn: "কাকে দিলেন" },
+  "loans.name_placeholder": {
+    en: "Name — merges with the existing account if one exists",
+    bn: "নাম — আগে থেকে থাকলে সেটার সাথেই যোগ হবে",
+  },
+  "loans.amount_label": { en: "Amount (৳)", bn: "পরিমাণ (৳)" },
+  "loans.saving": { en: "Saving...", bn: "সেভ হচ্ছে..." },
+  "loans.add_button": { en: "Add", bn: "যোগ করুন" },
+  "loans.net_detail_title": { en: "Net Position Breakdown", bn: "নেট অবস্থানের হিসাব" },
+  "loans.no_pending": { en: "No pending balance", bn: "কোনো বকেয়া নেই" },
+  "loans.tag_taken": { en: "(borrowed)", bn: "(নিয়েছেন)" },
+  "loans.tag_given": { en: "(lent)", bn: "(দিয়েছেন)" },
+  "loans.taken_detail_title": { en: "People You've Borrowed From", bn: "আপনি যাদের কাছ থেকে ধার নিয়েছেন" },
+  "loans.no_pending_taken": { en: "No pending loans", bn: "কোনো বকেয়া ধার নেই" },
+  "loans.given_detail_title": { en: "People You've Lent To", bn: "আপনি যাদের ধার দিয়েছেন" },
+  "loans.download_pdf": { en: "Download PDF", bn: "PDF ডাউনলোড" },
+  "loans.settled_count": { en: "Settled ({count})", bn: "সেটেল হওয়া ({count})" },
+  "loans.of_total": { en: "of total ৳{amount}", bn: "মোট ৳{amount}-এর" },
+  "loans.settled_badge": { en: "Settled", bn: "সেটেল" },
+  "loans.total_taken_label": { en: "Total Borrowed", bn: "মোট নিয়েছেন" },
+  "loans.total_given_label": { en: "Total Given", bn: "মোট দিয়েছেন" },
+  "loans.remaining_label": { en: "Remaining", bn: "বাকি আছে" },
+  "loans.repaid_so_far_taken": { en: "৳{amount} repaid so far", bn: "এ পর্যন্ত পরিশোধ হয়েছে ৳{amount}" },
+  "loans.repaid_so_far_given": { en: "৳{amount} collected so far", bn: "এ পর্যন্ত আদায় হয়েছে ৳{amount}" },
+  "loans.history_label": { en: "History", bn: "হিস্ট্রি" },
+  "loans.no_entries": { en: "No entries", bn: "কোনো এন্ট্রি নেই" },
+  "loans.entry_taken_disburse": { en: "Borrowed", bn: "নিয়েছেন" },
+  "loans.entry_given_disburse": { en: "Given", bn: "দিয়েছেন" },
+  "loans.entry_taken_repay": { en: "Repaid", bn: "পরিশোধ করেছেন" },
+  "loans.entry_given_repay": { en: "Collected", bn: "আদায় করেছেন" },
+  "loans.add_more_taken": { en: "Borrow More", bn: "আরও নিলেন" },
+  "loans.add_more_given": { en: "Give More", bn: "আরও দিলেন" },
+  "loans.repay_button_taken": { en: "Repay", bn: "পরিশোধ" },
+  "loans.repay_button_given": { en: "Collect", bn: "আদায়" },
+  "loans.more_amount_label_taken": { en: "How much more did you borrow", bn: "আরও কত টাকা নিলেন" },
+  "loans.more_amount_label_given": { en: "How much more did you give", bn: "আরও কত টাকা দিলেন" },
+  "loans.cancel_button": { en: "Cancel", bn: "বাতিল" },
+  "loans.pay_amount_label_taken": { en: "How much did you repay", bn: "কত টাকা পরিশোধ করলেন" },
+  "loans.pay_amount_label_given": { en: "How much did you get back", bn: "কত টাকা ফেরত পেলেন" },
+  "loans.full_amount_button": { en: "Full (৳{amount})", bn: "পুরোটা (৳{amount})" },
+  "loans.delete_entry_button": { en: "Delete this entire entry", bn: "পুরো এন্ট্রি মুছে ফেলুন" },
+  "loans.invalid_amount": { en: "Enter a valid amount", bn: "বৈধ পরিমাণ দিন" },
+  "loans.exceeds_remaining": {
+    en: "Can't be more than the remaining balance",
+    bn: "বাকি থাকা পরিমাণের চেয়ে বেশি দেওয়া যাবে না",
+  },
+
+  // --- stock tab -------------------------------------------------------
+  "stock.selling_price_required": { en: "Enter selling price", bn: "বিক্রয়মূল্য দিন" },
+  "stock.save_failed": { en: "Could not save", bn: "সেভ করা যায়নি" },
+  "stock.return_failed": { en: "Could not return", bn: "রিটার্ন করা যায়নি" },
+  "stock.delete_failed": { en: "Could not delete", bn: "ডিলেট করা যায়নি" },
+  "stock.search_placeholder": { en: "Search by name or IMEI", bn: "নাম বা IMEI দিয়ে খুঁজুন" },
+  "stock.scan_barcode_aria": { en: "Scan barcode", bn: "বারকোড স্ক্যান" },
+  "stock.filter_unsold": { en: "In Stock", bn: "স্টকে আছে" },
+  "stock.filter_outside": { en: "Outside Stock", bn: "আউটসাইড স্টক" },
+  "stock.filter_sold": { en: "Sold", bn: "বিক্রি হয়েছে" },
+  "stock.filter_all": { en: "All", bn: "সব" },
+  "stock.count_summary": {
+    en: "{count} phones · Total Value ৳{total}",
+    bn: "{count}টি ফোন · মোট মূল্য ৳{total}",
+  },
+  "stock.download_pdf": { en: "Download PDF", bn: "PDF ডাউনলোড" },
+  "stock.loading": { en: "Loading...", bn: "লোড হচ্ছে..." },
+  "stock.no_phones": {
+    en: "No phones — buy one from the Buy button below",
+    bn: "কোনো ফোন নেই — নিচের Buy বাটন থেকে ফোন ক্রয় করুন",
+  },
+  "stock.bought_from_inline": {
+    en: " · from {name}",
+    bn: " · {name} থেকে",
+  },
+  "stock.sell_button": { en: "Sell", bn: "বিক্রি করুন" },
+  "stock.delete_phone_aria": { en: "Delete phone", bn: "ফোন ডিলেট করুন" },
+  "stock.view_bill_aria": { en: "View bill", bn: "বিল দেখুন" },
+  "stock.view_due_aria": { en: "View due", bn: "বাকি দেখুন" },
+  "stock.return_phone_aria": { en: "Return phone", bn: "ফোন ফেরত নিন" },
+  "stock.print_sticker_aria": { en: "Print sticker", bn: "স্টিকার প্রিন্ট" },
+  "stock.sell_sheet_title_prefix": { en: "Sell — ", bn: "বিক্রি — " },
+  "stock.selling_price_label": { en: "Selling Price (৳)", bn: "বিক্রয়মূল্য (৳)" },
+  "stock.selling_date_label": {
+    en: "Selling Date (leave blank for today's date)",
+    bn: "বিক্রয়ের তারিখ (ফাঁকা রাখলে আজকের তারিখ বসবে)",
+  },
+  "stock.ram_rom_label": { en: "RAM/ROM (optional)", bn: "RAM/ROM (ঐচ্ছিক)" },
+  "stock.battery_health_label": { en: "Battery Health (optional)", bn: "Battery Health (ঐচ্ছিক)" },
+  "stock.ram_rom_placeholder": { en: "e.g. 4/64 GB", bn: "যেমন: 4/64 GB" },
+  "stock.battery_health_placeholder": { en: "e.g. 92%", bn: "যেমন: 92%" },
+  "stock.customer_name_label": { en: "Customer Name", bn: "কাস্টমারের নাম" },
+  "stock.customer_phone_label": { en: "Customer Phone Number", bn: "কাস্টমারের ফোন নম্বর" },
+  "stock.due_sale_label": { en: "Due Sale", bn: "বাকি বিক্রি (Due)" },
+  "stock.paid_now_label": {
+    en: "How much paid now (advance, 0 if none)",
+    bn: "এখন কত টাকা দিলো (অগ্রিম, না দিলে ০)",
+  },
+  "stock.saving": { en: "Saving...", bn: "সেভ হচ্ছে..." },
+  "stock.confirm_sell_and_bill": {
+    en: "Confirm Sell & Generate Bill",
+    bn: "বিক্রি নিশ্চিত করুন ও বিল বানান",
+  },
+  "stock.sticker_sheet_title": { en: "Barcode Sticker", bn: "বারকোড স্টিকার" },
+  "stock.print_sticker_button": { en: "Print Sticker", bn: "স্টিকার প্রিন্ট করুন" },
+  "stock.buy_price_label": { en: "Buy Price", bn: "ক্রয়মূল্য" },
+  "stock.buy_date_label": { en: "Buy Date", bn: "ক্রয়ের তারিখ" },
+  "stock.edit_button": { en: "Edit", bn: "এডিট" },
+  "stock.sale_info_heading": { en: "Sale Info", bn: "বিক্রির তথ্য" },
+  "stock.selling_price_short": { en: "Selling Price", bn: "বিক্রয়মূল্য" },
+  "stock.selling_date_short": { en: "Selling Date", bn: "বিক্রয়ের তারিখ" },
+  "stock.customer_label": { en: "Customer", bn: "কাস্টমার" },
+  "stock.number_label": { en: "Number", bn: "নম্বর" },
+  "stock.due_remaining_label": { en: "Due Remaining", bn: "বাকি আছে" },
+  "stock.bill_button": { en: "Bill", bn: "বিল" },
+  "stock.due_button": { en: "Due", bn: "বাকি" },
+  "stock.return_button": { en: "Return", bn: "রিটার্ন" },
+  "stock.return_confirm": {
+    en: "{model} — take this phone back into stock?",
+    bn: "{model} — এই ফোনটি ফেরত নিয়ে স্টকে যোগ করবেন?",
+  },
+  "stock.delete_confirm": {
+    en: "{model} (IMEI: {imei}) — permanently delete this phone from stock? This can't be undone.",
+    bn: "{model} (IMEI: {imei}) — এই ফোনটি স্টক থেকে সম্পূর্ণ মুছে ফেলতে চান? এটি ফিরিয়ে আনা যাবে না।",
+  },
+  "stock.invalid_amount": { en: "Enter a valid amount", bn: "বৈধ পরিমাণ দিন" },
+  "stock.due_sheet_title_prefix": { en: "Due Account — ", bn: "বাকি হিসাব — " },
+  "stock.total_selling_price_label": { en: "Total Selling Price", bn: "মোট বিক্রয়মূল্য" },
+  "stock.customer_prefix": { en: "Customer: ", bn: "কাস্টমার: " },
+  "stock.how_much_paid_label": { en: "How much was paid", bn: "কত টাকা পরিশোধ হলো" },
+  "stock.add_payment_button": { en: "Add Payment", bn: "পরিশোধ যোগ করুন" },
+  "stock.fully_paid": { en: "Fully paid ✓", bn: "সম্পূর্ণ পরিশোধ হয়ে গেছে ✓" },
+  "stock.edit_required_fields": {
+    en: "Model, IMEI and Buy Price are required",
+    bn: "Model, IMEI ও Buy Price আবশ্যক",
+  },
+  "stock.edit_sheet_title_prefix": { en: "Edit — ", bn: "এডিট — " },
+  "stock.save_changes_button": { en: "Save Changes", bn: "পরিবর্তন সেভ করুন" },
+
+  // --- dashboard stats ---------------------------------------------------
+  "dashboard.total_cash_label": { en: "Total Cash (So Far)", bn: "টোটাল ক্যাশ (এখন পর্যন্ত)" },
+  "dashboard.today_sale_label": { en: "Today's Sale", bn: "আজকের সেল" },
+  "dashboard.total_buy_label": { en: "Total Buy", bn: "মোট ক্রয়" },
+  "dashboard.stock_label": { en: "Stock", bn: "স্টক" },
+  "dashboard.month_profit_label": { en: "This Month's Profit", bn: "এই মাসের প্রফিট" },
+  "dashboard.total_cash_sheet_title": { en: "Total Cash Breakdown", bn: "টোটাল ক্যাশের হিসাব" },
+  "dashboard.loading": { en: "Loading...", bn: "লোড হচ্ছে..." },
+  "dashboard.cash_in_heading": { en: "Added (Cash In)", bn: "যা যোগ হয়েছে (ক্যাশ ইন)" },
+  "dashboard.sales_received_label": { en: "Money from Sales", bn: "সেল থেকে পাওয়া টাকা" },
+  "dashboard.used_phone_profit_label": { en: "Used Phone Profit", bn: "Used Phone প্রফিট" },
+  "dashboard.loan_cash_in_label": { en: "Money from Loans", bn: "ধার থেকে পাওয়া টাকা" },
+  "dashboard.cash_out_heading": { en: "Subtracted (Cash Out)", bn: "যা বিয়োগ হয়েছে (ক্যাশ আউট)" },
+  "dashboard.total_buy_stock_label": { en: "Total Buy (Stock)", bn: "মোট ক্রয় (স্টক)" },
+  "dashboard.total_expense_label": { en: "Total Expense", bn: "মোট খরচ" },
+  "dashboard.loan_cash_out_label": { en: "Money Given as Loans", bn: "ধার হিসেবে দেওয়া টাকা" },
+  "dashboard.manual_adjustment_heading": { en: "Manual Adjustment", bn: "ম্যানুয়াল এডজাস্টমেন্ট" },
+  "dashboard.settings_adjustment_label": { en: "Corrected from Settings", bn: "সেটিংস থেকে ঠিক করা হয়েছে" },
+  "dashboard.total_cash_label_short": { en: "Total Cash", bn: "টোটাল ক্যাশ" },
+  "dashboard.data_load_failed": { en: "Could not load data", bn: "তথ্য লোড করা যায়নি" },
+  "dashboard.today_sale_sheet_title": { en: "Today's Sale Breakdown", bn: "আজকের সেলের হিসাব" },
+  "dashboard.no_sales_today": { en: "No sales yet today", bn: "আজ এখনো কোনো সেল হয়নি" },
+  "dashboard.today_total_label": { en: "Today's Total", bn: "আজকের মোট" },
+  "dashboard.total_buy_sheet_title": { en: "Total Buy Breakdown", bn: "মোট ক্রয়ের হিসাব" },
+  "dashboard.in_stock_unsold_label": { en: "In Stock (Unsold)", bn: "স্টকে আছে (Unsold)" },
+  "dashboard.sold_label": { en: "Sold", bn: "বিক্রি হয়েছে (Sold)" },
+  "dashboard.outside_stock_label": { en: "Outside Stock", bn: "আউটসাইড স্টক" },
+  "dashboard.month_profit_sheet_title": { en: "This Month's Profit Breakdown", bn: "এই মাসের প্রফিটের হিসাব" },
+  "dashboard.profit_added_heading": { en: "Added (Profit)", bn: "যা যোগ হয়েছে (লাভ)" },
+  "dashboard.stock_profit_month_label": {
+    en: "Stock Profit (from this month's sales)",
+    bn: "স্টক প্রফিট (এই মাসের সেল থেকে)",
+  },
+  "dashboard.outside_stock_profit_label": { en: "Outside Stock Profit", bn: "আউটসাইড স্টক প্রফিট" },
+  "dashboard.expense_deducted_heading": {
+    en: "Subtracted (Expenses, by Category)",
+    bn: "যা বিয়োগ হয়েছে (খরচ, খাত অনুযায়ী)",
+  },
+  "dashboard.no_expense_entries_month": { en: "No expense entries this month", bn: "এই মাসে কোনো খরচ এন্ট্রি নেই" },
+  "dashboard.net_profit_month_label": { en: "Net Profit (This Month)", bn: "নিট প্রফিট (এই মাসে)" },
+  "dashboard.sub_title_stock_profit_month": { en: "Stock Profit Details (This Month)", bn: "স্টক প্রফিটের ডিটেইলস (এই মাসে)" },
+  "dashboard.sub_title_outside_stock_profit_month": {
+    en: "Outside Stock Profit Details (This Month)",
+    bn: "আউটসাইড স্টক প্রফিটের ডিটেইলস (এই মাসে)",
+  },
+  "dashboard.sub_title_outside_stock_list": { en: "Outside Stock Details", bn: "আউটসাইড স্টকের ডিটেইলস" },
+  "dashboard.sub_title_outside_profit_month": {
+    en: "Used Phone Profit Details (This Month)",
+    bn: "Used Phone প্রফিটের ডিটেইলস (এই মাসে)",
+  },
+  "dashboard.sub_title_cash_sales_paid": { en: "Money from Sales — Details", bn: "সেল থেকে পাওয়া টাকার ডিটেইলস" },
+  "dashboard.sub_title_cash_outside_profit": {
+    en: "Used Phone Profit Details (All-Time)",
+    bn: "Used Phone প্রফিটের ডিটেইলস (সর্বমোট)",
+  },
+  "dashboard.sub_title_cash_loan_in": { en: "Money from Loans — Details", bn: "ধার থেকে পাওয়া টাকার ডিটেইলস" },
+  "dashboard.no_stock_sales_month": { en: "No stock sales this month", bn: "এই মাসে কোনো স্টক সেল নেই" },
+  "dashboard.no_outside_stock_phones": { en: "No outside stock phones", bn: "কোনো আউটসাইড স্টক ফোন নেই" },
+  "dashboard.no_used_phone_entries": { en: "No Used Phone entries", bn: "কোনো Used Phone এন্ট্রি নেই" },
+  "dashboard.no_sale_entries": { en: "No sale entries", bn: "কোনো সেল এন্ট্রি নেই" },
+  "dashboard.loan_taken_tag": { en: "Borrowed", bn: "ধার নিয়েছেন" },
+  "dashboard.loan_repaid_tag": { en: "Repaid", bn: "ফেরত দিয়েছেন" },
+  "dashboard.no_entries": { en: "No entries", bn: "কোনো এন্ট্রি নেই" },
+  "dashboard.download_pdf": { en: "Download PDF", bn: "PDF ডাউনলোড" },
+};
+
+const LanguageContext = createContext<{
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  t: (key: string) => string;
+}>({
+  lang: "en",
+  setLang: () => {},
+  t: (key) => STRINGS[key]?.en ?? key,
+});
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const [lang, setLangState] = useState<Lang>("en");
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("lang");
+      if (saved === "bn" || saved === "en") setLangState(saved);
+    } catch {}
+  }, []);
+
+  function setLang(l: Lang) {
+    setLangState(l);
+    try {
+      window.localStorage.setItem("lang", l);
+    } catch {}
+  }
+
+  function t(key: string) {
+    const entry = STRINGS[key];
+    if (!entry) return key;
+    return entry[lang];
+  }
+
+  return (
+    <LanguageContext.Provider value={{ lang, setLang, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
+}
+
+export function useLang() {
+  return useContext(LanguageContext);
+}

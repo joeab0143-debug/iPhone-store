@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, Keyboard, X } from "lucide-react";
 import { Button, inputClass } from "./ui";
+import { useLang } from "@/lib/i18n";
 
 export default function BarcodeScanner({
   open,
@@ -13,6 +14,7 @@ export default function BarcodeScanner({
   onClose: () => void;
   onResult: (code: string) => void;
 }) {
+  const { t } = useLang();
   const [mode, setMode] = useState<"camera" | "hardware">("hardware");
   const [manualValue, setManualValue] = useState("");
   const scannerElRef = useRef<HTMLDivElement>(null);
@@ -22,8 +24,8 @@ export default function BarcodeScanner({
   // Hardware scanner: focus a text input; scanners type fast + send Enter.
   useEffect(() => {
     if (open && mode === "hardware") {
-      const t = setTimeout(() => inputRef.current?.focus(), 100);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => inputRef.current?.focus(), 100);
+      return () => clearTimeout(timer);
     }
   }, [open, mode]);
 
@@ -76,7 +78,7 @@ export default function BarcodeScanner({
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-bg">
       <div className="flex items-center justify-between border-b border-border p-4">
-        <h3 className="font-display text-lg font-semibold">বারকোড স্ক্যান করুন</h3>
+        <h3 className="font-display text-lg font-semibold">{t("scanner.heading")}</h3>
         <button
           onClick={onClose}
           className="rounded-full p-1.5 text-ink-muted hover:bg-surface-2"
@@ -94,7 +96,7 @@ export default function BarcodeScanner({
               : "border-border text-ink-muted"
           }`}
         >
-          <Keyboard size={16} /> হার্ডওয়্যার স্ক্যানার
+          <Keyboard size={16} /> {t("scanner.hardware_mode")}
         </button>
         <button
           onClick={() => setMode("camera")}
@@ -104,7 +106,7 @@ export default function BarcodeScanner({
               : "border-border text-ink-muted"
           }`}
         >
-          <Camera size={16} /> ক্যামেরা
+          <Camera size={16} /> {t("scanner.camera_mode")}
         </button>
       </div>
 
@@ -117,9 +119,7 @@ export default function BarcodeScanner({
           />
         ) : (
           <div className="rounded-2xl border border-border bg-surface p-5 text-center">
-            <p className="mb-4 text-sm text-ink-muted">
-              স্ক্যানার দিয়ে বারকোডে পয়েন্ট করুন — নিচের ঘরে অটো বসে যাবে
-            </p>
+            <p className="mb-4 text-sm text-ink-muted">{t("scanner.hardware_hint")}</p>
             <input
               ref={inputRef}
               value={manualValue}
@@ -130,7 +130,7 @@ export default function BarcodeScanner({
                   setManualValue("");
                 }
               }}
-              placeholder="স্ক্যান করুন বা টাইপ করুন..."
+              placeholder={t("scanner.hardware_placeholder")}
               className={inputClass + " text-center text-lg"}
               autoFocus
             />
@@ -144,7 +144,7 @@ export default function BarcodeScanner({
                   }
                 }}
               >
-                খুঁজুন
+                {t("scanner.search_button")}
               </Button>
             </div>
           </div>
@@ -152,7 +152,7 @@ export default function BarcodeScanner({
       </div>
 
       <p className="p-4 text-center text-xs text-ink-faint">
-        ক্যামেরা মোডে ব্রাউজারকে ক্যামেরা অ্যাক্সেসের অনুমতি দিন
+        {t("scanner.camera_permission_note")}
       </p>
     </div>
   );

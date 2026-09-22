@@ -8,11 +8,13 @@ import BarcodeSticker from "./BarcodeSticker";
 import { generateInvoicePDF } from "@/lib/invoice";
 import { generateReportPDF } from "@/lib/report-pdf";
 import { emitDashboardRefresh, DASHBOARD_REFRESH_EVENT } from "@/lib/events";
+import { useLang } from "@/lib/i18n";
 import type { Phone, Sale } from "@/lib/types";
 
 const SHOP_NAME = "iPhone Store";
 
 export default function StockTab() {
+  const { t } = useLang();
   const [phones, setPhones] = useState<Phone[]>([]);
   const [filter, setFilter] = useState<"all" | "unsold" | "sold" | "outside">("unsold");
   const [search, setSearch] = useState("");
@@ -44,7 +46,7 @@ export default function StockTab() {
     setLoading(true);
     // Always fetch everything — status tab and search are both applied
     // client-side below, so a search matches phones regardless of which
-    // tab (স্টকে আছে/বিক্রি হয়েছে/সব) happens to be selected.
+    // tab (In Stock/Sold/All) happens to be selected.
     const res = await fetch(`/api/stock`);
     const data: any = await res.json();
     setPhones(data.phones || []);
@@ -94,8 +96,8 @@ export default function StockTab() {
         p.name_model.toLowerCase().includes(s) || p.imei.toLowerCase().includes(s)
       );
     }
-    // আউটসাইড স্টক এর ফোন এখন মেইন স্টক থেকে সম্পূর্ণ আলাদা — নিজস্ব ট্যাবেই
-    // শুধু দেখা যাবে, "স্টকে আছে"/"বিক্রি হয়েছে"/"সব" ট্যাবে না।
+    // Outside stock phones are now completely separate from main stock —
+    // they only show in their own tab, never in "In Stock"/"Sold"/"All".
     if (filter === "outside") return p.stock_type === "outside";
     if (p.stock_type === "outside") return false;
     if (filter === "all") return true;
@@ -106,7 +108,7 @@ export default function StockTab() {
     if (!sellPhone) return;
     setError("");
     if (!sellForm.selling_price) {
-      setError("বিক্রয়মূল্য দিন");
+      setError(t("stock.selling_price_required"));
       return;
     }
     // Open the receipt tab now, still inside this click's user gesture —
@@ -132,7 +134,7 @@ export default function StockTab() {
     if (!res.ok) {
       previewWin?.close();
       const d: any = await res.json();
-      setError(d.error || "সেভ করা যায়নি");
+      setError(d.error || t("stock.save_failed"));
       return;
     }
     const d: any = await res.json();
@@ -216,7 +218,7 @@ export default function StockTab() {
   // reprints the same memo with a RETURNED stamp at the bottom.
   async function returnPhone(phone: Phone) {
     if (
-      !window.confirm(`${phone.name_model} — এই ফোনটি ফেরত নিয়ে স্টকে যোগ করবেন?`)
+      !window.confirm(t("stock.return_confirm").replace("{model}", phone.name_model))
     ) {
       return;
     }
@@ -235,7 +237,7 @@ export default function StockTab() {
     setReturningId(null);
     if (!delRes.ok) {
       previewWin?.close();
-      setError("রিটার্ন করা যায়নি");
+      setError(t("stock.return_failed"));
       return;
     }
     emitDashboardRefresh();
@@ -271,7 +273,7 @@ export default function StockTab() {
   async function deletePhone(phone: Phone) {
     if (
       !window.confirm(
-        `${phone.name_model} (IMEI: ${phone.imei}) — এই ফোনটি স্টক থেকে সম্পূর্ণ মুছে ফেলতে চান? এটি ফিরিয়ে আনা যাবে না।`
+        t("stock.delete_confirm").replace("{model}", phone.name_model).replace("{imei}", phone.imei)
       )
     ) {
       return;
@@ -280,7 +282,7 @@ export default function StockTab() {
     const res = await fetch(`/api/stock/${phone.id}`, { method: "DELETE" });
     setDeletingId(null);
     if (!res.ok) {
-      setError("ডিলিট করা যায়নি");
+      setError(t("stock.delete_failed"));
       return;
     }
     emitDashboardRefresh();
@@ -341,14 +343,14 @@ export default function StockTab() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="নাম বা IMEI দিয়ে খুঁজুন"
+            placeholder={t("stock.search_placeholder")}
             className={inputClass + " pl-9"}
           />
         </div>
         <button
           onClick={() => setScanOpen(true)}
           className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 text-teal"
-          aria-label="বারকোড স্ক্যান"
+          aria-label={t("stock.scan_barcode_aria")}
         >
           <ScanLine size={20} />
         </button>
@@ -366,12 +368,12 @@ export default function StockTab() {
             }`}
           >
             {f === "unsold"
-              ? "স্টকে আছে"
+              ? t("stock.filter_unsold")
               : f === "outside"
-              ? "আউটসাইড স্টক"
+              ? t("stock.filter_outside")
               : f === "sold"
-              ? "বিক্রি হয়েছে"
-              : "সব"}
+              ? t("stock.filter_sold")
+              : t("stock.filter_all")}
           </button>
         ))}
       </div>
@@ -379,23 +381,24 @@ export default function StockTab() {
       {!loading && filtered.length > 0 && (
         <div className="mb-3 flex items-center justify-between">
           <p className="text-xs text-ink-muted">
-            {filtered.length}টি ফোন · মোট মূল্য ৳
-            {money(filtered.reduce((s, p) => s + Number(p.buy_price), 0))}
+            {t("stock.count_summary")
+              .replace("{count}", String(filtered.length))
+              .replace("{total}", money(filtered.reduce((s, p) => s + Number(p.buy_price), 0)))}
           </p>
           <button
             onClick={downloadStockReport}
             className="flex items-center gap-1 text-xs font-semibold text-teal"
           >
-            <Download size={13} /> PDF ডাউনলোড
+            <Download size={13} /> {t("stock.download_pdf")}
           </button>
         </div>
       )}
 
       {loading ? (
-        <p className="text-center text-sm text-ink-muted py-10">লোড হচ্ছে...</p>
+        <p className="text-center text-sm text-ink-muted py-10">{t("stock.loading")}</p>
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border py-12 text-center text-ink-muted">
-          কোনো ফোন নেই — নিচের Buy বাটন থেকে ফোন ক্রয় করুন
+          {t("stock.no_phones")}
         </div>
       ) : (
         <ul className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-2 sm:space-y-0 lg:grid-cols-3">
@@ -419,7 +422,7 @@ export default function StockTab() {
                   <p className="mt-0.5 truncate text-xs text-ink-faint tabular">
                     IMEI: {p.imei}
                     {p.ram_rom && ` · ${p.ram_rom}`}
-                    {p.bought_from && ` · ${p.bought_from} থেকে`} · ৳{money(p.buy_price)} ·{" "}
+                    {p.bought_from && t("stock.bought_from_inline").replace("{name}", p.bought_from)} · ৳{money(p.buy_price)} ·{" "}
                     {formatDate(p.buy_date)}
                   </p>
                 </div>
@@ -433,13 +436,13 @@ export default function StockTab() {
                       className="flex-1 !py-2 !text-xs"
                       onClick={() => setSellPhone(p)}
                     >
-                      বিক্রি করুন
+                      {t("stock.sell_button")}
                     </Button>
                     <button
                       onClick={() => deletePhone(p)}
                       disabled={deletingId === p.id}
                       className="flex items-center justify-center rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-ink-muted hover:text-down disabled:opacity-50"
-                      aria-label="ফোন ডিলিট করুন"
+                      aria-label={t("stock.delete_phone_aria")}
                     >
                       <Trash2 size={15} />
                     </button>
@@ -449,14 +452,14 @@ export default function StockTab() {
                     <button
                       onClick={() => printReceiptFor(p.id)}
                       className="flex items-center justify-center rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-ink-muted hover:text-teal"
-                      aria-label="বিল দেখুন"
+                      aria-label={t("stock.view_bill_aria")}
                     >
                       <Receipt size={15} />
                     </button>
                     <button
                       onClick={() => openDuePanel(p)}
                       className="flex items-center justify-center rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-ink-muted hover:text-teal"
-                      aria-label="বাকি দেখুন"
+                      aria-label={t("stock.view_due_aria")}
                     >
                       <Wallet size={15} />
                     </button>
@@ -464,7 +467,7 @@ export default function StockTab() {
                       onClick={() => returnPhone(p)}
                       disabled={returningId === p.id}
                       className="flex items-center justify-center rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-ink-muted hover:text-down disabled:opacity-50"
-                      aria-label="ফোন ফেরত নিন"
+                      aria-label={t("stock.return_phone_aria")}
                     >
                       <RotateCcw size={15} />
                     </button>
@@ -473,7 +476,7 @@ export default function StockTab() {
                 <button
                   onClick={() => setStickerPhone(p)}
                   className="flex items-center justify-center rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-ink-muted hover:text-teal"
-                  aria-label="স্টিকার প্রিন্ট"
+                  aria-label={t("stock.print_sticker_aria")}
                 >
                   <Printer size={15} />
                 </button>
@@ -487,10 +490,10 @@ export default function StockTab() {
       <Sheet
         open={!!sellPhone}
         onClose={() => setSellPhone(null)}
-        title={sellPhone ? `বিক্রি — ${sellPhone.name_model}` : ""}
+        title={sellPhone ? `${t("stock.sell_sheet_title_prefix")}${sellPhone.name_model}` : ""}
       >
         <div className="space-y-3">
-          <Field label="বিক্রয়মূল্য (৳)">
+          <Field label={t("stock.selling_price_label")}>
             <input
               type="number"
               inputMode="decimal"
@@ -500,7 +503,7 @@ export default function StockTab() {
               className={inputClass}
             />
           </Field>
-          <Field label="বিক্রয়ের তারিখ (ফাঁকা রাখলে আজকের তারিখ বসবে)">
+          <Field label={t("stock.selling_date_label")}>
             <input
               type="date"
               value={sellForm.selling_date}
@@ -508,19 +511,19 @@ export default function StockTab() {
               className={inputClass}
             />
           </Field>
-          <Field label="RAM/ROM (ঐচ্ছিক)">
+          <Field label={t("stock.ram_rom_label")}>
             <input
               value={sellForm.ram_rom}
               onChange={(e) => setSellForm({ ...sellForm, ram_rom: e.target.value })}
-              placeholder="যেমন: 4/64 GB"
+              placeholder={t("stock.ram_rom_placeholder")}
               className={inputClass}
             />
           </Field>
-          <Field label="Battery Health (ঐচ্ছিক)">
+          <Field label={t("stock.battery_health_label")}>
             <input
               value={sellForm.battery_health}
               onChange={(e) => setSellForm({ ...sellForm, battery_health: e.target.value })}
-              placeholder="যেমন: 92%"
+              placeholder={t("stock.battery_health_placeholder")}
               className={inputClass}
             />
           </Field>
@@ -528,7 +531,7 @@ export default function StockTab() {
           {/* Same customer fields as the bottom-bar Sell sheet — always
               shown here too, not just for due sales, so both sell flows
               collect the same information. */}
-          <Field label="কাস্টমারের নাম">
+          <Field label={t("stock.customer_name_label")}>
             <input
               value={sellForm.customer_name}
               onChange={(e) =>
@@ -537,7 +540,7 @@ export default function StockTab() {
               className={inputClass}
             />
           </Field>
-          <Field label="কাস্টমারের ফোন নম্বর">
+          <Field label={t("stock.customer_phone_label")}>
             <input
               value={sellForm.customer_phone}
               onChange={(e) =>
@@ -554,12 +557,12 @@ export default function StockTab() {
               onChange={(e) => setSellForm({ ...sellForm, is_due: e.target.checked })}
               className="h-4 w-4 accent-[var(--gold)]"
             />
-            <span className="text-sm font-medium">বাকি বিক্রি (Due)</span>
+            <span className="text-sm font-medium">{t("stock.due_sale_label")}</span>
           </label>
 
           {sellForm.is_due && (
             <div className="space-y-3 rounded-xl border border-due/30 bg-due/5 p-3">
-              <Field label="এখন কত টাকা দিলো (অগ্রিম, না দিলে ০)">
+              <Field label={t("stock.paid_now_label")}>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -574,7 +577,7 @@ export default function StockTab() {
 
           {error && <p className="text-sm text-down">{error}</p>}
           <Button full onClick={submitSell} disabled={saving}>
-            {saving ? "সেভ হচ্ছে..." : "বিক্রি নিশ্চিত করুন ও বিল বানান"}
+            {saving ? t("stock.saving") : t("stock.confirm_sell_and_bill")}
           </Button>
         </div>
       </Sheet>
@@ -583,7 +586,7 @@ export default function StockTab() {
       <Sheet
         open={!!stickerPhone}
         onClose={() => setStickerPhone(null)}
-        title="বারকোড স্টিকার"
+        title={t("stock.sticker_sheet_title")}
       >
         {stickerPhone && (
           <div className="flex flex-col items-center gap-4">
@@ -620,7 +623,7 @@ export default function StockTab() {
                 }
               }}
             >
-              <Printer size={16} /> স্টিকার প্রিন্ট করুন
+              <Printer size={16} /> {t("stock.print_sticker_button")}
             </Button>
           </div>
         )}
@@ -690,6 +693,7 @@ function PhoneDetailsSheet({
   onEdit: (phone: Phone) => void;
   onDelete: (phone: Phone) => void;
 }) {
+  const { t } = useLang();
   const [sale, setSale] = useState<Sale | null>(null);
 
   useEffect(() => {
@@ -711,8 +715,8 @@ function PhoneDetailsSheet({
     ...(phone.bought_from ? [{ label: "Buy from whom", value: phone.bought_from }] : []),
     ...(phone.phone_number ? [{ label: "Number", value: phone.phone_number }] : []),
     ...(phone.nid ? [{ label: "NID", value: phone.nid }] : []),
-    { label: "ক্রয়মূল্য", value: `৳${money(phone.buy_price)}` },
-    { label: "ক্রয়ের তারিখ", value: formatDate(phone.buy_date) },
+    { label: t("stock.buy_price_label"), value: `৳${money(phone.buy_price)}` },
+    { label: t("stock.buy_date_label"), value: formatDate(phone.buy_date) },
   ];
 
   return (
@@ -729,7 +733,7 @@ function PhoneDetailsSheet({
             onClick={() => onEdit(phone)}
             className="flex items-center gap-1 text-xs font-semibold text-teal"
           >
-            <Pencil size={13} /> এডিট
+            <Pencil size={13} /> {t("stock.edit_button")}
           </button>
         </div>
 
@@ -744,30 +748,30 @@ function PhoneDetailsSheet({
 
         {phone.status === "sold" && sale && (
           <div className="space-y-2 rounded-xl border border-border bg-surface-2 p-3.5">
-            <p className="text-xs font-semibold text-ink-muted">বিক্রির তথ্য</p>
+            <p className="text-xs font-semibold text-ink-muted">{t("stock.sale_info_heading")}</p>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-ink-muted">বিক্রয়মূল্য</span>
+              <span className="text-ink-muted">{t("stock.selling_price_short")}</span>
               <span className="tabular font-medium">৳{money(sale.selling_price)}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-ink-muted">বিক্রয়ের তারিখ</span>
+              <span className="text-ink-muted">{t("stock.selling_date_short")}</span>
               <span className="tabular font-medium">{formatDate(sale.selling_date)}</span>
             </div>
             {sale.customer_name && (
               <div className="flex items-center justify-between text-sm">
-                <span className="text-ink-muted">কাস্টমার</span>
+                <span className="text-ink-muted">{t("stock.customer_label")}</span>
                 <span className="font-medium">{sale.customer_name}</span>
               </div>
             )}
             {sale.customer_phone && (
               <div className="flex items-center justify-between text-sm">
-                <span className="text-ink-muted">নম্বর</span>
+                <span className="text-ink-muted">{t("stock.number_label")}</span>
                 <span className="tabular font-medium">{sale.customer_phone}</span>
               </div>
             )}
             {!!sale.is_due && (
               <div className="flex items-center justify-between text-sm">
-                <span className="text-due">বাকি আছে</span>
+                <span className="text-due">{t("stock.due_remaining_label")}</span>
                 <span className="tabular font-medium text-due">৳{money(sale.due_amount)}</span>
               </div>
             )}
@@ -777,7 +781,7 @@ function PhoneDetailsSheet({
         {phone.status === "unsold" ? (
           <div className="flex gap-2">
             <Button className="flex-1" onClick={() => onSell(phone)}>
-              বিক্রি করুন
+              {t("stock.sell_button")}
             </Button>
             <Button variant="danger" onClick={() => onDelete(phone)}>
               <Trash2 size={15} />
@@ -786,13 +790,13 @@ function PhoneDetailsSheet({
         ) : (
           <div className="flex gap-2">
             <Button variant="secondary" className="flex-1" onClick={() => onPrintBill(phone)}>
-              <Receipt size={15} /> বিল
+              <Receipt size={15} /> {t("stock.bill_button")}
             </Button>
             <Button variant="secondary" className="flex-1" onClick={() => onViewDue(phone)}>
-              <Wallet size={15} /> বাকি
+              <Wallet size={15} /> {t("stock.due_button")}
             </Button>
             <Button variant="secondary" className="flex-1" onClick={() => onReturn(phone)}>
-              <RotateCcw size={15} /> রিটার্ন
+              <RotateCcw size={15} /> {t("stock.return_button")}
             </Button>
           </div>
         )}
@@ -810,6 +814,7 @@ function DuePanel({
   onClose: () => void;
   onUpdated: () => void;
 }) {
+  const { t } = useLang();
   const [amount, setAmount] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -826,7 +831,7 @@ function DuePanel({
   async function submitPayment() {
     setError("");
     if (!amount || Number(amount) <= 0) {
-      setError("বৈধ পরিমাণ দিন");
+      setError(t("stock.invalid_amount"));
       return;
     }
     setSaving(true);
@@ -838,7 +843,7 @@ function DuePanel({
     setSaving(false);
     const d: any = await res.json();
     if (!res.ok) {
-      setError(d.error || "সেভ করা যায়নি");
+      setError(d.error || t("stock.save_failed"));
       return;
     }
     setSale({ ...sale!, due_amount: d.due_amount, paid_amount: d.paid_amount });
@@ -848,28 +853,33 @@ function DuePanel({
   }
 
   return (
-    <Sheet open={!!duePhone} onClose={onClose} title={`বাকি হিসাব — ${duePhone.phone.name_model}`}>
+    <Sheet
+      open={!!duePhone}
+      onClose={onClose}
+      title={`${t("stock.due_sheet_title_prefix")}${duePhone.phone.name_model}`}
+    >
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-surface-2 p-3 text-center">
-            <p className="text-xs text-ink-muted">মোট বিক্রয়মূল্য</p>
+            <p className="text-xs text-ink-muted">{t("stock.total_selling_price_label")}</p>
             <p className="tabular text-lg font-semibold">৳{money(sale.selling_price)}</p>
           </div>
           <div className="rounded-xl bg-due/10 p-3 text-center">
-            <p className="text-xs text-due">বাকি আছে</p>
+            <p className="text-xs text-due">{t("stock.due_remaining_label")}</p>
             <p className="tabular text-lg font-semibold text-due">৳{money(sale.due_amount)}</p>
           </div>
         </div>
         {sale.customer_name && (
           <p className="text-sm text-ink-muted">
-            কাস্টমার: <span className="text-ink">{sale.customer_name}</span>{" "}
+            {t("stock.customer_prefix")}
+            <span className="text-ink">{sale.customer_name}</span>{" "}
             {sale.customer_phone && `· ${sale.customer_phone}`}
           </p>
         )}
 
         {sale.due_amount > 0 ? (
           <>
-            <Field label="কত টাকা পরিশোধ হলো">
+            <Field label={t("stock.how_much_paid_label")}>
               <input
                 type="number"
                 inputMode="decimal"
@@ -881,12 +891,12 @@ function DuePanel({
             </Field>
             {error && <p className="text-sm text-down">{error}</p>}
             <Button full onClick={submitPayment} disabled={saving}>
-              {saving ? "সেভ হচ্ছে..." : "পরিশোধ যোগ করুন"}
+              {saving ? t("stock.saving") : t("stock.add_payment_button")}
             </Button>
           </>
         ) : (
           <p className="text-center text-sm font-medium text-up">
-            সম্পূর্ণ পরিশোধ হয়ে গেছে ✓
+            {t("stock.fully_paid")}
           </p>
         )}
       </div>
@@ -903,6 +913,7 @@ function EditPhoneSheet({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useLang();
   const [form, setForm] = useState({
     name_model: "",
     imei: "",
@@ -937,7 +948,7 @@ function EditPhoneSheet({
   async function submit() {
     setError("");
     if (!form.name_model || !form.imei || !form.buy_price) {
-      setError("Model, IMEI ও Buy Price আবশ্যক");
+      setError(t("stock.edit_required_fields"));
       return;
     }
     setSaving(true);
@@ -958,7 +969,7 @@ function EditPhoneSheet({
     setSaving(false);
     if (!res.ok) {
       const d: any = await res.json().catch(() => ({}));
-      setError(d.error || "সেভ করা যায়নি");
+      setError(d.error || t("stock.save_failed"));
       return;
     }
     onSaved();
@@ -966,7 +977,7 @@ function EditPhoneSheet({
   }
 
   return (
-    <Sheet open={!!phone} onClose={onClose} title={`এডিট — ${phone.name_model}`}>
+    <Sheet open={!!phone} onClose={onClose} title={`${t("stock.edit_sheet_title_prefix")}${phone.name_model}`}>
       <div className="space-y-3">
         <Field label="Model Number">
           <input
@@ -986,7 +997,7 @@ function EditPhoneSheet({
           <input
             value={form.ram_rom}
             onChange={(e) => setForm({ ...form, ram_rom: e.target.value })}
-            placeholder="যেমন: 4/64 GB"
+            placeholder={t("stock.ram_rom_placeholder")}
             className={inputClass}
           />
         </Field>
@@ -994,7 +1005,7 @@ function EditPhoneSheet({
           <input
             value={form.battery_health}
             onChange={(e) => setForm({ ...form, battery_health: e.target.value })}
-            placeholder="যেমন: 92%"
+            placeholder={t("stock.battery_health_placeholder")}
             className={inputClass}
           />
         </Field>
@@ -1030,7 +1041,7 @@ function EditPhoneSheet({
         </Field>
         {error && <p className="text-sm text-down">{error}</p>}
         <Button full onClick={submit} disabled={saving}>
-          {saving ? "সেভ হচ্ছে..." : "পরিবর্তন সেভ করুন"}
+          {saving ? t("stock.saving") : t("stock.save_changes_button")}
         </Button>
       </div>
     </Sheet>

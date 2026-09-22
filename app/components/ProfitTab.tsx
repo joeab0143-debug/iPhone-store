@@ -5,11 +5,14 @@ import { Trash2, TrendingUp, TrendingDown, Download, ChevronRight } from "lucide
 import { money, formatDate, MonthPicker, currentMonthStr, monthRange, Sheet } from "./ui";
 import { emitDashboardRefresh } from "@/lib/events";
 import { generateReportPDF } from "@/lib/report-pdf";
+import { useLang } from "@/lib/i18n";
 import type { NetProfitSummary, OutsideDeal } from "@/lib/types";
 
 export default function ProfitTab() {
-  // মাসের শুরুতে প্রফিট/খরচের হিসাব ০ থেকে শুরু হয় — এই পিকার দিয়ে
-  // আগের যেকোনো মাসের হিস্ট্রি দেখা যাবে, কিছুই হারিয়ে যায় না।
+  const { t } = useLang();
+  // Profit/expense totals start at zero at the beginning of each month —
+  // this picker lets any previous month's history be viewed, nothing is
+  // ever lost.
   const [month, setMonth] = useState(currentMonthStr());
   const [summary, setSummary] = useState<NetProfitSummary | null>(null);
   const [deals, setDeals] = useState<OutsideDeal[]>([]);
@@ -56,7 +59,7 @@ export default function ProfitTab() {
           { label: "Net Profit", value: `Tk ${(summary?.net_profit ?? 0).toLocaleString()}`, tone: (summary?.net_profit ?? 0) >= 0 ? "up" : "down" },
           { label: "Stock Profit", value: `Tk ${(summary?.stock_profit ?? 0).toLocaleString()}`, tone: "up" },
           { label: "Outside Stock Profit", value: `Tk ${(summary?.outside_stock_profit ?? 0).toLocaleString()}`, tone: "up" },
-          { label: "Outside Sell Profit", value: `Tk ${(summary?.outside_profit ?? 0).toLocaleString()}`, tone: "up" },
+          { label: "Used Phone Profit", value: `Tk ${(summary?.outside_profit ?? 0).toLocaleString()}`, tone: "up" },
           { label: "Total Expense", value: `Tk ${(summary?.total_expense ?? 0).toLocaleString()}`, tone: "down" },
           { label: "Due Outstanding", value: `Tk ${(summary?.total_due_outstanding ?? 0).toLocaleString()}` },
         ],
@@ -67,15 +70,15 @@ export default function ProfitTab() {
             (d.sell_date || d.deal_date || "-").toString().slice(0, 10),
             d.profit.toLocaleString(),
           ]),
-          emptyLabel: "No Outside Sell entries this month",
+          emptyLabel: "No Used Phone entries this month",
         },
-        footerNote: "Generated from iPhone Store — Profit Tab (Outside Sell log)",
+        footerNote: "Generated from iPhone Store — Profit Tab (Used Phone log)",
       },
       previewWin
     );
   }
 
-  // প্রফিট হিরো-এর নিচের ট্যাইলগুলোর প্রতিটার জন্য আলাদা ডিটেইল শিট।
+  // A separate detail sheet for each tile under the profit hero.
   const [detailKind, setDetailKind] = useState<"stock" | "outsideStock" | "outside" | "expense" | "due" | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [stockSales, setStockSales] = useState<{ name_model: string; imei: string; selling_price: number; profit: number }[] | null>(null);
@@ -127,7 +130,7 @@ export default function ProfitTab() {
         const data: any = res.ok ? await res.json() : { expenses: [] };
         const map = new Map<string, number>();
         for (const e of data.expenses || []) {
-          const key = e.category_name || "অজানা";
+          const key = e.category_name || t("expense.unknown_category");
           map.set(key, (map.get(key) || 0) + Number(e.amount));
         }
         setExpenseCategories(
@@ -200,13 +203,13 @@ export default function ProfitTab() {
       generateReportPDF(
         {
           shopName: "iPhone Store",
-          title: "Outside Sell Profit Report",
+          title: "Used Phone Profit Report",
           subtitle: monthLabel(month),
-          summary: [{ label: "Outside Sell Profit", value: `Tk ${(summary?.outside_profit ?? 0).toLocaleString()}`, tone: "up" }],
+          summary: [{ label: "Used Phone Profit", value: `Tk ${(summary?.outside_profit ?? 0).toLocaleString()}`, tone: "up" }],
           table: {
             head: ["Model / IMEI", "Date", "Profit (Tk)"],
             rows: deals.map((d) => [d.model || d.name || "-", (d.sell_date || d.deal_date || "-").toString().slice(0, 10), d.profit.toLocaleString()]),
-            emptyLabel: "No Outside Sell entries this month",
+            emptyLabel: "No Used Phone entries this month",
           },
           footerNote: "Generated from iPhone Store — Profit Tab",
         },
@@ -256,7 +259,7 @@ export default function ProfitTab() {
       {/* Net profit hero */}
       <div className="phone-card mb-4">
         <div className="flex items-center justify-between">
-          <p className="text-xs text-ink-muted">নিট প্রফিট (নির্বাচিত মাসে)</p>
+          <p className="text-xs text-ink-muted">{t("profit.net_profit_label")}</p>
           {netPositive ? (
             <TrendingUp size={18} className="text-up" />
           ) : (
@@ -272,31 +275,31 @@ export default function ProfitTab() {
         </p>
 
         <div className="mt-4 grid grid-cols-2 gap-2.5 text-sm">
-          <SummaryStat label="স্টক প্রফিট" value={summary?.stock_profit} tone="up" onClick={() => openDetail("stock")} />
-          <SummaryStat label="আউটসাইড স্টক প্রফিট" value={summary?.outside_stock_profit} tone="up" onClick={() => openDetail("outsideStock")} />
-          <SummaryStat label="Outside প্রফিট" value={summary?.outside_profit} tone="up" onClick={() => openDetail("outside")} />
-          <SummaryStat label="মোট খরচ" value={summary?.total_expense} tone="down" negative onClick={() => openDetail("expense")} />
-          <SummaryStat label="বকেয়া বাকি" value={summary?.total_due_outstanding} tone="due" onClick={() => openDetail("due")} />
+          <SummaryStat label={t("profit.stock_profit")} value={summary?.stock_profit} tone="up" onClick={() => openDetail("stock")} />
+          <SummaryStat label={t("profit.outside_stock_profit")} value={summary?.outside_stock_profit} tone="up" onClick={() => openDetail("outsideStock")} />
+          <SummaryStat label={t("profit.used_phone_profit")} value={summary?.outside_profit} tone="up" onClick={() => openDetail("outside")} />
+          <SummaryStat label={t("profit.total_expense")} value={summary?.total_expense} tone="down" negative onClick={() => openDetail("expense")} />
+          <SummaryStat label={t("profit.due_outstanding")} value={summary?.total_due_outstanding} tone="due" onClick={() => openDetail("due")} />
         </div>
       </div>
 
-      {/* Outside Sell log — a simple Model/IMEI/Profit entry added via the
-          bottom-bar Outside Sell action */}
+      {/* Used Phone log — a simple Model/IMEI/Profit entry added via the
+          Used Phone action */}
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-display font-semibold">Outside Sell — প্রফিট লগ</h3>
+        <h3 className="font-display font-semibold">{t("profit.used_phone_log_heading")}</h3>
         <button
           onClick={downloadReport}
           className="flex items-center gap-1 text-xs font-semibold text-teal"
         >
-          <Download size={13} /> PDF ডাউনলোড
+          <Download size={13} /> {t("profit.download_pdf")}
         </button>
       </div>
 
       {loading ? (
-        <p className="text-center text-sm text-ink-muted py-10">লোড হচ্ছে...</p>
+        <p className="text-center text-sm text-ink-muted py-10">{t("profit.loading")}</p>
       ) : deals.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border py-10 text-center text-ink-muted">
-          এই সময়ে কোনো এন্ট্রি নেই — নিচের Outside Sell বাটন থেকে যোগ করুন
+          {t("profit.no_entries_period")}
         </div>
       ) : (
         <ul className="space-y-2">
@@ -339,10 +342,10 @@ export default function ProfitTab() {
       <Sheet
         open={detailKind === "stock"}
         onClose={() => setDetailKind(null)}
-        title="স্টক প্রফিটের হিসাব"
+        title={t("profit.stock_detail_title")}
       >
         {detailLoading && !stockSales ? (
-          <p className="py-6 text-center text-sm text-ink-muted">লোড হচ্ছে...</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("profit.loading")}</p>
         ) : stockSales && stockSales.length > 0 ? (
           <div className="space-y-3">
             <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
@@ -356,23 +359,23 @@ export default function ProfitTab() {
               ))}
             </div>
             <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">স্টক প্রফিট</p>
+              <p className="text-sm font-semibold">{t("profit.stock_profit")}</p>
               <p className="tabular font-display text-xl font-extrabold text-up">৳{money(summary?.stock_profit)}</p>
             </div>
-            <DetailDownloadButton onClick={() => downloadDetailReport("stock")} />
+            <DetailDownloadButton label={t("profit.download_pdf")} onClick={() => downloadDetailReport("stock")} />
           </div>
         ) : (
-          <p className="py-6 text-center text-sm text-ink-muted">এই মাসে কোনো সেল নেই</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("profit.no_sales_month")}</p>
         )}
       </Sheet>
 
       <Sheet
         open={detailKind === "outsideStock"}
         onClose={() => setDetailKind(null)}
-        title="আউটসাইড স্টক প্রফিটের হিসাব"
+        title={t("profit.outside_stock_detail_title")}
       >
         {detailLoading && !outsideStockSales ? (
-          <p className="py-6 text-center text-sm text-ink-muted">লোড হচ্ছে...</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("profit.loading")}</p>
         ) : outsideStockSales && outsideStockSales.length > 0 ? (
           <div className="space-y-3">
             <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
@@ -381,7 +384,7 @@ export default function ProfitTab() {
                   <div className="min-w-0">
                     <p className="text-sm text-ink-muted truncate">{s.name_model}</p>
                     <p className="text-[11px] text-ink-faint truncate">
-                      IMEI: {s.imei} · ফুল প্রফিট: ৳{money(s.profit)}
+                      IMEI: {s.imei} · {t("profit.full_profit_prefix")}{money(s.profit)}
                     </p>
                   </div>
                   <p className={`tabular text-sm font-semibold shrink-0 ${s.share_profit >= 0 ? "text-up" : "text-down"}`}>
@@ -391,20 +394,20 @@ export default function ProfitTab() {
               ))}
             </div>
             <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">আউটসাইড স্টক প্রফিট</p>
+              <p className="text-sm font-semibold">{t("profit.outside_stock_profit")}</p>
               <p className="tabular font-display text-xl font-extrabold text-up">৳{money(summary?.outside_stock_profit)}</p>
             </div>
-            <DetailDownloadButton onClick={() => downloadDetailReport("outsideStock")} />
+            <DetailDownloadButton label={t("profit.download_pdf")} onClick={() => downloadDetailReport("outsideStock")} />
           </div>
         ) : (
-          <p className="py-6 text-center text-sm text-ink-muted">এই মাসে কোনো আউটসাইড স্টক সেল নেই</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("profit.no_outside_stock_sales_month")}</p>
         )}
       </Sheet>
 
       <Sheet
         open={detailKind === "outside"}
         onClose={() => setDetailKind(null)}
-        title="Outside প্রফিটের হিসাব"
+        title={t("profit.used_phone_detail_title")}
       >
         {deals.length > 0 ? (
           <div className="space-y-3">
@@ -419,23 +422,23 @@ export default function ProfitTab() {
               ))}
             </div>
             <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">Outside প্রফিট</p>
+              <p className="text-sm font-semibold">{t("profit.used_phone_profit")}</p>
               <p className="tabular font-display text-xl font-extrabold text-up">৳{money(summary?.outside_profit)}</p>
             </div>
-            <DetailDownloadButton onClick={() => downloadDetailReport("outside")} />
+            <DetailDownloadButton label={t("profit.download_pdf")} onClick={() => downloadDetailReport("outside")} />
           </div>
         ) : (
-          <p className="py-6 text-center text-sm text-ink-muted">এই মাসে কোনো Outside Sell এন্ট্রি নেই</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("profit.no_used_phone_entries_month")}</p>
         )}
       </Sheet>
 
       <Sheet
         open={detailKind === "expense"}
         onClose={() => setDetailKind(null)}
-        title="মোট খরচের হিসাব (খাত অনুযায়ী)"
+        title={t("profit.expense_detail_title")}
       >
         {detailLoading && !expenseCategories ? (
-          <p className="py-6 text-center text-sm text-ink-muted">লোড হচ্ছে...</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("profit.loading")}</p>
         ) : expenseCategories && expenseCategories.length > 0 ? (
           <div className="space-y-3">
             <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
@@ -447,23 +450,23 @@ export default function ProfitTab() {
               ))}
             </div>
             <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">মোট খরচ</p>
+              <p className="text-sm font-semibold">{t("profit.total_expense")}</p>
               <p className="tabular font-display text-xl font-extrabold text-down">৳{money(summary?.total_expense)}</p>
             </div>
-            <DetailDownloadButton onClick={() => downloadDetailReport("expense")} />
+            <DetailDownloadButton label={t("profit.download_pdf")} onClick={() => downloadDetailReport("expense")} />
           </div>
         ) : (
-          <p className="py-6 text-center text-sm text-ink-muted">এই মাসে কোনো খরচ এন্ট্রি নেই</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("profit.no_expense_entries_month")}</p>
         )}
       </Sheet>
 
       <Sheet
         open={detailKind === "due"}
         onClose={() => setDetailKind(null)}
-        title="বকেয়া বাকির হিসাব"
+        title={t("profit.due_detail_title")}
       >
         {detailLoading && !dueSales ? (
-          <p className="py-6 text-center text-sm text-ink-muted">লোড হচ্ছে...</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("profit.loading")}</p>
         ) : dueSales && dueSales.length > 0 ? (
           <div className="space-y-3">
             <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
@@ -477,27 +480,27 @@ export default function ProfitTab() {
               ))}
             </div>
             <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">মোট বকেয়া</p>
+              <p className="text-sm font-semibold">{t("profit.total_due_label")}</p>
               <p className="tabular font-display text-xl font-extrabold text-due">৳{money(summary?.total_due_outstanding)}</p>
             </div>
-            <DetailDownloadButton onClick={() => downloadDetailReport("due")} />
+            <DetailDownloadButton label={t("profit.download_pdf")} onClick={() => downloadDetailReport("due")} />
           </div>
         ) : (
-          <p className="py-6 text-center text-sm text-ink-muted">কোনো বকেয়া নেই</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("profit.no_due")}</p>
         )}
       </Sheet>
     </div>
   );
 }
 
-function DetailDownloadButton({ onClick }: { onClick: () => void }) {
+function DetailDownloadButton({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-semibold text-teal"
     >
-      <Download size={13} /> PDF ডাউনলোড
+      <Download size={13} /> {label}
     </button>
   );
 }

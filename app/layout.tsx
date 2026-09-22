@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import OrientationFix from "./components/OrientationFix";
+import { LanguageProvider } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "iPhone Store",
-  description: "মোবাইল শোরুম ম্যানেজমেন্ট — স্টক, খরচ ও প্রফিট এক জায়গায়",
+  description: "Mobile shop management — stock, expenses and profit in one place",
 };
 
 export const viewport: Viewport = {
@@ -25,10 +26,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="bn">
+    <html lang="en">
       <body>
         <OrientationFix />
-        {children}
+        <LanguageProvider>{children}</LanguageProvider>
       </body>
     </html>
   );

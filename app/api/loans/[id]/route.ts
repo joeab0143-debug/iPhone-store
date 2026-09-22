@@ -5,7 +5,7 @@ export const runtime = "edge";
 
 // Full detail for one loan account — its totals plus the complete
 // chronological history of every amount taken/given and every repayment.
-// Powers the "ভেতরে ঢুকে বিস্তারিত" drill-down in the Loans tab.
+// Powers the "View Details" drill-down in the Loans tab.
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -27,7 +27,7 @@ export async function GET(
     .first<any>();
 
   if (!account) {
-    return NextResponse.json({ error: "এন্ট্রি পাওয়া যায়নি" }, { status: 404 });
+    return NextResponse.json({ error: "Entry not found" }, { status: 404 });
   }
   account.remaining = Number(account.disbursed) - Number(account.repaid);
 

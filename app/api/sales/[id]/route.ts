@@ -18,7 +18,7 @@ export async function GET(
     .first();
 
   if (!sale) {
-    return NextResponse.json({ error: "পাওয়া যায়নি" }, { status: 404 });
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const { results: payments } = await db
@@ -41,7 +41,7 @@ export async function DELETE(
     .first<{ phone_id: number }>();
 
   if (!sale) {
-    return NextResponse.json({ error: "পাওয়া যায়নি" }, { status: 404 });
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   await db.prepare("DELETE FROM sales WHERE id = ?").bind(params.id).run();

@@ -3,17 +3,19 @@ import { getDB } from "@/lib/db";
 
 export const runtime = "edge";
 
-// "এই মাসের প্রফিট" ড্যাশবোর্ড ট্যাইলে ক্লিক করলে যে ব্রেকডাউন দেখানো হয় —
-// কোন কোন খাতে (স্টক প্রফিট, আউটসাইড স্টক প্রফিট, Outside প্রফিট, প্রতিটা
-// খরচের ঘর/খাত) কত টাকা যোগ/বিয়োগ হয়ে চলতি মাসের প্রফিট তৈরি হলো। শুধু
-// চলতি ক্যালেন্ডার মাসের হিসাব — /api/dashboard-এর profit_till_now-এর
-// সাথে একই মাস-স্কোপ ব্যবহার করা হচ্ছে (strftime('%Y-%m', ...) = বর্তমান
-// মাস), তাই দুটো সংখ্যা সবসময় মিলবে। একই নামের একাধিক খরচের ঘর (category)
-// থাকলেও নামের ভিত্তিতে GROUP BY করায় সেগুলো একত্রে একটা লাইনেই দেখাবে।
+// The breakdown shown when the "This Month's Profit" dashboard tile is
+// clicked — which categories (stock profit, used phone profit, Outside
+// profit, each expense category) add up or subtract to make this month's
+// profit. Scoped to just the current calendar month — uses the same
+// month-scope as /api/dashboard's profit_till_now (strftime('%Y-%m', ...) =
+// current month), so the two numbers always match. Multiple expense
+// categories with the same name are GROUP BY'd together and shown as one
+// line.
 //
-// "আউটসাইড স্টক" (migrations/0017) ফোনের সেল থেকে stock_profit বাদ —
-// তার বদলে সেই সেলের ফুল প্রফিটের ৫০% আলাদা করে outside_stock_profit-এ
-// যোগ হয় (বাকি ৫০% ফোনের আসল মালিকের, এই অ্যাপে ট্র্যাক করা হয় না)।
+// "Used Phone" (migrations/0017) excludes stock_profit from that phone's
+// sale — instead, 50% of that sale's full profit is added separately into
+// outside_stock_profit (the other 50% belongs to the phone's actual owner,
+// not tracked in this app).
 export async function GET() {
   const db = getDB();
 

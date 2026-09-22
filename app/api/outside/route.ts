@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   const from = req.nextUrl.searchParams.get("from");
   const to = req.nextUrl.searchParams.get("to");
   const status = req.nextUrl.searchParams.get("status"); // unsold | sold
-  const imei = req.nextUrl.searchParams.get("imei"); // exact match, used by the Outside Sell sheet's IMEI lookup
+  const imei = req.nextUrl.searchParams.get("imei"); // exact match, used by the Used Phone sheet's IMEI lookup
 
   let query = "SELECT * FROM outside_deals WHERE 1=1";
   const binds: string[] = [];
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ deals: results });
 }
 
-// Outside Sell is now a standalone 3-field profit log (Model, IMEI, Profit),
+// Used Phone is now a standalone 3-field profit log (Model, IMEI, Profit),
 // so a row usually arrives with just those + status:"sold". The extra
 // columns (ram_rom, bought_from, buy_price, nid, phone_number, sell_price)
 // are legacy from the old staged-Buy flow and stay optional for backward
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 
   const identifier = model || imei || bought_from || name;
   if (!identifier) {
-    return NextResponse.json({ error: "Model অথবা IMEI দিন" }, { status: 400 });
+    return NextResponse.json({ error: "Enter Model or IMEI" }, { status: 400 });
   }
 
   // profit: if sell_price given, compute; otherwise use manually entered profit

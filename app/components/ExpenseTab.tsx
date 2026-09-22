@@ -15,14 +15,17 @@ import {
 } from "./ui";
 import { emitDashboardRefresh } from "@/lib/events";
 import { generateReportPDF } from "@/lib/report-pdf";
+import { useLang } from "@/lib/i18n";
 import type { Expense, ExpenseCategory } from "@/lib/types";
 
 export default function ExpenseTab() {
+  const { t } = useLang();
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
-  // মাসের শুরুতে খরচের হিসাব ০ থেকে শুরু হয় — পুরনো মাসের এন্ট্রি মুছে
-  // যায় না, এই পিকার দিয়ে যেকোনো মাসের হিস্ট্রি দেখা যাবে।
+  // Expense totals start at zero at the beginning of each month — old
+  // months' entries are never deleted, this picker lets any month's
+  // history be viewed.
   const [month, setMonth] = useState(currentMonthStr());
 
   const [catOpen, setCatOpen] = useState(false);
@@ -38,7 +41,7 @@ export default function ExpenseTab() {
     note: "",
   });
 
-  // নামের উপর ক্লিক করলে যে গ্রুপের ডিটেইল (তারিখ ভিত্তিক তালিকা) দেখানো হয়।
+  // Clicking a name shows that group's detail (date-wise list).
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
 
   async function load() {
@@ -63,7 +66,7 @@ export default function ExpenseTab() {
   async function submitCategory() {
     setError("");
     if (!catForm.name) {
-      setError("ঘরের নাম দিন");
+      setError(t("expense.name_required"));
       return;
     }
     setSaving(true);
@@ -74,7 +77,7 @@ export default function ExpenseTab() {
     });
     setSaving(false);
     if (!res.ok) {
-      setError("সেভ করা যায়নি");
+      setError(t("expense.save_failed"));
       return;
     }
     setCatForm({ name: "", designation: "" });
@@ -83,7 +86,7 @@ export default function ExpenseTab() {
   }
 
   async function deleteCategory(id: number) {
-    if (!confirm("এই ঘরটি ও এর সব খরচ এন্ট্রি মুছে যাবে। নিশ্চিত?")) return;
+    if (!confirm(t("expense.delete_category_confirm"))) return;
     await fetch(`/api/expense-categories/${id}`, { method: "DELETE" });
     load();
   }
@@ -91,7 +94,7 @@ export default function ExpenseTab() {
   async function submitEntry() {
     setError("");
     if (!entryForm.category_id || !entryForm.amount) {
-      setError("ঘর ও পরিমাণ দিন");
+      setError(t("expense.category_and_amount_required"));
       return;
     }
     setSaving(true);
@@ -107,7 +110,7 @@ export default function ExpenseTab() {
     });
     setSaving(false);
     if (!res.ok) {
-      setError("সেভ করা যায়নি");
+      setError(t("expense.save_failed"));
       return;
     }
     setEntryForm({ category_id: "", amount: "", expense_date: "", note: "" });
@@ -134,23 +137,25 @@ export default function ExpenseTab() {
     })
     .reduce((s, e) => s + Number(e.amount), 0);
 
-  // নির্বাচিত মাসের মোট খরচ — API থেকে already সেই মাসের এন্ট্রিই আসে।
+  // Total expense for the selected month — the API already returns only
+  // that month's entries.
   const totalMonth = expenses.reduce((s, e) => s + Number(e.amount), 0);
 
-  // নাম/খাত অনুযায়ী এন্ট্রিগুলো একত্রে গ্রুপ করা হচ্ছে — শুধু দেখানোর সময়ের
-  // জন্য (এখানে গ্রুপিং), ডাটাবেজে কোনো ক্যাটাগরি/এন্ট্রি মার্জ বা পরিবর্তন
-  // করা হচ্ছে না। একই নামের ঘর একাধিকবার তৈরি হলেও (আলাদা category_id হলেও)
-  // এখানে নামের ভিত্তিতে একসাথে দেখানো হবে।
+  // Entries are grouped together by name/category — this grouping is only
+  // for display purposes, no category/entry merging or change happens in
+  // the database. Even if a category with the same name was created more
+  // than once (with different category_id), they'll be shown together here
+  // based on name.
   const groupedExpenses = useMemo(() => {
     const map = new Map<string, { name: string; total: number; entries: Expense[] }>();
     for (const e of expenses) {
-      const key = e.category_name || "অজানা";
+      const key = e.category_name || t("expense.unknown_category");
       if (!map.has(key)) map.set(key, { name: key, total: 0, entries: [] });
       const g = map.get(key)!;
       g.total += Number(e.amount);
       g.entries.push(e);
     }
-    // প্রতিটা গ্রুপের ভেতরের এন্ট্রি তারিখ অনুযায়ী নতুন থেকে পুরনো সাজানো
+    // Sort each group's entries newest to oldest by date.
     for (const g of map.values()) {
       g.entries.sort(
         (a, b) => new Date((b.expense_date || "").replace(" ", "T")).getTime() -
@@ -158,6 +163,7 @@ export default function ExpenseTab() {
       );
     }
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expenses]);
 
   const selectedGroupData = selectedGroup
@@ -204,31 +210,29 @@ export default function ExpenseTab() {
 
       <div className="mb-4 grid grid-cols-2 gap-3">
         <div className="phone-card">
-          <p className="text-xs text-ink-muted">আজকের খরচ</p>
+          <p className="text-xs text-ink-muted">{t("expense.today")}</p>
           <p className="tabular font-display text-2xl font-bold text-down mt-1">
             ৳{money(totalToday)}
           </p>
         </div>
         <div className="phone-card">
-          <p className="text-xs text-ink-muted">এই মাসের খরচ</p>
+          <p className="text-xs text-ink-muted">{t("expense.this_month")}</p>
           <p className="tabular font-display text-2xl font-bold mt-1">৳{money(totalMonth)}</p>
         </div>
       </div>
 
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-display font-semibold">খরচের ঘরসমূহ</h3>
+        <h3 className="font-display font-semibold">{t("expense.categories_heading")}</h3>
         <button
           onClick={() => setCatOpen(true)}
           className="text-xs font-semibold text-teal"
         >
-          + নতুন ঘর
+          {t("expense.new_category")}
         </button>
       </div>
 
       {categories.length === 0 ? (
-        <p className="mb-5 text-sm text-ink-muted">
-          এখনো কোনো খরচের ঘর তৈরি হয়নি — যেমন: কারেন্ট বিল, দোকান ভাড়া, স্টাফ বেতন ইত্যাদি
-        </p>
+        <p className="mb-5 text-sm text-ink-muted">{t("expense.no_categories")}</p>
       ) : (
         <div className="mb-5 flex flex-wrap gap-2">
           {categories.map((c) => (
@@ -252,20 +256,20 @@ export default function ExpenseTab() {
       )}
 
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-display font-semibold">খরচের এন্ট্রি</h3>
+        <h3 className="font-display font-semibold">{t("expense.entries_heading")}</h3>
         <button
           onClick={downloadReport}
           className="flex items-center gap-1 text-xs font-semibold text-teal"
         >
-          <Download size={13} /> PDF ডাউনলোড
+          <Download size={13} /> {t("expense.download_pdf")}
         </button>
       </div>
 
       {loading ? (
-        <p className="text-center text-sm text-ink-muted py-10">লোড হচ্ছে...</p>
+        <p className="text-center text-sm text-ink-muted py-10">{t("expense.loading")}</p>
       ) : groupedExpenses.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border py-10 text-center text-ink-muted">
-          কোনো খরচ এন্ট্রি নেই
+          {t("expense.no_entries")}
         </div>
       ) : (
         <ul className="space-y-2">
@@ -278,7 +282,9 @@ export default function ExpenseTab() {
               >
                 <div>
                   <p className="text-sm font-medium">{g.name}</p>
-                  <p className="text-xs text-ink-faint">{g.entries.length}টি এন্ট্রি</p>
+                  <p className="text-xs text-ink-faint">
+                    {t("expense.entries_count").replace("{count}", String(g.entries.length))}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="tabular font-semibold text-down">
@@ -296,21 +302,21 @@ export default function ExpenseTab() {
         onClick={() => setEntryOpen(true)}
         disabled={categories.length === 0}
         className="no-print fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-white shadow-lg shadow-gold/20 active:scale-95 disabled:opacity-40"
-        aria-label="নতুন খরচ যোগ করুন"
+        aria-label={t("expense.add_new_aria")}
       >
         <Plus size={26} />
       </button>
 
-      <Sheet open={catOpen} onClose={() => setCatOpen(false)} title="নতুন খরচের ঘর">
+      <Sheet open={catOpen} onClose={() => setCatOpen(false)} title={t("expense.new_category_title")}>
         <div className="space-y-3">
-          <Field label="ঘরের নাম (যেমন: কারেন্ট বিল, দোকান ভাড়া)">
+          <Field label={t("expense.category_name_label")}>
             <input
               value={catForm.name}
               onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
               className={inputClass}
             />
           </Field>
-          <Field label="ডেজিগনেশন (ঐচ্ছিক, যেমন: স্টাফের পদবি)">
+          <Field label={t("expense.designation_label")}>
             <input
               value={catForm.designation}
               onChange={(e) => setCatForm({ ...catForm, designation: e.target.value })}
@@ -319,20 +325,20 @@ export default function ExpenseTab() {
           </Field>
           {error && <p className="text-sm text-down">{error}</p>}
           <Button full onClick={submitCategory} disabled={saving}>
-            {saving ? "সেভ হচ্ছে..." : "তৈরি করুন"}
+            {saving ? t("expense.saving") : t("expense.create")}
           </Button>
         </div>
       </Sheet>
 
-      <Sheet open={entryOpen} onClose={() => setEntryOpen(false)} title="নতুন খরচ এন্ট্রি">
+      <Sheet open={entryOpen} onClose={() => setEntryOpen(false)} title={t("expense.new_entry_title")}>
         <div className="space-y-3">
-          <Field label="ঘর বাছাই করুন">
+          <Field label={t("expense.select_category_label")}>
             <select
               value={entryForm.category_id}
               onChange={(e) => setEntryForm({ ...entryForm, category_id: e.target.value })}
               className={inputClass}
             >
-              <option value="">— বাছাই করুন —</option>
+              <option value="">{t("expense.select_placeholder")}</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -340,7 +346,7 @@ export default function ExpenseTab() {
               ))}
             </select>
           </Field>
-          <Field label="পরিমাণ (৳)">
+          <Field label={t("expense.amount_label")}>
             <input
               type="number"
               inputMode="decimal"
@@ -349,7 +355,7 @@ export default function ExpenseTab() {
               className={inputClass}
             />
           </Field>
-          <Field label="তারিখ (ফাঁকা রাখলে আজকের তারিখ বসবে)">
+          <Field label={t("expense.date_label")}>
             <input
               type="date"
               value={entryForm.expense_date}
@@ -357,7 +363,7 @@ export default function ExpenseTab() {
               className={inputClass}
             />
           </Field>
-          <Field label="নোট (ঐচ্ছিক)">
+          <Field label={t("expense.note_label")}>
             <input
               value={entryForm.note}
               onChange={(e) => setEntryForm({ ...entryForm, note: e.target.value })}
@@ -366,7 +372,7 @@ export default function ExpenseTab() {
           </Field>
           {error && <p className="text-sm text-down">{error}</p>}
           <Button full onClick={submitEntry} disabled={saving}>
-            {saving ? "সেভ হচ্ছে..." : "যোগ করুন"}
+            {saving ? t("expense.saving") : t("expense.add_button")}
           </Button>
         </div>
       </Sheet>
@@ -379,7 +385,12 @@ export default function ExpenseTab() {
         {selectedGroupData && selectedGroupData.entries.length > 0 ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between rounded-xl border border-border bg-surface-2 px-3.5 py-3">
-              <p className="text-sm font-semibold">মোট ({selectedGroupData.entries.length}টি এন্ট্রি)</p>
+              <p className="text-sm font-semibold">
+                {t("expense.total_entries_count").replace(
+                  "{count}",
+                  String(selectedGroupData.entries.length)
+                )}
+              </p>
               <p className="tabular font-display text-lg font-bold text-down">
                 -৳{money(selectedGroupData.total)}
               </p>
@@ -410,7 +421,7 @@ export default function ExpenseTab() {
             </ul>
           </div>
         ) : (
-          <p className="py-6 text-center text-sm text-ink-muted">কোনো এন্ট্রি নেই</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("expense.no_entries")}</p>
         )}
       </Sheet>
     </div>

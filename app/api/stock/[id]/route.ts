@@ -14,7 +14,7 @@ export async function GET(
     .first();
 
   if (!phone) {
-    return NextResponse.json({ error: "পাওয়া যায়নি" }, { status: 404 });
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const sale = await db
@@ -80,11 +80,11 @@ export async function PATCH(
     // currently-unsold rows may share an IMEI.
     if (String(e.message || e).includes("UNIQUE")) {
       return NextResponse.json(
-        { error: "এই IMEI নম্বরের আরেকটি ফোন ইতিমধ্যে স্টকে (Unsold) আছে" },
+        { error: "Another phone with this IMEI is already in stock (Unsold)" },
         { status: 409 }
       );
     }
-    return NextResponse.json({ error: "সেভ করা যায়নি" }, { status: 500 });
+    return NextResponse.json({ error: "Could not save" }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

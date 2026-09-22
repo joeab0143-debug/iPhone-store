@@ -5,6 +5,7 @@ import { Wallet2, CalendarCheck2, ShoppingBag, Boxes, TrendingUp, ChevronRight, 
 import { money, formatDate, Sheet, monthRange, currentMonthStr } from "./ui";
 import { DASHBOARD_REFRESH_EVENT } from "@/lib/events";
 import { generateReportPDF } from "@/lib/report-pdf";
+import { useLang } from "@/lib/i18n";
 import type { DashboardSummary } from "@/lib/types";
 
 const POLL_MS = 20000;
@@ -65,8 +66,8 @@ interface BuyPhoneRow {
 }
 
 interface TotalBuyBreakdown {
-  phones: BuyPhoneRow[]; // regular stock only — matches the cash-based "মোট ক্রয়" tile
-  outsidePhones: BuyPhoneRow[]; // "আউটসাইড স্টক" — never counted in Total Cash
+  phones: BuyPhoneRow[]; // regular stock only — matches the cash-based "Total Buy" tile
+  outsidePhones: BuyPhoneRow[]; // "Outside Stock" — never counted in Total Cash
   unsoldValue: number;
   soldValue: number;
   outsideValue: number;
@@ -128,6 +129,7 @@ function todayLabel() {
 }
 
 export default function DashboardStats() {
+  const { t } = useLang();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
 
   const [profitOpen, setProfitOpen] = useState(false);
@@ -146,8 +148,8 @@ export default function DashboardStats() {
   const [buyBreakdown, setBuyBreakdown] = useState<TotalBuyBreakdown | null>(null);
   const [buyLoading, setBuyLoading] = useState(false);
 
-  // নেস্টেড ডিটেইলস — ইতিমধ্যে খোলা কোনো ব্রেকডাউন শিটের ভেতরের একটা লাইনে
-  // ক্লিক করলে, ঠিক কোন কোন প্রোডাক্ট/এন্ট্রি থেকে ওই টাকাটা এলো তা দেখানো হয়।
+  // Nested details — clicking a line inside an already-open breakdown
+  // sheet shows exactly which products/entries that money came from.
   const [subKind, setSubKind] = useState<SubDetailKind | null>(null);
   const [subLoading, setSubLoading] = useState(false);
   const [subStockProfit, setSubStockProfit] = useState<StockProfitRow[] | null>(null);
@@ -184,7 +186,7 @@ export default function DashboardStats() {
       const res = await fetch("/api/profit-breakdown", { cache: "no-store" });
       if (res.ok) setProfitBreakdown(await res.json());
     } catch {
-      // transient network error — sheet will just show নেই/stale
+      // transient network error — sheet will just show empty/stale
     } finally {
       setProfitLoading(false);
     }
@@ -247,9 +249,10 @@ export default function DashboardStats() {
         status: p.status,
         stock_type: p.stock_type === "outside" ? "outside" : "regular",
       }));
-      // "আউটসাইড স্টক" ফোনের ক্রয়মূল্য টোটাল ক্যাশ থেকে কাটা হয় না (lib/cash.ts),
-      // তাই এখানেও রেগুলার স্টক থেকে আলাদা রাখা হচ্ছে — unsoldValue/soldValue/total
-      // যেন ঠিক "মোট ক্রয়" ট্যাইলের সংখ্যার সাথে মিলে যায়।
+      // "Outside Stock" phones' buy price is never deducted from Total Cash
+      // (lib/cash.ts), so they're kept separate from regular stock here too
+      // — unsoldValue/soldValue/total match the "Total Buy" tile's number
+      // exactly.
       const phones = allPhones.filter((p) => p.stock_type !== "outside");
       const outsidePhones = allPhones.filter((p) => p.stock_type === "outside");
       const unsoldValue = phones.filter((p) => p.status === "unsold").reduce((s, p) => s + Number(p.buy_price), 0);
@@ -301,10 +304,10 @@ export default function DashboardStats() {
             }))
         );
       } else if (kind === "outsideProfitMonth") {
-        // /api/outside ফিল্টার করে deal_date দিয়ে, কিন্তু মাসিক প্রফিট
-        // হিসাব হয় sell_date দিয়ে (profit-breakdown route দ্রষ্টব্য) — তাই
-        // সবগুলো sold ডিল এনে ক্লায়েন্ট-সাইডে sell_date দিয়ে ফিল্টার করা
-        // হচ্ছে, ঠিক openTodayBreakdown-এর মতোই।
+        // /api/outside filters by deal_date, but the monthly profit
+        // calculation uses sell_date (see the profit-breakdown route) — so
+        // every sold deal is fetched and filtered client-side by sell_date,
+        // exactly like openTodayBreakdown.
         const monthPrefix = currentMonthStr();
         const res = await fetch(`/api/outside?status=sold`, { cache: "no-store" });
         const data: any = res.ok ? await res.json() : { deals: [] };
@@ -349,8 +352,8 @@ export default function DashboardStats() {
     }
   }, []);
 
-  // "আউটসাইড স্টক" বক্সে ট্যাপ করলে — buyBreakdown-এ ইতিমধ্যে লোড হওয়া
-  // outsidePhones থেকেই দেখানো হয়, নতুন করে fetch করার দরকার নেই।
+  // Tapping the "Outside Stock" box — shown straight from outsidePhones
+  // already loaded in buyBreakdown, no new fetch needed.
   function openOutsideStockList() {
     setSubOutsideStockPhones(buyBreakdown?.outsidePhones ?? []);
     setSubKind("outsideStockList");
@@ -367,7 +370,7 @@ export default function DashboardStats() {
         summary: [
           { label: "Total Cash", value: `Tk ${cashBreakdown.total_cash.toLocaleString()}`, tone: cashBreakdown.total_cash >= 0 ? "up" : "down" },
           { label: "Sales Received", value: `Tk ${cashBreakdown.sales_paid.toLocaleString()}`, tone: "up" },
-          { label: "Outside Sell Profit", value: `Tk ${cashBreakdown.outside_profit.toLocaleString()}`, tone: "up" },
+          { label: "Used Phone Profit", value: `Tk ${cashBreakdown.outside_profit.toLocaleString()}`, tone: "up" },
           { label: "Loan Cash In", value: `Tk ${cashBreakdown.loan_cash_in.toLocaleString()}`, tone: "up" },
           { label: "Total Buy (Stock)", value: `Tk ${cashBreakdown.total_buy.toLocaleString()}`, tone: "down" },
           { label: "Total Expenses", value: `Tk ${cashBreakdown.expenses.toLocaleString()}`, tone: "down" },
@@ -385,7 +388,7 @@ export default function DashboardStats() {
     const previewWin = window.open("", "_blank");
     const rows: (string | number)[][] = [
       ...todayBreakdown.stockSales.map((s) => ["Stock Sale", s.name_model, s.imei, s.selling_price.toLocaleString()]),
-      ...todayBreakdown.outsideSales.map((o) => ["Outside Sell", o.model || o.name, o.imei || "-", o.profit.toLocaleString()]),
+      ...todayBreakdown.outsideSales.map((o) => ["Used Phone", o.model || o.name, o.imei || "-", o.profit.toLocaleString()]),
     ];
     generateReportPDF(
       {
@@ -447,7 +450,7 @@ export default function DashboardStats() {
           { label: "Net Profit", value: `Tk ${profitBreakdown.net_profit.toLocaleString()}`, tone: profitBreakdown.net_profit >= 0 ? "up" : "down" },
           { label: "Stock Profit", value: `Tk ${profitBreakdown.stock_profit.toLocaleString()}`, tone: "up" },
           { label: "Outside Stock Profit", value: `Tk ${profitBreakdown.outside_stock_profit.toLocaleString()}`, tone: "up" },
-          { label: "Outside Sell Profit", value: `Tk ${profitBreakdown.outside_profit.toLocaleString()}`, tone: "up" },
+          { label: "Used Phone Profit", value: `Tk ${profitBreakdown.outside_profit.toLocaleString()}`, tone: "up" },
           { label: "Total Expense", value: `Tk ${profitBreakdown.total_expense.toLocaleString()}`, tone: "down" },
         ],
         table: {
@@ -537,9 +540,9 @@ export default function DashboardStats() {
       generateReportPDF(
         {
           shopName: "iPhone Store",
-          title: "Outside Sell Profit Detail",
+          title: "Used Phone Profit Detail",
           subtitle: "This Month",
-          summary: [{ label: "Outside Sell Profit", value: `Tk ${(profitBreakdown?.outside_profit ?? 0).toLocaleString()}`, tone: "up" }],
+          summary: [{ label: "Used Phone Profit", value: `Tk ${(profitBreakdown?.outside_profit ?? 0).toLocaleString()}`, tone: "up" }],
           table: {
             head: ["Model", "IMEI", "Sell Date", "Profit (Tk)"],
             rows: (subOutsideDeals || []).map((d) => [
@@ -548,7 +551,7 @@ export default function DashboardStats() {
               (d.sell_date || "-").toString().slice(0, 10),
               Number(d.profit).toLocaleString(),
             ]),
-            emptyLabel: "No Outside Sell entries this month",
+            emptyLabel: "No Used Phone entries this month",
           },
           footerNote: "Generated from iPhone Store — Dashboard",
         },
@@ -574,13 +577,13 @@ export default function DashboardStats() {
       generateReportPDF(
         {
           shopName: "iPhone Store",
-          title: "Outside Sell Profit Detail",
+          title: "Used Phone Profit Detail",
           subtitle: `As of ${todayLabel()}`,
-          summary: [{ label: "Outside Sell Profit", value: `Tk ${(cashBreakdown?.outside_profit ?? 0).toLocaleString()}`, tone: "up" }],
+          summary: [{ label: "Used Phone Profit", value: `Tk ${(cashBreakdown?.outside_profit ?? 0).toLocaleString()}`, tone: "up" }],
           table: {
             head: ["Model / IMEI", "Profit (Tk)"],
             rows: (subOutsideDeals || []).map((d) => [d.model || d.name, Number(d.profit).toLocaleString()]),
-            emptyLabel: "No Outside Sell entries yet",
+            emptyLabel: "No Used Phone entries yet",
           },
           footerNote: "Generated from iPhone Store — Dashboard (Total Cash, all-time)",
         },
@@ -621,7 +624,7 @@ export default function DashboardStats() {
         className="phone-card w-full text-left transition active:scale-[0.99]"
       >
         <div className="flex items-center justify-between">
-          <p className="text-xs text-ink-muted">টোটাল ক্যাশ (এখন পর্যন্ত)</p>
+          <p className="text-xs text-ink-muted">{t("dashboard.total_cash_label")}</p>
           <Wallet2 size={16} className="text-gold" />
         </div>
         <div className="mt-1 flex items-center gap-1.5">
@@ -637,41 +640,41 @@ export default function DashboardStats() {
       </button>
 
       <div className="mt-3 grid grid-cols-2 gap-2.5">
-        <StatTile icon={CalendarCheck2} label="আজকের সেল" value={summary?.today_sale} tone="up" onClick={openTodayBreakdown} />
-        <StatTile icon={ShoppingBag} label="মোট ক্রয়" value={summary?.total_buy} tone="down" onClick={openBuyBreakdown} />
-        <StatTile icon={Boxes} label="স্টক" value={summary?.stock_count} tone="default" isCount />
+        <StatTile icon={CalendarCheck2} label={t("dashboard.today_sale_label")} value={summary?.today_sale} tone="up" onClick={openTodayBreakdown} />
+        <StatTile icon={ShoppingBag} label={t("dashboard.total_buy_label")} value={summary?.total_buy} tone="down" onClick={openBuyBreakdown} />
+        <StatTile icon={Boxes} label={t("dashboard.stock_label")} value={summary?.stock_count} tone="default" isCount />
         <StatTile
           icon={TrendingUp}
-          label="এই মাসের প্রফিট"
+          label={t("dashboard.month_profit_label")}
           value={summary?.profit_till_now}
           tone={profitPositive ? "up" : "down"}
           onClick={openProfitBreakdown}
         />
       </div>
 
-      {/* ---- টোটাল ক্যাশ ---- */}
-      <Sheet open={cashOpen} onClose={() => setCashOpen(false)} title="টোটাল ক্যাশের হিসাব">
+      {/* ---- Total Cash ---- */}
+      <Sheet open={cashOpen} onClose={() => setCashOpen(false)} title={t("dashboard.total_cash_sheet_title")}>
         {cashLoading && !cashBreakdown ? (
-          <p className="py-6 text-center text-sm text-ink-muted">লোড হচ্ছে...</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.loading")}</p>
         ) : cashBreakdown ? (
           <div className="space-y-4">
             <div>
-              <p className="mb-2 text-xs font-semibold text-up">যা যোগ হয়েছে (ক্যাশ ইন)</p>
+              <p className="mb-2 text-xs font-semibold text-up">{t("dashboard.cash_in_heading")}</p>
               <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
                 <BreakdownRow
-                  label="সেল থেকে পাওয়া টাকা"
+                  label={t("dashboard.sales_received_label")}
                   value={cashBreakdown.sales_paid}
                   tone="up"
                   onClick={() => openSub("cashSalesPaid")}
                 />
                 <BreakdownRow
-                  label="Outside Sell প্রফিট"
+                  label={t("dashboard.used_phone_profit_label")}
                   value={cashBreakdown.outside_profit}
                   tone="up"
                   onClick={() => openSub("cashOutsideProfit")}
                 />
                 <BreakdownRow
-                  label="ধার থেকে পাওয়া টাকা"
+                  label={t("dashboard.loan_cash_in_label")}
                   value={cashBreakdown.loan_cash_in}
                   tone="up"
                   onClick={() => openSub("cashLoanIn")}
@@ -679,19 +682,19 @@ export default function DashboardStats() {
               </div>
             </div>
             <div>
-              <p className="mb-2 text-xs font-semibold text-down">যা বিয়োগ হয়েছে (ক্যাশ আউট)</p>
+              <p className="mb-2 text-xs font-semibold text-down">{t("dashboard.cash_out_heading")}</p>
               <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
-                <BreakdownRow label="মোট ক্রয় (স্টক)" value={cashBreakdown.total_buy} tone="down" negative />
-                <BreakdownRow label="মোট খরচ" value={cashBreakdown.expenses} tone="down" negative />
-                <BreakdownRow label="ধার হিসেবে দেওয়া টাকা" value={cashBreakdown.loan_cash_out} tone="down" negative />
+                <BreakdownRow label={t("dashboard.total_buy_stock_label")} value={cashBreakdown.total_buy} tone="down" negative />
+                <BreakdownRow label={t("dashboard.total_expense_label")} value={cashBreakdown.expenses} tone="down" negative />
+                <BreakdownRow label={t("dashboard.loan_cash_out_label")} value={cashBreakdown.loan_cash_out} tone="down" negative />
               </div>
             </div>
             {cashBreakdown.adjustment !== 0 && (
               <div>
-                <p className="mb-2 text-xs font-semibold text-ink-muted">ম্যানুয়াল এডজাস্টমেন্ট</p>
+                <p className="mb-2 text-xs font-semibold text-ink-muted">{t("dashboard.manual_adjustment_heading")}</p>
                 <div className="rounded-xl border border-border bg-surface-2 p-3">
                   <BreakdownRow
-                    label="সেটিংস থেকে ঠিক করা হয়েছে"
+                    label={t("dashboard.settings_adjustment_label")}
                     value={cashBreakdown.adjustment}
                     tone={cashBreakdown.adjustment >= 0 ? "up" : "down"}
                     negative={cashBreakdown.adjustment < 0}
@@ -700,7 +703,7 @@ export default function DashboardStats() {
               </div>
             )}
             <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">টোটাল ক্যাশ</p>
+              <p className="text-sm font-semibold">{t("dashboard.total_cash_label_short")}</p>
               <p
                 className={`tabular font-display text-xl font-extrabold ${
                   cashBreakdown.total_cash >= 0 ? "text-up" : "text-down"
@@ -712,19 +715,19 @@ export default function DashboardStats() {
             <DownloadPdfButton onClick={downloadCashReport} />
           </div>
         ) : (
-          <p className="py-6 text-center text-sm text-ink-muted">তথ্য লোড করা যায়নি</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.data_load_failed")}</p>
         )}
       </Sheet>
 
-      {/* ---- আজকের সেল ---- */}
-      <Sheet open={todayOpen} onClose={() => setTodayOpen(false)} title="আজকের সেলের হিসাব">
+      {/* ---- Today's Sale ---- */}
+      <Sheet open={todayOpen} onClose={() => setTodayOpen(false)} title={t("dashboard.today_sale_sheet_title")}>
         {todayLoading && !todayBreakdown ? (
-          <p className="py-6 text-center text-sm text-ink-muted">লোড হচ্ছে...</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.loading")}</p>
         ) : todayBreakdown ? (
           <div className="space-y-4">
             {todayBreakdown.stockSales.length === 0 && todayBreakdown.outsideSales.length === 0 ? (
               <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-ink-muted">
-                আজ এখনো কোনো সেল হয়নি
+                {t("dashboard.no_sales_today")}
               </p>
             ) : (
               <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
@@ -737,29 +740,29 @@ export default function DashboardStats() {
               </div>
             )}
             <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">আজকের মোট</p>
+              <p className="text-sm font-semibold">{t("dashboard.today_total_label")}</p>
               <p className="tabular font-display text-xl font-extrabold text-up">৳{money(todayBreakdown.total)}</p>
             </div>
             <DownloadPdfButton onClick={downloadTodayReport} />
           </div>
         ) : (
-          <p className="py-6 text-center text-sm text-ink-muted">তথ্য লোড করা যায়নি</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.data_load_failed")}</p>
         )}
       </Sheet>
 
-      {/* ---- মোট ক্রয় ---- */}
-      <Sheet open={buyOpen} onClose={() => setBuyOpen(false)} title="মোট ক্রয়ের হিসাব">
+      {/* ---- Total Buy ---- */}
+      <Sheet open={buyOpen} onClose={() => setBuyOpen(false)} title={t("dashboard.total_buy_sheet_title")}>
         {buyLoading && !buyBreakdown ? (
-          <p className="py-6 text-center text-sm text-ink-muted">লোড হচ্ছে...</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.loading")}</p>
         ) : buyBreakdown ? (
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-2">
               <div className="rounded-xl bg-surface-2 p-2.5">
-                <p className="text-[11px] text-ink-muted">স্টকে আছে (Unsold)</p>
+                <p className="text-[11px] text-ink-muted">{t("dashboard.in_stock_unsold_label")}</p>
                 <p className="tabular text-sm font-semibold">৳{money(buyBreakdown.unsoldValue)}</p>
               </div>
               <div className="rounded-xl bg-surface-2 p-2.5">
-                <p className="text-[11px] text-ink-muted">বিক্রি হয়েছে (Sold)</p>
+                <p className="text-[11px] text-ink-muted">{t("dashboard.sold_label")}</p>
                 <p className="tabular text-sm font-semibold">৳{money(buyBreakdown.soldValue)}</p>
               </div>
               <button
@@ -768,7 +771,7 @@ export default function DashboardStats() {
                 className="rounded-xl bg-surface-2 p-2.5 text-left"
               >
                 <div className="flex items-center justify-between gap-1">
-                  <p className="text-[11px] text-ink-muted">আউটসাইড স্টক</p>
+                  <p className="text-[11px] text-ink-muted">{t("dashboard.outside_stock_label")}</p>
                   <ChevronRight size={11} className="shrink-0 text-ink-faint" />
                 </div>
                 <p className="tabular text-sm font-semibold">৳{money(buyBreakdown.outsideValue)}</p>
@@ -780,39 +783,39 @@ export default function DashboardStats() {
               ))}
             </div>
             <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">মোট ক্রয়</p>
+              <p className="text-sm font-semibold">{t("dashboard.total_buy_label")}</p>
               <p className="tabular font-display text-xl font-extrabold text-down">৳{money(buyBreakdown.total)}</p>
             </div>
             <DownloadPdfButton onClick={downloadBuyReport} />
           </div>
         ) : (
-          <p className="py-6 text-center text-sm text-ink-muted">তথ্য লোড করা যায়নি</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.data_load_failed")}</p>
         )}
       </Sheet>
 
-      {/* ---- এই মাসের প্রফিট ---- */}
-      <Sheet open={profitOpen} onClose={() => setProfitOpen(false)} title="এই মাসের প্রফিটের হিসাব">
+      {/* ---- This Month's Profit ---- */}
+      <Sheet open={profitOpen} onClose={() => setProfitOpen(false)} title={t("dashboard.month_profit_sheet_title")}>
         {profitLoading && !profitBreakdown ? (
-          <p className="py-6 text-center text-sm text-ink-muted">লোড হচ্ছে...</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.loading")}</p>
         ) : profitBreakdown ? (
           <div className="space-y-4">
             <div>
-              <p className="mb-2 text-xs font-semibold text-up">যা যোগ হয়েছে (লাভ)</p>
+              <p className="mb-2 text-xs font-semibold text-up">{t("dashboard.profit_added_heading")}</p>
               <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
                 <BreakdownRow
-                  label="স্টক প্রফিট (এই মাসের সেল থেকে)"
+                  label={t("dashboard.stock_profit_month_label")}
                   value={profitBreakdown.stock_profit}
                   tone="up"
                   onClick={() => openSub("stockProfitMonth")}
                 />
                 <BreakdownRow
-                  label="আউটসাইড স্টক প্রফিট"
+                  label={t("dashboard.outside_stock_profit_label")}
                   value={profitBreakdown.outside_stock_profit}
                   tone="up"
                   onClick={() => openSub("outsideStockProfitMonth")}
                 />
                 <BreakdownRow
-                  label="Outside Sell প্রফিট"
+                  label={t("dashboard.used_phone_profit_label")}
                   value={profitBreakdown.outside_profit}
                   tone="up"
                   onClick={() => openSub("outsideProfitMonth")}
@@ -821,10 +824,10 @@ export default function DashboardStats() {
             </div>
 
             <div>
-              <p className="mb-2 text-xs font-semibold text-down">যা বিয়োগ হয়েছে (খরচ, খাত অনুযায়ী)</p>
+              <p className="mb-2 text-xs font-semibold text-down">{t("dashboard.expense_deducted_heading")}</p>
               {profitBreakdown.expense_categories.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-border p-3 text-center text-xs text-ink-muted">
-                  এই মাসে কোনো খরচ এন্ট্রি নেই
+                  {t("dashboard.no_expense_entries_month")}
                 </p>
               ) : (
                 <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
@@ -836,7 +839,7 @@ export default function DashboardStats() {
             </div>
 
             <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">নিট প্রফিট (এই মাসে)</p>
+              <p className="text-sm font-semibold">{t("dashboard.net_profit_month_label")}</p>
               <p
                 className={`tabular font-display text-xl font-extrabold ${
                   profitBreakdown.net_profit >= 0 ? "text-up" : "text-down"
@@ -848,32 +851,32 @@ export default function DashboardStats() {
             <DownloadPdfButton onClick={downloadProfitReport} />
           </div>
         ) : (
-          <p className="py-6 text-center text-sm text-ink-muted">তথ্য লোড করা যায়নি</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.data_load_failed")}</p>
         )}
       </Sheet>
 
-      {/* ---- নেস্টেড ডিটেইলস — কোন প্রোডাক্ট/এন্ট্রি থেকে এই টাকা এলো ---- */}
+      {/* ---- Nested details — which product/entry this money came from ---- */}
       <Sheet
         open={subKind !== null}
         onClose={() => setSubKind(null)}
         title={
           subKind === "stockProfitMonth"
-            ? "স্টক প্রফিটের ডিটেইলস (এই মাসে)"
+            ? t("dashboard.sub_title_stock_profit_month")
             : subKind === "outsideStockProfitMonth"
-            ? "আউটসাইড স্টক প্রফিটের ডিটেইলস (এই মাসে)"
+            ? t("dashboard.sub_title_outside_stock_profit_month")
             : subKind === "outsideStockList"
-            ? "আউটসাইড স্টকের ডিটেইলস"
+            ? t("dashboard.sub_title_outside_stock_list")
             : subKind === "outsideProfitMonth"
-            ? "Outside Sell প্রফিটের ডিটেইলস (এই মাসে)"
+            ? t("dashboard.sub_title_outside_profit_month")
             : subKind === "cashSalesPaid"
-            ? "সেল থেকে পাওয়া টাকার ডিটেইলস"
+            ? t("dashboard.sub_title_cash_sales_paid")
             : subKind === "cashOutsideProfit"
-            ? "Outside Sell প্রফিটের ডিটেইলস (সর্বমোট)"
-            : "ধার থেকে পাওয়া টাকার ডিটেইলস"
+            ? t("dashboard.sub_title_cash_outside_profit")
+            : t("dashboard.sub_title_cash_loan_in")
         }
       >
         {subLoading ? (
-          <p className="py-6 text-center text-sm text-ink-muted">লোড হচ্ছে...</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.loading")}</p>
         ) : subKind === "stockProfitMonth" ? (
           subStockProfit && subStockProfit.length > 0 ? (
             <div className="space-y-3">
@@ -890,7 +893,7 @@ export default function DashboardStats() {
               <DownloadPdfButton onClick={downloadSubReport} />
             </div>
           ) : (
-            <p className="py-6 text-center text-sm text-ink-muted">এই মাসে কোনো স্টক সেল নেই</p>
+            <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.no_stock_sales_month")}</p>
           )
         ) : subKind === "outsideStockProfitMonth" ? (
           subOutsideStockProfit && subOutsideStockProfit.length > 0 ? (
@@ -901,7 +904,7 @@ export default function DashboardStats() {
                     <div className="min-w-0">
                       <p className="text-sm text-ink-muted truncate">{s.name_model}</p>
                       <p className="text-[11px] text-ink-faint truncate">
-                        IMEI: {s.imei} · ফুল প্রফিট: ৳{money(s.profit)}
+                        IMEI: {s.imei} · {t("profit.full_profit_prefix")}{money(s.profit)}
                       </p>
                     </div>
                     <p className={`tabular text-sm font-semibold shrink-0 ${Number(s.share_profit) >= 0 ? "text-up" : "text-down"}`}>
@@ -913,7 +916,7 @@ export default function DashboardStats() {
               <DownloadPdfButton onClick={downloadSubReport} />
             </div>
           ) : (
-            <p className="py-6 text-center text-sm text-ink-muted">এই মাসে কোনো আউটসাইড স্টক সেল নেই</p>
+            <p className="py-6 text-center text-sm text-ink-muted">{t("profit.no_outside_stock_sales_month")}</p>
           )
         ) : subKind === "outsideStockList" ? (
           subOutsideStockPhones && subOutsideStockPhones.length > 0 ? (
@@ -934,7 +937,7 @@ export default function DashboardStats() {
               <DownloadPdfButton onClick={downloadSubReport} />
             </div>
           ) : (
-            <p className="py-6 text-center text-sm text-ink-muted">কোনো আউটসাইড স্টক ফোন নেই</p>
+            <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.no_outside_stock_phones")}</p>
           )
         ) : subKind === "outsideProfitMonth" || subKind === "cashOutsideProfit" ? (
           subOutsideDeals && subOutsideDeals.length > 0 ? (
@@ -952,7 +955,7 @@ export default function DashboardStats() {
               <DownloadPdfButton onClick={downloadSubReport} />
             </div>
           ) : (
-            <p className="py-6 text-center text-sm text-ink-muted">কোনো Outside Sell এন্ট্রি নেই</p>
+            <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.no_used_phone_entries")}</p>
           )
         ) : subKind === "cashSalesPaid" ? (
           subCashSales && subCashSales.length > 0 ? (
@@ -968,7 +971,7 @@ export default function DashboardStats() {
               <DownloadPdfButton onClick={downloadSubReport} />
             </div>
           ) : (
-            <p className="py-6 text-center text-sm text-ink-muted">কোনো সেল এন্ট্রি নেই</p>
+            <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.no_sale_entries")}</p>
           )
         ) : subKind === "cashLoanIn" ? (
           subLoanIn && subLoanIn.length > 0 ? (
@@ -979,7 +982,7 @@ export default function DashboardStats() {
                     <p className="text-sm text-ink-muted truncate">
                       {e.person_name}{" "}
                       <span className="text-[11px] text-ink-faint">
-                        ({e.direction === "taken" ? "ধার নিয়েছেন" : "ফেরত দিয়েছেন"})
+                        ({e.direction === "taken" ? t("dashboard.loan_taken_tag") : t("dashboard.loan_repaid_tag")})
                       </span>
                     </p>
                     <p className="tabular text-sm font-semibold shrink-0 text-up">৳{money(e.amount)}</p>
@@ -989,7 +992,7 @@ export default function DashboardStats() {
               <DownloadPdfButton onClick={downloadSubReport} />
             </div>
           ) : (
-            <p className="py-6 text-center text-sm text-ink-muted">কোনো এন্ট্রি নেই</p>
+            <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.no_entries")}</p>
           )
         ) : null}
       </Sheet>
@@ -998,13 +1001,14 @@ export default function DashboardStats() {
 }
 
 export function DownloadPdfButton({ onClick }: { onClick: () => void }) {
+  const { t } = useLang();
   return (
     <button
       type="button"
       onClick={onClick}
       className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-semibold text-teal"
     >
-      <Download size={13} /> PDF ডাউনলোড
+      <Download size={13} /> {t("dashboard.download_pdf")}
     </button>
   );
 }

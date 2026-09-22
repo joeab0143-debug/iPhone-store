@@ -12,25 +12,25 @@ export async function PATCH(req: NextRequest) {
   const db = getDB();
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   if (!token) {
-    return NextResponse.json({ error: "লগইন করা নেই" }, { status: 401 });
+    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
   }
   const session = await db
     .prepare("SELECT 1 FROM app_sessions WHERE token = ? AND expires_at > datetime('now','localtime')")
     .bind(token)
     .first();
   if (!session) {
-    return NextResponse.json({ error: "লগইন করা নেই" }, { status: 401 });
+    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
   }
 
   const body: any = await req.json().catch(() => ({}));
   const { current_password, new_username, new_password } = body;
 
   if (!current_password) {
-    return NextResponse.json({ error: "বর্তমান পাসওয়ার্ড দিন" }, { status: 400 });
+    return NextResponse.json({ error: "Enter your current password" }, { status: 400 });
   }
   if (new_password && String(new_password).length < 6) {
     return NextResponse.json(
-      { error: "নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে" },
+      { error: "New password must be at least 6 characters" },
       { status: 400 }
     );
   }
@@ -39,12 +39,12 @@ export async function PATCH(req: NextRequest) {
     .prepare("SELECT username, password_hash, password_salt FROM app_credentials WHERE id = 1")
     .first();
   if (!cred) {
-    return NextResponse.json({ error: "লগইন সেটআপ করা নেই" }, { status: 500 });
+    return NextResponse.json({ error: "Login is not set up" }, { status: 500 });
   }
 
   const ok = await verifyPassword(current_password, cred.password_salt, cred.password_hash);
   if (!ok) {
-    return NextResponse.json({ error: "বর্তমান পাসওয়ার্ড ভুল" }, { status: 401 });
+    return NextResponse.json({ error: "Current password is incorrect" }, { status: 401 });
   }
 
   const nextUsername = (new_username && String(new_username).trim()) || cred.username;

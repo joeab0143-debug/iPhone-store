@@ -5,6 +5,7 @@ import { Plus, Trash2, ChevronDown, ChevronRight, HandCoins, HandHeart, Download
 import { Button, Field, inputClass, money, formatDate, Sheet, Badge } from "./ui";
 import { emitDashboardRefresh } from "@/lib/events";
 import { generateReportPDF } from "@/lib/report-pdf";
+import { useLang } from "@/lib/i18n";
 import type { LoanAccount, LoanEntry } from "@/lib/types";
 
 // Loans — a per-person running ledger (loans taken from people, and loans
@@ -16,6 +17,7 @@ import type { LoanAccount, LoanEntry } from "@/lib/types";
 // Loan cash flow now feeds Total Cash on the dashboard: taking a loan or
 // getting repaid adds to it; giving a loan or repaying one subtracts.
 export default function LoansTab() {
+  const { t } = useLang();
   const [accounts, setAccounts] = useState<LoanAccount[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -52,7 +54,7 @@ export default function LoansTab() {
   async function submit() {
     setError("");
     if (!form.person_name || !form.amount || Number(form.amount) <= 0) {
-      setError("সব ঘর পূরণ করুন");
+      setError(t("loans.all_fields_required"));
       return;
     }
     setSaving(true);
@@ -68,7 +70,7 @@ export default function LoansTab() {
     setSaving(false);
     if (!res.ok) {
       const d: any = await res.json().catch(() => ({}));
-      setError(d.error || "সেভ করা যায়নি");
+      setError(d.error || t("loans.save_failed"));
       return;
     }
     setAddOpen(false);
@@ -77,7 +79,7 @@ export default function LoansTab() {
   }
 
   async function remove(id: number) {
-    if (!confirm("এই এন্ট্রি ও এর সব হিস্ট্রি একেবারে মুছে যাবে। নিশ্চিত?")) return;
+    if (!confirm(t("loans.delete_confirm"))) return;
     await fetch(`/api/loans/${id}`, { method: "DELETE" });
     setDetailAccount(null);
     emitDashboardRefresh();
@@ -170,7 +172,7 @@ export default function LoansTab() {
       >
         <div className="flex items-center justify-between">
           <p className="text-xs text-ink-muted">
-            নেট অবস্থান ({net >= 0 ? "মানুষ আপনাকে দিবে" : "আপনি মানুষকে দিবেন"})
+            {t("loans.net_position_prefix")} ({net >= 0 ? t("loans.people_owe_you") : t("loans.you_owe_people")})
           </p>
           <ChevronRight size={14} className="text-ink-faint" />
         </div>
@@ -189,7 +191,7 @@ export default function LoansTab() {
             }}
             className="rounded-xl bg-surface-2 p-2.5 text-left"
           >
-            <p className="text-[11px] text-ink-muted">আপনি ধার নিয়েছেন (বাকি)</p>
+            <p className="text-[11px] text-ink-muted">{t("loans.you_owe_pending")}</p>
             <p className="tabular font-semibold text-down">৳{money(totalOwedByMe)}</p>
           </div>
           <div
@@ -199,18 +201,18 @@ export default function LoansTab() {
             }}
             className="rounded-xl bg-surface-2 p-2.5 text-left"
           >
-            <p className="text-[11px] text-ink-muted">আপনি ধার দিয়েছেন (বাকি)</p>
+            <p className="text-[11px] text-ink-muted">{t("loans.you_lent_pending")}</p>
             <p className="tabular font-semibold text-up">৳{money(totalOwedToMe)}</p>
           </div>
         </div>
       </button>
 
       {loading ? (
-        <p className="text-center text-sm text-ink-muted py-10">লোড হচ্ছে...</p>
+        <p className="text-center text-sm text-ink-muted py-10">{t("loans.loading")}</p>
       ) : (
         <div className="space-y-5">
           <LoanSection
-            title="ধার নিয়েছি (Loans Taken)"
+            title={t("loans.section_taken_title")}
             icon={<HandCoins size={16} />}
             pending={takenPending}
             settled={takenSettled}
@@ -218,10 +220,10 @@ export default function LoansTab() {
             onToggleSettled={() => setShowSettledTaken((v) => !v)}
             onOpen={setDetailAccount}
             onAdd={() => openAdd("taken")}
-            emptyText="কোনো ধার নেই"
+            emptyText={t("loans.no_loans")}
           />
           <LoanSection
-            title="ধার দিয়েছি (Loans Given)"
+            title={t("loans.section_given_title")}
             icon={<HandHeart size={16} />}
             pending={givenPending}
             settled={givenSettled}
@@ -229,7 +231,7 @@ export default function LoansTab() {
             onToggleSettled={() => setShowSettledGiven((v) => !v)}
             onOpen={setDetailAccount}
             onAdd={() => openAdd("given")}
-            emptyText="কাউকে ধার দেননি"
+            emptyText={t("loans.havent_lent")}
           />
         </div>
       )}
@@ -237,7 +239,7 @@ export default function LoansTab() {
       <button
         onClick={() => openAdd(direction)}
         className="no-print fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-white shadow-lg shadow-gold/20 active:scale-95"
-        aria-label="নতুন ধার যোগ করুন"
+        aria-label={t("loans.add_new_aria")}
       >
         <Plus size={26} />
       </button>
@@ -245,7 +247,7 @@ export default function LoansTab() {
       <Sheet
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        title={direction === "taken" ? "ধার নিয়েছি — নতুন এন্ট্রি" : "ধার দিয়েছি — নতুন এন্ট্রি"}
+        title={direction === "taken" ? t("loans.new_entry_title_taken") : t("loans.new_entry_title_given")}
       >
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2 rounded-xl bg-surface-2 p-1.5">
@@ -255,7 +257,7 @@ export default function LoansTab() {
                 direction === "taken" ? "bg-gold text-white" : "text-ink-muted"
               }`}
             >
-              ধার নিয়েছি
+              {t("loans.taken_label")}
             </button>
             <button
               onClick={() => setDirection("given")}
@@ -263,18 +265,18 @@ export default function LoansTab() {
                 direction === "given" ? "bg-gold text-white" : "text-ink-muted"
               }`}
             >
-              ধার দিয়েছি
+              {t("loans.given_label")}
             </button>
           </div>
-          <Field label={direction === "taken" ? "কার কাছ থেকে নিলেন" : "কাকে দিলেন"}>
+          <Field label={direction === "taken" ? t("loans.from_whom_label") : t("loans.to_whom_label")}>
             <input
               value={form.person_name}
               onChange={(e) => setForm({ ...form, person_name: e.target.value })}
-              placeholder="নাম — আগে থেকে থাকলে সেটার সাথেই যোগ হবে"
+              placeholder={t("loans.name_placeholder")}
               className={inputClass}
             />
           </Field>
-          <Field label="পরিমাণ (৳)">
+          <Field label={t("loans.amount_label")}>
             <input
               type="number"
               inputMode="decimal"
@@ -286,7 +288,7 @@ export default function LoansTab() {
           </Field>
           {error && <p className="text-sm text-down">{error}</p>}
           <Button full onClick={submit} disabled={saving}>
-            {saving ? "সেভ হচ্ছে..." : "যোগ করুন"}
+            {saving ? t("loans.saving") : t("loans.add_button")}
           </Button>
         </div>
       </Sheet>
@@ -294,18 +296,18 @@ export default function LoansTab() {
       <Sheet
         open={detailKind === "net"}
         onClose={() => setDetailKind(null)}
-        title="নেট অবস্থানের হিসাব"
+        title={t("loans.net_detail_title")}
       >
         <div className="space-y-3">
           <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
             {takenPending.length === 0 && givenPending.length === 0 ? (
-              <p className="py-4 text-center text-sm text-ink-muted">কোনো বকেয়া নেই</p>
+              <p className="py-4 text-center text-sm text-ink-muted">{t("loans.no_pending")}</p>
             ) : (
               <>
                 {takenPending.map((a) => (
                   <div key={`taken-${a.id}`} className="flex items-center justify-between gap-3">
                     <p className="text-sm text-ink-muted truncate">
-                      {a.person_name} <span className="text-[11px] text-ink-faint">(নিয়েছেন)</span>
+                      {a.person_name} <span className="text-[11px] text-ink-faint">{t("loans.tag_taken")}</span>
                     </p>
                     <p className="tabular text-sm font-semibold shrink-0 text-down">৳{money(a.remaining)}</p>
                   </div>
@@ -313,7 +315,7 @@ export default function LoansTab() {
                 {givenPending.map((a) => (
                   <div key={`given-${a.id}`} className="flex items-center justify-between gap-3">
                     <p className="text-sm text-ink-muted truncate">
-                      {a.person_name} <span className="text-[11px] text-ink-faint">(দিয়েছেন)</span>
+                      {a.person_name} <span className="text-[11px] text-ink-faint">{t("loans.tag_given")}</span>
                     </p>
                     <p className="tabular text-sm font-semibold shrink-0 text-up">৳{money(a.remaining)}</p>
                   </div>
@@ -322,19 +324,19 @@ export default function LoansTab() {
             )}
           </div>
           <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-            <p className="text-sm font-semibold">নেট অবস্থান</p>
+            <p className="text-sm font-semibold">{t("loans.net_position_prefix")}</p>
             <p className={`tabular font-display text-xl font-extrabold ${net >= 0 ? "text-up" : "text-down"}`}>
               ৳{money(Math.abs(net))}
             </p>
           </div>
-          <DetailDownloadButton onClick={() => downloadLoanReport("net")} />
+          <DetailDownloadButton label={t("loans.download_pdf")} onClick={() => downloadLoanReport("net")} />
         </div>
       </Sheet>
 
       <Sheet
         open={detailKind === "taken"}
         onClose={() => setDetailKind(null)}
-        title="আপনি যাদের কাছ থেকে ধার নিয়েছেন"
+        title={t("loans.taken_detail_title")}
       >
         {takenPending.length > 0 ? (
           <div className="space-y-3">
@@ -347,20 +349,20 @@ export default function LoansTab() {
               ))}
             </div>
             <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">আপনি ধার নিয়েছেন (বাকি)</p>
+              <p className="text-sm font-semibold">{t("loans.you_owe_pending")}</p>
               <p className="tabular font-display text-xl font-extrabold text-down">৳{money(totalOwedByMe)}</p>
             </div>
-            <DetailDownloadButton onClick={() => downloadLoanReport("taken")} />
+            <DetailDownloadButton label={t("loans.download_pdf")} onClick={() => downloadLoanReport("taken")} />
           </div>
         ) : (
-          <p className="py-6 text-center text-sm text-ink-muted">কোনো বকেয়া ধার নেই</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("loans.no_pending_taken")}</p>
         )}
       </Sheet>
 
       <Sheet
         open={detailKind === "given"}
         onClose={() => setDetailKind(null)}
-        title="আপনি যাদের ধার দিয়েছেন"
+        title={t("loans.given_detail_title")}
       >
         {givenPending.length > 0 ? (
           <div className="space-y-3">
@@ -373,13 +375,13 @@ export default function LoansTab() {
               ))}
             </div>
             <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">আপনি ধার দিয়েছেন (বাকি)</p>
+              <p className="text-sm font-semibold">{t("loans.you_lent_pending")}</p>
               <p className="tabular font-display text-xl font-extrabold text-up">৳{money(totalOwedToMe)}</p>
             </div>
-            <DetailDownloadButton onClick={() => downloadLoanReport("given")} />
+            <DetailDownloadButton label={t("loans.download_pdf")} onClick={() => downloadLoanReport("given")} />
           </div>
         ) : (
-          <p className="py-6 text-center text-sm text-ink-muted">কাউকে ধার দেননি</p>
+          <p className="py-6 text-center text-sm text-ink-muted">{t("loans.havent_lent")}</p>
         )}
       </Sheet>
 
@@ -396,14 +398,14 @@ export default function LoansTab() {
   );
 }
 
-function DetailDownloadButton({ onClick }: { onClick: () => void }) {
+function DetailDownloadButton({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-semibold text-teal"
     >
-      <Download size={13} /> PDF ডাউনলোড
+      <Download size={13} /> {label}
     </button>
   );
 }
@@ -429,6 +431,7 @@ function LoanSection({
   onAdd: () => void;
   emptyText: string;
 }) {
+  const { t } = useLang();
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
@@ -436,7 +439,7 @@ function LoanSection({
           {icon} {title}
         </h3>
         <button onClick={onAdd} className="text-xs font-semibold text-teal">
-          + যোগ করুন
+          {t("loans.add_button_short")}
         </button>
       </div>
 
@@ -464,7 +467,9 @@ function LoanSection({
                   <div className="text-right shrink-0">
                     <span className="tabular text-sm font-semibold">৳{money(remaining)}</span>
                     {partiallyPaid && (
-                      <p className="text-[10px] text-ink-faint tabular">মোট ৳{money(disbursed)}-এর</p>
+                      <p className="text-[10px] text-ink-faint tabular">
+                        {t("loans.of_total").replace("{amount}", money(disbursed))}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -489,7 +494,7 @@ function LoanSection({
             className="flex items-center gap-1 text-xs text-ink-faint"
           >
             <ChevronDown size={13} className={`transition ${showSettled ? "rotate-180" : ""}`} />
-            সেটেল হওয়া ({settled.length})
+            {t("loans.settled_count").replace("{count}", String(settled.length))}
           </button>
           {showSettled && (
             <ul className="mt-2 space-y-1.5">
@@ -505,7 +510,7 @@ function LoanSection({
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="tabular text-xs">৳{money(a.disbursed)}</span>
-                    <Badge>সেটেল</Badge>
+                    <Badge>{t("loans.settled_badge")}</Badge>
                   </div>
                 </li>
               ))}
@@ -528,6 +533,7 @@ function LoanAccountSheet({
   onChanged: () => void;
   onDelete: (id: number) => void;
 }) {
+  const { t } = useLang();
   const [detail, setDetail] = useState<{ account: LoanAccount; entries: LoanEntry[] } | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [mode, setMode] = useState<"none" | "more" | "pay">("none");
@@ -566,7 +572,7 @@ function LoanAccountSheet({
   async function submitMore(val: number) {
     setError("");
     if (!val || val <= 0) {
-      setError("বৈধ পরিমাণ দিন");
+      setError(t("loans.invalid_amount"));
       return;
     }
     setSaving(true);
@@ -582,7 +588,7 @@ function LoanAccountSheet({
     setSaving(false);
     if (!res.ok) {
       const d: any = await res.json().catch(() => ({}));
-      setError(d.error || "সেভ করা যায়নি");
+      setError(d.error || t("loans.save_failed"));
       return;
     }
     setAmount("");
@@ -594,11 +600,11 @@ function LoanAccountSheet({
   async function submitPay(val: number) {
     setError("");
     if (!val || val <= 0) {
-      setError("বৈধ পরিমাণ দিন");
+      setError(t("loans.invalid_amount"));
       return;
     }
     if (val > remaining) {
-      setError("বাকি থাকা পরিমাণের চেয়ে বেশি দেওয়া যাবে না");
+      setError(t("loans.exceeds_remaining"));
       return;
     }
     setSaving(true);
@@ -610,7 +616,7 @@ function LoanAccountSheet({
     setSaving(false);
     const d: any = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(d.error || "সেভ করা যায়নি");
+      setError(d.error || t("loans.save_failed"));
       return;
     }
     setAmount("");
@@ -622,30 +628,33 @@ function LoanAccountSheet({
   return (
     <Sheet open={!!account} onClose={onClose} title={account.person_name}>
       <div className="space-y-4">
-        <Badge tone={isTaken ? "down" : "up"}>{isTaken ? "ধার নিয়েছি" : "ধার দিয়েছি"}</Badge>
+        <Badge tone={isTaken ? "down" : "up"}>{isTaken ? t("loans.taken_label") : t("loans.given_label")}</Badge>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-surface-2 p-3 text-center">
-            <p className="text-xs text-ink-muted">{isTaken ? "মোট নিয়েছেন" : "মোট দিয়েছেন"}</p>
+            <p className="text-xs text-ink-muted">{isTaken ? t("loans.total_taken_label") : t("loans.total_given_label")}</p>
             <p className="tabular text-lg font-semibold">৳{money(disbursed)}</p>
           </div>
           <div className="rounded-xl bg-due/10 p-3 text-center">
-            <p className="text-xs text-due">বাকি আছে</p>
+            <p className="text-xs text-due">{t("loans.remaining_label")}</p>
             <p className="tabular text-lg font-semibold text-due">৳{money(remaining)}</p>
           </div>
         </div>
         {repaid > 0 && (
           <p className="text-center text-xs text-ink-muted">
-            এ পর্যন্ত {isTaken ? "পরিশোধ" : "আদায়"} হয়েছে ৳{money(repaid)}
+            {(isTaken ? t("loans.repaid_so_far_taken") : t("loans.repaid_so_far_given")).replace(
+              "{amount}",
+              money(repaid)
+            )}
           </p>
         )}
 
         <div>
-          <p className="mb-2 text-xs font-semibold text-ink-muted">হিস্ট্রি</p>
+          <p className="mb-2 text-xs font-semibold text-ink-muted">{t("loans.history_label")}</p>
           {detailLoading ? (
-            <p className="py-4 text-center text-xs text-ink-muted">লোড হচ্ছে...</p>
+            <p className="py-4 text-center text-xs text-ink-muted">{t("loans.loading")}</p>
           ) : !detail || detail.entries.length === 0 ? (
-            <p className="py-4 text-center text-xs text-ink-muted">কোনো এন্ট্রি নেই</p>
+            <p className="py-4 text-center text-xs text-ink-muted">{t("loans.no_entries")}</p>
           ) : (
             <ul className="max-h-56 space-y-1.5 overflow-y-auto">
               {[...detail.entries].reverse().map((e) => (
@@ -657,11 +666,11 @@ function LoanAccountSheet({
                     <p className="text-xs font-medium">
                       {e.kind === "disburse"
                         ? isTaken
-                          ? "নিয়েছেন"
-                          : "দিয়েছেন"
+                          ? t("loans.entry_taken_disburse")
+                          : t("loans.entry_given_disburse")
                         : isTaken
-                        ? "পরিশোধ করেছেন"
-                        : "আদায় করেছেন"}
+                        ? t("loans.entry_taken_repay")
+                        : t("loans.entry_given_repay")}
                     </p>
                     <p className="text-[11px] text-ink-faint tabular">{formatDate(e.entry_date)}</p>
                   </div>
@@ -689,7 +698,7 @@ function LoanAccountSheet({
                 setError("");
               }}
             >
-              আরও {isTaken ? "নিলেন" : "দিলেন"}
+              {isTaken ? t("loans.add_more_taken") : t("loans.add_more_given")}
             </Button>
             {remaining > 0 && (
               <Button
@@ -700,7 +709,7 @@ function LoanAccountSheet({
                   setError("");
                 }}
               >
-                {isTaken ? "পরিশোধ" : "আদায়"}
+                {isTaken ? t("loans.repay_button_taken") : t("loans.repay_button_given")}
               </Button>
             )}
           </div>
@@ -708,7 +717,7 @@ function LoanAccountSheet({
 
         {mode === "more" && (
           <div className="space-y-2 rounded-xl border border-border bg-surface-2 p-3">
-            <Field label={isTaken ? "আরও কত টাকা নিলেন" : "আরও কত টাকা দিলেন"}>
+            <Field label={isTaken ? t("loans.more_amount_label_taken") : t("loans.more_amount_label_given")}>
               <input
                 type="number"
                 inputMode="decimal"
@@ -722,10 +731,10 @@ function LoanAccountSheet({
             {error && <p className="text-sm text-down">{error}</p>}
             <div className="flex gap-2">
               <Button variant="ghost" className="flex-1" onClick={() => setMode("none")}>
-                বাতিল
+                {t("loans.cancel_button")}
               </Button>
               <Button className="flex-1" onClick={() => submitMore(Number(amount))} disabled={saving}>
-                {saving ? "সেভ হচ্ছে..." : "যোগ করুন"}
+                {saving ? t("loans.saving") : t("loans.add_button")}
               </Button>
             </div>
           </div>
@@ -733,7 +742,7 @@ function LoanAccountSheet({
 
         {mode === "pay" && (
           <div className="space-y-2 rounded-xl border border-border bg-surface-2 p-3">
-            <Field label={isTaken ? "কত টাকা পরিশোধ করলেন" : "কত টাকা ফেরত পেলেন"}>
+            <Field label={isTaken ? t("loans.pay_amount_label_taken") : t("loans.pay_amount_label_given")}>
               <input
                 type="number"
                 inputMode="decimal"
@@ -747,10 +756,10 @@ function LoanAccountSheet({
             {error && <p className="text-sm text-down">{error}</p>}
             <div className="flex gap-2">
               <Button variant="secondary" className="flex-1" onClick={() => setAmount(String(remaining))}>
-                পুরোটা (৳{money(remaining)})
+                {t("loans.full_amount_button").replace("{amount}", money(remaining))}
               </Button>
               <Button className="flex-1" onClick={() => submitPay(Number(amount))} disabled={saving}>
-                {saving ? "সেভ হচ্ছে..." : "যোগ করুন"}
+                {saving ? t("loans.saving") : t("loans.add_button")}
               </Button>
             </div>
           </div>
@@ -760,7 +769,7 @@ function LoanAccountSheet({
           onClick={() => onDelete(account.id)}
           className="flex w-full items-center justify-center gap-1.5 py-1 text-xs text-ink-faint hover:text-down"
         >
-          <Trash2 size={13} /> পুরো এন্ট্রি মুছে ফেলুন
+          <Trash2 size={13} /> {t("loans.delete_entry_button")}
         </button>
       </div>
     </Sheet>

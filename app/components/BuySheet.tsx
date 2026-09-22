@@ -7,6 +7,7 @@ import BarcodeScanner from "./BarcodeScanner";
 import { generateReportPDF } from "@/lib/report-pdf";
 import { emitDashboardRefresh } from "@/lib/events";
 import { compressImageFile } from "@/lib/image";
+import { useLang } from "@/lib/i18n";
 
 const SHOP_NAME = "iPhone Store";
 
@@ -26,7 +27,7 @@ const EMPTY_FORM = {
   person_photo: "",
 };
 
-// A single photo capture slot: shows a "ছবি তুলুন" button, opens the
+// A single photo capture slot: shows a "Take Photo" button, opens the
 // device camera (rear camera — this is the shop owner photographing the
 // card/person in front of them), then compresses the shot down before it
 // ever touches state so the DB row stays small. Tap again to retake.
@@ -39,6 +40,7 @@ function PhotoField({
   value: string;
   onChange: (dataUrl: string) => void;
 }) {
+  const { t } = useLang();
   const [busy, setBusy] = useState(false);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -65,7 +67,7 @@ function PhotoField({
           />
           <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-center text-xs font-semibold text-teal">
             <Camera size={14} />
-            {busy ? "প্রসেস হচ্ছে..." : "আবার তুলুন"}
+            {busy ? t("buy.photo_processing") : t("buy.photo_retake")}
             <input
               type="file"
               accept="image/*"
@@ -83,7 +85,7 @@ function PhotoField({
           }`}
         >
           <Camera size={16} />
-          {busy ? "প্রসেস হচ্ছে..." : "ছবি তুলুন"}
+          {busy ? t("buy.photo_processing") : t("buy.photo_take")}
           <input
             type="file"
             accept="image/*"
@@ -105,15 +107,17 @@ export default function BuySheet({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useLang();
   const [form, setForm] = useState(EMPTY_FORM);
   const [scanOpen, setScanOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
-  // ক্রয় ইতিহাস ডাউনলোড — ফোন বিক্রি হয়ে স্টক থেকে চলে গেলেও কার কাছ থেকে
-  // কী কেনা হয়েছিল সেই তথ্য (phones টেবিলে) হারিয়ে যায় না; এখান থেকে যে
-  // কোনো সময় পুরো ইতিহাস, বা ডেট রেঞ্জ বেছে, PDF আকারে নামানো যাবে।
+  // Purchase history download — even after a phone sells and leaves stock,
+  // who it was bought from is never lost (stays in the phones table); this
+  // downloads that history any time, all-time or a chosen date range, as a
+  // PDF.
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyFrom, setHistoryFrom] = useState("");
   const [historyTo, setHistoryTo] = useState("");
@@ -147,7 +151,7 @@ export default function BuySheet({
     } catch {
       setHistoryLoading(false);
       previewWin?.close();
-      setHistoryError("ইতিহাস লোড করা যায়নি");
+      setHistoryError(t("buy.history_load_failed"));
       return;
     }
     setHistoryLoading(false);
@@ -155,7 +159,7 @@ export default function BuySheet({
     const totalBuyValue = phones.reduce((s, p) => s + Number(p.buy_price), 0);
     const subtitle =
       historyFrom || historyTo
-        ? `${historyFrom || "শুরু থেকে"} — ${historyTo || "আজ পর্যন্ত"}`
+        ? `${historyFrom || t("buy.pdf_from_start")} — ${historyTo || t("buy.pdf_until_today")}`
         : "All Time";
     generateReportPDF(
       {
@@ -179,7 +183,7 @@ export default function BuySheet({
             p.stock_type === "outside" ? "Outside" : "Regular",
             p.status === "sold" ? "Sold" : "In Stock",
           ]),
-          emptyLabel: "এই সময়ের মধ্যে কোনো ক্রয় নেই",
+          emptyLabel: t("buy.pdf_empty"),
         },
         footerNote: "Generated from iPhone Store — Buy History",
       },
@@ -190,14 +194,14 @@ export default function BuySheet({
   async function submit() {
     setError("");
     if (!form.model || !form.imei || !form.buy_price || !form.bought_from) {
-      setError("Model Number, IMEI, Buy Price ও Buy from whom — এই ঘরগুলো পূরণ করুন");
+      setError(t("buy.validation_required"));
       return;
     }
     if (
       form.seller_type === "individual" &&
       (!form.nid_front_photo || !form.nid_back_photo || !form.person_photo)
     ) {
-      setError("ব্যক্তিগত ফোন কিনলে এন আইডি কার্ডের ২ পাশ ও ব্যবহারকারীর ছবি — তিনটাই তুলতে হবে");
+      setError(t("buy.validation_photos"));
       return;
     }
     setSaving(true);
@@ -228,7 +232,7 @@ export default function BuySheet({
     setSaving(false);
     if (!res.ok) {
       const d: any = await res.json().catch(() => ({}));
-      setError(d.error || "সেভ করা যায়নি");
+      setError(d.error || t("common.save_could_not"));
       return;
     }
     emitDashboardRefresh();
@@ -237,32 +241,30 @@ export default function BuySheet({
 
   return (
     <>
-      <Sheet open={open} onClose={handleClose} title="ফোন ক্রয় (Buy)">
+      <Sheet open={open} onClose={handleClose} title={t("buy.title")}>
         <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-2 px-3.5 py-3">
           <div className="min-w-0">
-            <p className="text-sm font-semibold">ক্রয় ইতিহাস</p>
-            <p className="mt-0.5 text-[11px] text-ink-faint">
-              কার কাছ থেকে কী কেনা হয়েছে — এ যাবতকালের বা ডেট বেছে ডাউনলোড করুন
-            </p>
+            <p className="text-sm font-semibold">{t("buy.history_label")}</p>
+            <p className="mt-0.5 text-[11px] text-ink-faint">{t("buy.history_desc")}</p>
           </div>
           <button
             onClick={() => setHistoryOpen(true)}
             className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-surface px-3 py-2 text-xs font-semibold text-teal"
           >
-            <Download size={14} /> ডাউনলোড
+            <Download size={14} /> {t("buy.download")}
           </button>
         </div>
 
         {done ? (
           <div className="py-6 text-center">
-            <p className="mb-4 text-lg font-semibold text-up">ক্রয় সেভ হয়েছে — স্টকে যোগ হয়েছে ✓</p>
+            <p className="mb-4 text-lg font-semibold text-up">{t("buy.saved_success")}</p>
             <Button full onClick={reset}>
-              আরেকটা ফোন ক্রয় করুন
+              {t("buy.buy_another")}
             </Button>
           </div>
         ) : (
           <div className="space-y-3">
-            <Field label="এই ফোনটি কোথায় যাবে?">
+            <Field label={t("buy.destination_label")}>
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-surface-2 p-1.5">
                 <button
                   type="button"
@@ -273,7 +275,7 @@ export default function BuySheet({
                       : "text-ink-muted"
                   }`}
                 >
-                  রেগুলার স্টক
+                  {t("buy.regular_stock")}
                 </button>
                 <button
                   type="button"
@@ -284,16 +286,16 @@ export default function BuySheet({
                       : "text-ink-muted"
                   }`}
                 >
-                  আউটসাইড স্টক
+                  {t("buy.outside_stock")}
                 </button>
               </div>
               <p className="mt-1.5 text-[11px] text-ink-faint">
                 {form.stock_type === "outside"
-                  ? "আউটসাইড স্টক নির্বাচন করলে ক্রয়মূল্য টোটাল ক্যাশ থেকে কাটবে না — বিক্রি হলে লাভের ৫০% প্রফিটে যোগ হবে।"
-                  : "রেগুলার স্টক নির্বাচন করলে ক্রয়মূল্য টোটাল ক্যাশ থেকে কাটা হবে, আগের মতোই।"}
+                  ? t("buy.outside_stock_note")
+                  : t("buy.regular_stock_note")}
               </p>
             </Field>
-            <Field label="বিক্রেতার ধরন">
+            <Field label={t("buy.seller_type_label")}>
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-surface-2 p-1.5">
                 <button
                   type="button"
@@ -304,7 +306,7 @@ export default function BuySheet({
                       : "text-ink-muted"
                   }`}
                 >
-                  সাপ্লায়ার
+                  {t("buy.seller_supplier")}
                 </button>
                 <button
                   type="button"
@@ -315,13 +317,12 @@ export default function BuySheet({
                       : "text-ink-muted"
                   }`}
                 >
-                  ব্যক্তিগত ফোন
+                  {t("buy.seller_individual")}
                 </button>
               </div>
               {form.seller_type === "individual" && (
                 <p className="mt-1.5 text-[11px] text-ink-faint">
-                  ব্যক্তির কাছ থেকে সরাসরি কিনলে জবাবদিহিতার জন্য এন আইডি কার্ডের
-                  দুই পাশ ও তার একটা ছবি তুলে রাখা হবে।
+                  {t("buy.seller_individual_note")}
                 </p>
               )}
             </Field>
@@ -329,65 +330,65 @@ export default function BuySheet({
             {form.seller_type === "individual" && (
               <>
                 <PhotoField
-                  label="এন আই ডি কার্ডের ১ম পেজ"
+                  label={t("buy.nid_front")}
                   value={form.nid_front_photo}
                   onChange={(v) => setForm({ ...form, nid_front_photo: v })}
                 />
                 <PhotoField
-                  label="এন আই ডি কার্ডের ২য় পেজ"
+                  label={t("buy.nid_back")}
                   value={form.nid_back_photo}
                   onChange={(v) => setForm({ ...form, nid_back_photo: v })}
                 />
                 <PhotoField
-                  label="ব্যবহারকারীর ছবি"
+                  label={t("buy.person_photo")}
                   value={form.person_photo}
                   onChange={(v) => setForm({ ...form, person_photo: v })}
                 />
               </>
             )}
 
-            <Field label="Model Number">
+            <Field label={t("buy.model_label")}>
               <input
                 value={form.model}
                 onChange={(e) => setForm({ ...form, model: e.target.value })}
-                placeholder="যেমন: iPhone 12, 128GB"
+                placeholder={t("buy.model_placeholder")}
                 className={inputClass}
               />
             </Field>
-            <Field label="IMEI">
+            <Field label={t("buy.imei_label")}>
               <div className="flex gap-2">
                 <input
                   value={form.imei}
                   onChange={(e) => setForm({ ...form, imei: e.target.value })}
-                  placeholder="IMEI নম্বর"
+                  placeholder={t("buy.imei_placeholder")}
                   className={inputClass}
                 />
                 <button
                   onClick={() => setScanOpen(true)}
                   className="flex shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 px-3 text-teal"
-                  aria-label="IMEI স্ক্যান করুন"
+                  aria-label={t("buy.imei_scan_aria")}
                 >
                   <ScanLine size={18} />
                 </button>
               </div>
             </Field>
-            <Field label="RAM/ROM">
+            <Field label={t("buy.ram_rom_label")}>
               <input
                 value={form.ram_rom}
                 onChange={(e) => setForm({ ...form, ram_rom: e.target.value })}
-                placeholder="যেমন: 4/64 GB"
+                placeholder={t("buy.ram_rom_placeholder")}
                 className={inputClass}
               />
             </Field>
-            <Field label="Battery Health (ঐচ্ছিক)">
+            <Field label={t("buy.battery_label")}>
               <input
                 value={form.battery_health}
                 onChange={(e) => setForm({ ...form, battery_health: e.target.value })}
-                placeholder="যেমন: 92%"
+                placeholder={t("buy.battery_placeholder")}
                 className={inputClass}
               />
             </Field>
-            <Field label="Buy Price (৳)">
+            <Field label={t("buy.price_label")}>
               <input
                 type="number"
                 inputMode="decimal"
@@ -397,21 +398,21 @@ export default function BuySheet({
                 className={inputClass}
               />
             </Field>
-            <Field label="Buy from whom (কার কাছ থেকে কেনা হয়েছে)">
+            <Field label={t("buy.bought_from_label")}>
               <input
                 value={form.bought_from}
                 onChange={(e) => setForm({ ...form, bought_from: e.target.value })}
                 className={inputClass}
               />
             </Field>
-            <Field label="Number">
+            <Field label={t("buy.number_label")}>
               <input
                 value={form.phone_number}
                 onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
                 className={inputClass}
               />
             </Field>
-            <Field label="NID">
+            <Field label={t("buy.nid_label")}>
               <input
                 value={form.nid}
                 onChange={(e) => setForm({ ...form, nid: e.target.value })}
@@ -420,7 +421,7 @@ export default function BuySheet({
             </Field>
             {error && <p className="text-sm text-down">{error}</p>}
             <Button full onClick={submit} disabled={saving}>
-              {saving ? "সেভ হচ্ছে..." : "ক্রয় সেভ করুন"}
+              {saving ? t("buy.saving") : t("buy.save_button")}
             </Button>
           </div>
         )}
@@ -443,10 +444,10 @@ export default function BuySheet({
           setHistoryTo("");
           setHistoryError("");
         }}
-        title="ক্রয় ইতিহাস ডাউনলোড"
+        title={t("buy.history_title")}
       >
         <div className="space-y-3">
-          <Field label="শুরুর তারিখ (ঐচ্ছিক)">
+          <Field label={t("buy.history_from")}>
             <input
               type="date"
               value={historyFrom}
@@ -454,7 +455,7 @@ export default function BuySheet({
               className={inputClass}
             />
           </Field>
-          <Field label="শেষ তারিখ (ঐচ্ছিক)">
+          <Field label={t("buy.history_to")}>
             <input
               type="date"
               value={historyTo}
@@ -462,12 +463,10 @@ export default function BuySheet({
               className={inputClass}
             />
           </Field>
-          <p className="text-[11px] text-ink-faint">
-            দুটোই ফাঁকা রাখলে এ যাবতকালের সকল ক্রয় ইতিহাস ডাউনলোড হবে।
-          </p>
+          <p className="text-[11px] text-ink-faint">{t("buy.history_note")}</p>
           {historyError && <p className="text-sm text-down">{historyError}</p>}
           <Button full onClick={downloadBuyHistory} disabled={historyLoading}>
-            {historyLoading ? "তৈরি হচ্ছে..." : "PDF ডাউনলোড করুন"}
+            {historyLoading ? t("buy.history_generating") : t("buy.history_download_pdf")}
           </Button>
         </div>
       </Sheet>

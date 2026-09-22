@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   const { category_id, amount, expense_date, note } = body;
 
   if (!category_id || amount === undefined) {
-    return NextResponse.json({ error: "ঘর এবং পরিমাণ আবশ্যক" }, { status: 400 });
+    return NextResponse.json({ error: "Category and amount are required" }, { status: 400 });
   }
 
   const result = await db

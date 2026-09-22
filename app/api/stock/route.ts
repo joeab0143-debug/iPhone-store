@@ -9,8 +9,8 @@ export async function GET(req: NextRequest) {
   const imei = req.nextUrl.searchParams.get("imei"); // exact match, used by the Sell sheet's IMEI lookup
   const imeiLike = req.nextUrl.searchParams.get("imei_like"); // partial match — live suggestions while typing
   const limitParam = req.nextUrl.searchParams.get("limit");
-  // from/to (YYYY-MM-DD, inclusive) — used by the Buy sheet's "ক্রয় ইতিহাস
-  // ডাউনলোড" so the owner can pull just a date range instead of everything.
+  // from/to (YYYY-MM-DD, inclusive) — used by the Buy sheet's "Download
+  // Purchase History" so the owner can pull just a date range instead of everything.
   const from = req.nextUrl.searchParams.get("from");
   const to = req.nextUrl.searchParams.get("to");
 
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 
   if (!name_model || !imei || buy_price === undefined) {
     return NextResponse.json(
-      { error: "নাম/মডেল, IMEI এবং ক্রয়মূল্য আবশ্যক" },
+      { error: "Name/model, IMEI, and buy price are required" },
       { status: 400 }
     );
   }
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
   // Sell sheet's auto-create-on-unknown-IMEI path) are unaffected.
   const stockType = stock_type === "outside" ? "outside" : "regular";
 
-  // "individual" (ব্যক্তিগত ফোন) requires the NID + person photos, captured
+  // "individual" (personal phone) requires the NID + person photos, captured
   // and compressed on the client; anything else stays the default supplier
   // purchase and carries no photos.
   const sellerType = seller_type === "individual" ? "individual" : "supplier";
@@ -121,10 +121,10 @@ export async function POST(req: NextRequest) {
     // unsold in stock. A sold phone's IMEI can always be re-entered.
     if (String(e.message || e).includes("UNIQUE")) {
       return NextResponse.json(
-        { error: "এই IMEI নম্বরের ফোনটি ইতিমধ্যে স্টকে আছে (Unsold)" },
+        { error: "A phone with this IMEI is already in stock (Unsold)" },
         { status: 409 }
       );
     }
-    return NextResponse.json({ error: "সেভ করা যায়নি" }, { status: 500 });
+    return NextResponse.json({ error: "Could not save" }, { status: 500 });
   }
 }

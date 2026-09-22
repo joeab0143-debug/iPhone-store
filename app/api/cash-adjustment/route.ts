@@ -3,7 +3,7 @@ import { computeCashParts, getCashAdjustment, setCashAdjustment } from "@/lib/ca
 
 export const runtime = "edge";
 
-// Settings → "ক্যাশ ঠিক করুন" — lets the shop owner type in what Total
+// Settings → "Fix Total Cash" — lets the shop owner type in what Total
 // Cash actually should be right now (matching their real cash-on-hand),
 // without touching stock/sales/expense data at all. Under the hood this
 // only ever changes the single manual-offset number in `cash_adjustments`
@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest) {
   const newTotalCash = Number(body.new_total_cash);
 
   if (body.new_total_cash === undefined || body.new_total_cash === null || Number.isNaN(newTotalCash)) {
-    return NextResponse.json({ error: "সঠিক টাকার পরিমাণ দিন" }, { status: 400 });
+    return NextResponse.json({ error: "Enter a valid amount" }, { status: 400 });
   }
 
   // Recompute the live base (everything except the manual offset) right

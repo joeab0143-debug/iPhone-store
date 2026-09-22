@@ -49,7 +49,7 @@ export interface DuePayment {
 
 export interface OutsideDeal {
   id: number;
-  // Outside Sell is now a standalone 3-field profit log (Model, IMEI,
+  // Used Phone is now a standalone 3-field profit log (Model, IMEI,
   // Profit) — most other columns are legacy from the old staged-Buy flow
   // and stay optional/unused for new rows.
   name: string;

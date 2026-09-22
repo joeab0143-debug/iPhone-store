@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   const { sale_id, amount, note, paid_date } = body;
 
   if (!sale_id || !amount || Number(amount) <= 0) {
-    return NextResponse.json({ error: "বৈধ পরিমাণ দিন" }, { status: 400 });
+    return NextResponse.json({ error: "Enter a valid amount" }, { status: 400 });
   }
 
   const sale = await db
@@ -18,11 +18,11 @@ export async function POST(req: NextRequest) {
     .first<{ due_amount: number; paid_amount: number }>();
 
   if (!sale) {
-    return NextResponse.json({ error: "বিক্রয় রেকর্ড পাওয়া যায়নি" }, { status: 404 });
+    return NextResponse.json({ error: "Sale record not found" }, { status: 404 });
   }
   if (Number(amount) > sale.due_amount) {
     return NextResponse.json(
-      { error: "বাকির চেয়ে বেশি পরিমাণ দেওয়া যাবে না" },
+      { error: "Cannot pay more than the due amount" },
       { status: 400 }
     );
   }

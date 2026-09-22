@@ -5,17 +5,19 @@ import { ShoppingCart, Repeat, PackagePlus } from "lucide-react";
 import SellSheet from "./SellSheet";
 import OutsideSellSheet from "./OutsideSellSheet";
 import BuySheet from "./BuySheet";
+import { useLang } from "@/lib/i18n";
 
 type Action = "sell" | "outside-sell" | "buy" | null;
 
-const ITEMS: { id: Exclude<Action, null>; label: string; icon: any }[] = [
-  { id: "sell", label: "Sell", icon: ShoppingCart },
-  { id: "outside-sell", label: "Outside Sell", icon: Repeat },
-  { id: "buy", label: "Buy", icon: PackagePlus },
-];
-
 export default function BottomActionBar() {
+  const { t } = useLang();
   const [active, setActive] = useState<Action>(null);
+
+  const ITEMS: { id: Exclude<Action, null>; label: string; icon: any }[] = [
+    { id: "sell", label: t("sidebar.sell"), icon: ShoppingCart },
+    { id: "outside-sell", label: t("sidebar.used_phone"), icon: Repeat },
+    { id: "buy", label: t("sidebar.buy"), icon: PackagePlus },
+  ];
 
   return (
     <>

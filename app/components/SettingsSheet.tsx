@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, Wallet } from "lucide-react";
 import { Button, Field, Sheet, inputClass, money } from "./ui";
 import { emitDashboardRefresh } from "@/lib/events";
+import { useLang } from "@/lib/i18n";
 
 export default function SettingsSheet({
   open,
@@ -16,6 +17,7 @@ export default function SettingsSheet({
   username: string;
 }) {
   const router = useRouter();
+  const { t } = useLang();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -62,15 +64,14 @@ export default function SettingsSheet({
     setCashError("");
     setCashSuccess("");
     if (newCash === "" || Number.isNaN(Number(newCash))) {
-      setCashError("সঠিক টাকার পরিমাণ দিন");
+      setCashError(t("settings.cash_invalid"));
       return;
     }
     const target = Number(newCash);
-    if (
-      !window.confirm(
-        `টোটাল ক্যাশ ৳${money(currentCash ?? 0)} থেকে ৳${money(target)} করবেন? স্টক/সেলের কোনো তথ্য বদলাবে না।`
-      )
-    ) {
+    const confirmMsg = t("settings.cash_confirm")
+      .replace("{from}", money(currentCash ?? 0))
+      .replace("{to}", money(target));
+    if (!window.confirm(confirmMsg)) {
       return;
     }
     setCashSaving(true);
@@ -82,12 +83,12 @@ export default function SettingsSheet({
     setCashSaving(false);
     const d: any = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setCashError(d.error || "সেভ করা যায়নি");
+      setCashError(d.error || t("common.save_could_not"));
       return;
     }
     setCurrentCash(d.total_cash);
     setNewCash("");
-    setCashSuccess("টোটাল ক্যাশ আপডেট হয়েছে ✓");
+    setCashSuccess(t("settings.cash_updated"));
     emitDashboardRefresh();
   }
 
@@ -95,15 +96,15 @@ export default function SettingsSheet({
     setError("");
     setSuccess("");
     if (!currentPassword) {
-      setError("বর্তমান পাসওয়ার্ড দিন");
+      setError(t("settings.enter_current_password"));
       return;
     }
     if (newPassword && newPassword !== confirmPassword) {
-      setError("নতুন পাসওয়ার্ড দুই ঘরে মিলছে না");
+      setError(t("settings.password_mismatch"));
       return;
     }
     if (!newUsername && !newPassword) {
-      setError("নতুন ইউজার আইডি বা পাসওয়ার্ড অন্তত একটি দিন");
+      setError(t("settings.need_username_or_password"));
       return;
     }
     setSaving(true);
@@ -119,10 +120,10 @@ export default function SettingsSheet({
     setSaving(false);
     const d: any = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(d.error || "সেভ করা যায়নি");
+      setError(d.error || t("common.save_could_not"));
       return;
     }
-    setSuccess("সেভ হয়েছে ✓");
+    setSuccess(t("settings.saved_success"));
     setCurrentPassword("");
     setNewUsername("");
     setNewPassword("");
@@ -137,24 +138,24 @@ export default function SettingsSheet({
   }
 
   return (
-    <Sheet open={open} onClose={handleClose} title="সেটিংস">
+    <Sheet open={open} onClose={handleClose} title={t("settings.title")}>
       <div className="space-y-4">
         <div className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5">
-          <p className="text-xs text-ink-faint">বর্তমান ইউজার আইডি</p>
+          <p className="text-xs text-ink-faint">{t("settings.current_username_label")}</p>
           <p className="font-medium">{username}</p>
         </div>
 
         <div className="space-y-3 border-t border-border-soft pt-4">
           <p className="flex items-center gap-1.5 text-sm font-semibold">
-            <Wallet size={15} /> টোটাল ক্যাশ ঠিক করুন
+            <Wallet size={15} /> {t("settings.fix_cash_heading")}
           </p>
           <div className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5">
-            <p className="text-xs text-ink-faint">বর্তমান টোটাল ক্যাশ</p>
+            <p className="text-xs text-ink-faint">{t("settings.current_total_cash")}</p>
             <p className="tabular font-medium">
               ৳{currentCash !== null ? money(currentCash) : "..."}
             </p>
           </div>
-          <Field label="নতুন টোটাল ক্যাশ (৳)">
+          <Field label={t("settings.new_total_cash_label")}>
             <input
               type="number"
               inputMode="decimal"
@@ -167,16 +168,14 @@ export default function SettingsSheet({
           {cashError && <p className="text-sm text-down">{cashError}</p>}
           {cashSuccess && <p className="text-sm text-up">{cashSuccess}</p>}
           <Button full variant="secondary" onClick={submitCashFix} disabled={cashSaving}>
-            {cashSaving ? "সেভ হচ্ছে..." : "ক্যাশ ঠিক করুন"}
+            {cashSaving ? t("settings.cash_saving") : t("settings.cash_fix_button")}
           </Button>
-          <p className="text-xs text-ink-faint">
-            এটা শুধু টোটাল ক্যাশের হিসাব ঠিক করে — স্টক, সেল, খরচ বা অন্য কোনো তথ্য বদলায় না।
-          </p>
+          <p className="text-xs text-ink-faint">{t("settings.cash_note")}</p>
         </div>
 
         <div className="space-y-3 border-t border-border-soft pt-4">
-          <p className="text-sm font-semibold">ইউজার আইডি / পাসওয়ার্ড পরিবর্তন</p>
-          <Field label="বর্তমান পাসওয়ার্ড">
+          <p className="text-sm font-semibold">{t("settings.change_credentials_heading")}</p>
+          <Field label={t("settings.current_password_label")}>
             <input
               type="password"
               value={currentPassword}
@@ -185,7 +184,7 @@ export default function SettingsSheet({
               className={inputClass}
             />
           </Field>
-          <Field label="নতুন ইউজার আইডি (ঐচ্ছিক)">
+          <Field label={t("settings.new_username_label")}>
             <input
               value={newUsername}
               onChange={(e) => setNewUsername(e.target.value)}
@@ -194,7 +193,7 @@ export default function SettingsSheet({
               className={inputClass}
             />
           </Field>
-          <Field label="নতুন পাসওয়ার্ড (ঐচ্ছিক, কমপক্ষে ৬ অক্ষর)">
+          <Field label={t("settings.new_password_label")}>
             <input
               type="password"
               value={newPassword}
@@ -204,7 +203,7 @@ export default function SettingsSheet({
             />
           </Field>
           {newPassword && (
-            <Field label="নতুন পাসওয়ার্ড আবার লিখুন">
+            <Field label={t("settings.confirm_password_label")}>
               <input
                 type="password"
                 value={confirmPassword}
@@ -217,7 +216,7 @@ export default function SettingsSheet({
           {error && <p className="text-sm text-down">{error}</p>}
           {success && <p className="text-sm text-up">{success}</p>}
           <Button full onClick={submit} disabled={saving}>
-            {saving ? "সেভ হচ্ছে..." : "সেভ করুন"}
+            {saving ? t("settings.saving") : t("settings.save_button")}
           </Button>
         </div>
 
@@ -229,7 +228,7 @@ export default function SettingsSheet({
             disabled={loggingOut}
           >
             <LogOut size={16} />
-            {loggingOut ? "লগআউট হচ্ছে..." : "লগআউট"}
+            {loggingOut ? t("settings.logging_out") : t("settings.logout_button")}
           </Button>
         </div>
       </div>

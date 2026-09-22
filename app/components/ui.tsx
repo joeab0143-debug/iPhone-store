@@ -2,6 +2,7 @@
 
 import { ReactNode } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useLang } from "@/lib/i18n";
 
 export function Button({
   children,
@@ -75,6 +76,8 @@ export function Sheet({
   title: string;
   children: ReactNode;
 }) {
+  const { t } = useLang();
+  const sheetResetLabel = t("common.reset_form");
   if (!open) return null;
   return (
     <div className="w-full max-w-3xl rounded-3xl bg-surface border border-border shadow-sm p-5 sm:p-6">
@@ -83,8 +86,8 @@ export function Sheet({
         <button
           onClick={onClose}
           className="rounded-full p-1.5 text-ink-muted hover:bg-surface-2 hover:text-ink transition"
-          aria-label="ফর্ম রিসেট করুন"
-          title="ফর্ম রিসেট করুন"
+          aria-label={sheetResetLabel}
+          title={sheetResetLabel}
         >
           <X size={20} />
         </button>
@@ -132,7 +135,7 @@ export function formatDate(iso: string | null | undefined) {
   });
 }
 
-// --- Month-scoped views (খরচ, প্রফিট) --------------------------------
+// --- Month-scoped views (Expense, Profit) --------------------------------
 // Every month "restarts" its running totals, but nothing is ever deleted —
 // this just picks which calendar month's rows to sum/list. currentMonthStr
 // is the default; MonthPicker lets the user step to any earlier month to
@@ -164,12 +167,13 @@ export function MonthPicker({
   value: string;
   onChange: (month: string) => void;
 }) {
+  const { t } = useLang();
   return (
     <div className="mb-4 flex items-center gap-2">
       <button
         onClick={() => onChange(shiftMonth(value, -1))}
         className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 text-ink-muted hover:text-teal"
-        aria-label="আগের মাস"
+        aria-label={t("common.prev_month")}
       >
         <ChevronLeft size={18} />
       </button>
@@ -184,7 +188,7 @@ export function MonthPicker({
         onClick={() => onChange(shiftMonth(value, 1))}
         disabled={value >= currentMonthStr()}
         className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 text-ink-muted hover:text-teal disabled:opacity-40"
-        aria-label="পরের মাস"
+        aria-label={t("common.next_month")}
       >
         <ChevronRight size={18} />
       </button>

@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
   if (!phone_id || selling_price === undefined) {
     return NextResponse.json(
-      { error: "ফোন এবং বিক্রয়মূল্য আবশ্যক" },
+      { error: "Phone and sell price are required" },
       { status: 400 }
     );
   }
@@ -62,11 +62,11 @@ export async function POST(req: NextRequest) {
     .first<{ buy_price: number; status: string }>();
 
   if (!phone) {
-    return NextResponse.json({ error: "ফোন পাওয়া যায়নি" }, { status: 404 });
+    return NextResponse.json({ error: "Phone not found" }, { status: 404 });
   }
   if (phone.status === "sold") {
     return NextResponse.json(
-      { error: "এই ফোনটি ইতিমধ্যে বিক্রি হয়ে গেছে" },
+      { error: "This phone has already been sold" },
       { status: 409 }
     );
   }

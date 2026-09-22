@@ -6,6 +6,7 @@ import { Button, Field, inputClass, Sheet } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
 import { generateInvoicePDF } from "@/lib/invoice";
 import { emitDashboardRefresh } from "@/lib/events";
+import { useLang } from "@/lib/i18n";
 import type { Phone } from "@/lib/types";
 
 const SHOP_NAME = "iPhone Store";
@@ -27,6 +28,7 @@ export default function SellSheet({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useLang();
   const [form, setForm] = useState(EMPTY_FORM);
   const [matchedPhone, setMatchedPhone] = useState<Phone | null>(null);
   const [suggestions, setSuggestions] = useState<Phone[]>([]);
@@ -49,7 +51,7 @@ export default function SellSheet({
       setSuggestions([]);
       return;
     }
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       setCheckingImei(true);
       try {
         const res = await fetch(`/api/stock?imei=${encodeURIComponent(imei)}`);
@@ -84,7 +86,7 @@ export default function SellSheet({
       }
       setCheckingImei(false);
     }, 300);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [form.imei]);
 
   function selectSuggestion(p: Phone) {
@@ -121,11 +123,11 @@ export default function SellSheet({
       !form.imei ||
       !form.selling_price
     ) {
-      setError("সব ঘর পূরণ করুন");
+      setError(t("sell.validation_all_fields"));
       return;
     }
     if (matchedPhone && matchedPhone.status === "sold") {
-      setError("এই ফোনটি ইতিমধ্যে বিক্রি হয়ে গেছে");
+      setError(t("sell.already_sold"));
       return;
     }
     // Open the receipt tab synchronously, still inside this click's user
@@ -146,7 +148,7 @@ export default function SellSheet({
       const addData: any = await addRes.json().catch(() => ({}));
       if (!addRes.ok) {
         setSaving(false);
-        setError(addData.error || "সেভ করা যায়নি");
+        setError(addData.error || t("common.save_could_not"));
         return;
       }
       phoneId = addData.id;
@@ -170,7 +172,7 @@ export default function SellSheet({
       setSaving(false);
       previewWin?.close();
       const d: any = await res.json().catch(() => ({}));
-      setError(d.error || "সেভ করা যায়নি");
+      setError(d.error || t("common.save_could_not"));
       return;
     }
     const d: any = await res.json();
@@ -203,43 +205,45 @@ export default function SellSheet({
 
   return (
     <>
-      <Sheet open={open} onClose={handleClose} title="ফোন বিক্রি (Sell)">
+      <Sheet open={open} onClose={handleClose} title={t("sell.title")}>
         <div className="space-y-3">
-          <Field label="Name">
+          <Field label={t("sell.name_label")}>
             <input
               value={form.customer_name}
               onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
               className={inputClass}
             />
           </Field>
-          <Field label="Number">
+          <Field label={t("sell.number_label")}>
             <input
               value={form.customer_phone}
               onChange={(e) => setForm({ ...form, customer_phone: e.target.value })}
               className={inputClass}
             />
           </Field>
-          <Field label="IMEI">
+          <Field label={t("sell.imei_label")}>
             <div className="relative">
               <div className="flex gap-2">
                 <input
                   value={form.imei}
                   onChange={(e) => setForm({ ...form, imei: e.target.value })}
                   onBlur={() => setTimeout(() => setSuggestions([]), 150)}
-                  placeholder="কয়েক ডিজিট লিখলেই লিস্ট আসবে"
+                  placeholder={t("sell.imei_placeholder")}
                   className={inputClass}
                 />
                 <button
                   onClick={() => setScanOpen(true)}
                   className="flex shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 px-3 text-teal"
-                  aria-label="IMEI স্ক্যান করুন"
+                  aria-label={t("sell.imei_scan_aria")}
                 >
                   <ScanLine size={18} />
                 </button>
               </div>
-              {checkingImei && <p className="mt-1 text-xs text-ink-faint">খোঁজা হচ্ছে...</p>}
+              {checkingImei && <p className="mt-1 text-xs text-ink-faint">{t("sell.searching")}</p>}
               {matchedPhone && (
-                <p className="mt-1 text-xs text-up">স্টক থেকে পাওয়া গেছে — {matchedPhone.name_model}</p>
+                <p className="mt-1 text-xs text-up">
+                  {t("sell.found_in_stock")} {matchedPhone.name_model}
+                </p>
               )}
               {!matchedPhone && suggestions.length > 0 && (
                 <ul className="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-border bg-bg-elevated shadow-lg">
@@ -264,32 +268,32 @@ export default function SellSheet({
               )}
             </div>
           </Field>
-          <Field label="Model">
+          <Field label={t("sell.model_label")}>
             <input
               value={form.model}
               onChange={(e) => setForm({ ...form, model: e.target.value })}
               readOnly={!!matchedPhone}
-              placeholder="ফোনের নাম ও মডেল"
+              placeholder={t("sell.model_placeholder")}
               className={inputClass + (matchedPhone ? " opacity-70" : "")}
             />
           </Field>
-          <Field label="RAM/ROM (ঐচ্ছিক)">
+          <Field label={t("sell.ram_rom_label")}>
             <input
               value={form.ram_rom}
               onChange={(e) => setForm({ ...form, ram_rom: e.target.value })}
-              placeholder="যেমন: 4/64 GB"
+              placeholder={t("sell.ram_rom_placeholder")}
               className={inputClass}
             />
           </Field>
-          <Field label="Battery Health (ঐচ্ছিক)">
+          <Field label={t("sell.battery_label")}>
             <input
               value={form.battery_health}
               onChange={(e) => setForm({ ...form, battery_health: e.target.value })}
-              placeholder="যেমন: 92%"
+              placeholder={t("sell.battery_placeholder")}
               className={inputClass}
             />
           </Field>
-          <Field label="Price (৳)">
+          <Field label={t("sell.price_label")}>
             <input
               type="number"
               inputMode="decimal"
@@ -307,11 +311,11 @@ export default function SellSheet({
               onChange={(e) => setIsDue(e.target.checked)}
               className="h-4 w-4 accent-[var(--gold)]"
             />
-            <span className="text-sm font-medium">বাকি বিক্রি (Due)</span>
+            <span className="text-sm font-medium">{t("sell.due_checkbox")}</span>
           </label>
 
           {isDue && (
-            <Field label="এখন কত টাকা দিলো (অগ্রিম, না দিলে ০)">
+            <Field label={t("sell.paid_now_label")}>
               <input
                 type="number"
                 inputMode="decimal"
@@ -325,7 +329,7 @@ export default function SellSheet({
 
           {error && <p className="text-sm text-down">{error}</p>}
           <Button full onClick={submit} disabled={saving}>
-            {saving ? "সেভ হচ্ছে..." : "বিক্রি নিশ্চিত করুন ও মেমো বানান"}
+            {saving ? t("sell.saving") : t("sell.confirm_button")}
           </Button>
         </div>
       </Sheet>

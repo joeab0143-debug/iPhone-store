@@ -38,11 +38,11 @@ export async function POST(req: NextRequest) {
   const { buy_name, buy_price, quantity } = body;
 
   if (!buy_name) {
-    return NextResponse.json({ error: "নাম দিন" }, { status: 400 });
+    return NextResponse.json({ error: "Enter a name" }, { status: 400 });
   }
   const qty = Number(quantity || 1);
   if (!qty || qty < 1) {
-    return NextResponse.json({ error: "সঠিক Quantity দিন" }, { status: 400 });
+    return NextResponse.json({ error: "Enter a valid Quantity" }, { status: 400 });
   }
 
   const result = await db
