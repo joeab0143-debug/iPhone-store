@@ -49,7 +49,7 @@ export default function Sidebar({
   onChange: (t: TabId) => void;
 }) {
   return (
-    <aside className="no-print sticky top-0 z-30 flex h-dvh w-[68px] sm:w-[212px] shrink-0 flex-col bg-sidebar-bg px-2 py-4">
+    <aside className="no-print fixed inset-y-0 left-0 z-30 flex h-dvh w-[68px] sm:w-[212px] flex-col bg-sidebar-bg px-2 py-4">
       <div className="mb-4 flex items-center gap-2.5 px-1 sm:px-2">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white">
           <Smartphone size={18} />
