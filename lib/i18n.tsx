@@ -600,6 +600,15 @@ export const STRINGS: Record<string, Entry> = {
   "settings.pos_manager_username_password_required": { en: "Enter a username and password", bn: "একটা ইউজারনেম ও পাসওয়ার্ড দিন" },
 
   "settings.whatsapp_label": { en: "Message us on WhatsApp", bn: "হোয়াটসঅ্যাপে মেসেজ করুন" },
+
+  "settings.shop_info_heading": { en: "Shop / Invoice Info", bn: "শপ / মেমো তথ্য" },
+  "settings.shop_info_description": { en: "These details appear on the printed Sales Invoice memo.", bn: "এই তথ্যগুলো প্রিন্ট করা Sales Invoice মেমোর উপরে দেখা যাবে।" },
+  "settings.shop_name_label": { en: "Shop Name", bn: "শপের নাম" },
+  "settings.shop_address_label": { en: "Address (optional)", bn: "ঠিকানা (ঐচ্ছিক)" },
+  "settings.shop_phone_label": { en: "Phone (optional)", bn: "ফোন নম্বর (ঐচ্ছিক)" },
+  "settings.shop_email_label": { en: "Email (optional)", bn: "ইমেইল (ঐচ্ছিক)" },
+  "settings.shop_info_save_button": { en: "Save Shop Info", bn: "শপের তথ্য সেভ করুন" },
+  "settings.shop_info_saved": { en: "Shop info saved", bn: "শপের তথ্য সেভ হয়েছে" },
 };
 
 const LanguageContext = createContext<{

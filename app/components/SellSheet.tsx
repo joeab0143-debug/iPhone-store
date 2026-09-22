@@ -4,12 +4,10 @@ import { useEffect, useState } from "react";
 import { ScanLine } from "lucide-react";
 import { Button, Field, inputClass, Sheet } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
-import { generateInvoicePDF } from "@/lib/invoice";
+import { printSalesInvoice } from "@/lib/sales-invoice";
 import { emitDashboardRefresh } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
 import type { Phone } from "@/lib/types";
-
-const SHOP_NAME = "iPhone Store";
 
 const EMPTY_FORM = {
   customer_name: "",
@@ -181,10 +179,9 @@ export default function SellSheet({
     const r = await fetch(`/api/sales/${d.id}`);
     const sd: any = await r.json();
     setSaving(false);
-    generateInvoicePDF(
+    await printSalesInvoice(
       {
         saleId: sd.sale.id,
-        shopName: SHOP_NAME,
         nameModel: sd.sale.name_model,
         imei: sd.sale.imei,
         sellingPrice: sd.sale.selling_price,

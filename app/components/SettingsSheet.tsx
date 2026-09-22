@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Wallet, UserCog } from "lucide-react";
+import { LogOut, Wallet, UserCog, Store } from "lucide-react";
 import { Button, Field, Sheet, inputClass, money } from "./ui";
 import { emitDashboardRefresh } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
@@ -45,6 +45,17 @@ export default function SettingsSheet({
   const [posError, setPosError] = useState("");
   const [posSuccess, setPosSuccess] = useState("");
 
+  // Shop / Invoice Info (admin-only) -- feeds the printed Sales Invoice
+  // memo (see lib/sales-invoice.ts). Editable here so the shop's own
+  // details don't have to be hardcoded in the app.
+  const [shopName, setShopName] = useState("");
+  const [shopAddress, setShopAddress] = useState("");
+  const [shopPhone, setShopPhone] = useState("");
+  const [shopEmail, setShopEmail] = useState("");
+  const [shopSaving, setShopSaving] = useState(false);
+  const [shopError, setShopError] = useState("");
+  const [shopSuccess, setShopSuccess] = useState("");
+
   const isAdmin = role === "admin";
 
   // Fetch the live Total Cash every time the sheet opens, so it's never
@@ -65,6 +76,19 @@ export default function SettingsSheet({
       .catch(() => {});
   }, [open, isAdmin]);
 
+  useEffect(() => {
+    if (!open || !isAdmin) return;
+    fetch("/api/shop-info")
+      .then((r) => r.json())
+      .then((d: any) => {
+        setShopName(d.shop_name || "");
+        setShopAddress(d.address || "");
+        setShopPhone(d.phone || "");
+        setShopEmail(d.email || "");
+      })
+      .catch(() => {});
+  }, [open, isAdmin]);
+
   function reset() {
     setCurrentPassword("");
     setNewUsername("");
@@ -79,6 +103,8 @@ export default function SettingsSheet({
     setPosFormPassword("");
     setPosError("");
     setPosSuccess("");
+    setShopError("");
+    setShopSuccess("");
   }
 
   function handleClose() {
@@ -156,6 +182,33 @@ export default function SettingsSheet({
     }
     setPosManagerUsername(null);
     setPosSuccess(t("settings.pos_manager_removed"));
+  }
+
+  async function saveShopInfo() {
+    setShopError("");
+    setShopSuccess("");
+    setShopSaving(true);
+    const res = await fetch("/api/shop-info", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        shop_name: shopName.trim(),
+        address: shopAddress.trim() || null,
+        phone: shopPhone.trim() || null,
+        email: shopEmail.trim() || null,
+      }),
+    });
+    setShopSaving(false);
+    const d: any = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setShopError(d.error || t("common.save_could_not"));
+      return;
+    }
+    setShopName(d.shop_name || "");
+    setShopAddress(d.address || "");
+    setShopPhone(d.phone || "");
+    setShopEmail(d.email || "");
+    setShopSuccess(t("settings.shop_info_saved"));
   }
 
   async function submit() {
@@ -284,6 +337,49 @@ export default function SettingsSheet({
                 {t("settings.pos_manager_remove_button")}
               </Button>
             )}
+          </div>
+        )}
+
+        {isAdmin && (
+          <div className="space-y-3 border-t border-border-soft pt-4">
+            <p className="flex items-center gap-1.5 text-sm font-semibold">
+              <Store size={15} /> {t("settings.shop_info_heading")}
+            </p>
+            <p className="text-xs text-ink-faint">{t("settings.shop_info_description")}</p>
+            <Field label={t("settings.shop_name_label")}>
+              <input
+                value={shopName}
+                onChange={(e) => setShopName(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label={t("settings.shop_address_label")}>
+              <input
+                value={shopAddress}
+                onChange={(e) => setShopAddress(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label={t("settings.shop_phone_label")}>
+              <input
+                value={shopPhone}
+                onChange={(e) => setShopPhone(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label={t("settings.shop_email_label")}>
+              <input
+                type="email"
+                value={shopEmail}
+                onChange={(e) => setShopEmail(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            {shopError && <p className="text-sm text-down">{shopError}</p>}
+            {shopSuccess && <p className="text-sm text-up">{shopSuccess}</p>}
+            <Button full variant="secondary" onClick={saveShopInfo} disabled={shopSaving}>
+              {t("settings.shop_info_save_button")}
+            </Button>
           </div>
         )}
 

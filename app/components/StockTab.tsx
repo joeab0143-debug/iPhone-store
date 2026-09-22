@@ -5,7 +5,7 @@ import { ScanLine, Printer, Receipt, Wallet, Search, RotateCcw, Pencil, Trash2, 
 import { Button, Field, inputClass, Sheet, Badge, money, formatDate } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
 import BarcodeSticker from "./BarcodeSticker";
-import { generateInvoicePDF } from "@/lib/invoice";
+import { printSalesInvoice } from "@/lib/sales-invoice";
 import { generateReportPDF } from "@/lib/report-pdf";
 import { emitDashboardRefresh, DASHBOARD_REFRESH_EVENT } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
@@ -156,10 +156,9 @@ export default function StockTab() {
     // fetch to build receipt
     const r = await fetch(`/api/sales/${soldSaleId}`);
     const sd: any = await r.json();
-    generateInvoicePDF(
+    await printSalesInvoice(
       {
         saleId: sd.sale.id,
-        shopName: SHOP_NAME,
         nameModel: sd.sale.name_model,
         imei: sd.sale.imei,
         sellingPrice: sd.sale.selling_price,
@@ -194,10 +193,9 @@ export default function StockTab() {
       previewWin?.close();
       return;
     }
-    generateInvoicePDF(
+    await printSalesInvoice(
       {
         saleId: d.sale.id,
-        shopName: SHOP_NAME,
         nameModel: d.phone.name_model,
         imei: d.phone.imei,
         sellingPrice: d.sale.selling_price,
@@ -248,10 +246,9 @@ export default function StockTab() {
     }
     emitDashboardRefresh();
     load();
-    generateInvoicePDF(
+    await printSalesInvoice(
       {
         saleId: sale.id,
-        shopName: SHOP_NAME,
         nameModel: phone.name_model,
         imei: phone.imei,
         sellingPrice: sale.selling_price,
