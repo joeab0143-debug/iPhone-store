@@ -204,7 +204,8 @@ export default function SettingsSheet({
   }
 
   return (
-    <Sheet open={open} onClose={handleClose} title={t("settings.title")}>
+    <>
+      <Sheet open={open} onClose={handleClose} title={t("settings.title")}>
       <div className="space-y-4">
         <div className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5">
           <p className="text-xs text-ink-faint">{t("settings.current_username_label")}</p>
@@ -345,6 +346,24 @@ export default function SettingsSheet({
           </Button>
         </div>
       </div>
-    </Sheet>
+      </Sheet>
+
+      {/* Floating WhatsApp contact button -- bottom-right of the Settings
+          page only. Opens a WhatsApp chat to the shop's support number. */}
+      {open && (
+        <a
+          href="https://wa.me/8801708115797"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={t("settings.whatsapp_label")}
+          title={t("settings.whatsapp_label")}
+          className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:brightness-110 active:scale-95"
+        >
+          <svg viewBox="0 0 32 32" width="28" height="28" fill="currentColor" aria-hidden="true">
+            <path d="M16.004 2.667c-7.363 0-13.333 5.97-13.333 13.333 0 2.352.617 4.56 1.696 6.475L2.667 29.333l7.03-1.844a13.27 13.27 0 0 0 6.307 1.607h.006c7.363 0 13.333-5.97 13.333-13.333S23.367 2.667 16.004 2.667Zm0 24.395a11.04 11.04 0 0 1-5.63-1.54l-.404-.24-4.172 1.094 1.114-4.067-.263-.418a11.02 11.02 0 0 1-1.696-5.891c0-6.106 4.97-11.076 11.077-11.076 2.958 0 5.739 1.153 7.832 3.247a11 11 0 0 1 3.244 7.833c0 6.106-4.97 11.058-11.102 11.058Zm6.07-8.284c-.332-.166-1.966-.97-2.271-1.081-.305-.111-.527-.166-.75.166-.221.333-.858 1.081-1.052 1.303-.194.222-.388.25-.72.083-.332-.167-1.402-.517-2.671-1.649-.987-.881-1.654-1.968-1.848-2.3-.194-.333-.02-.513.146-.679.15-.15.332-.389.498-.583.166-.194.221-.333.332-.556.111-.222.055-.417-.028-.583-.083-.166-.75-1.808-1.028-2.475-.271-.65-.546-.563-.75-.573l-.638-.011c-.222 0-.583.083-.888.417-.305.333-1.166 1.14-1.166 2.781s1.194 3.226 1.36 3.448c.166.222 2.35 3.588 5.693 5.032.795.343 1.416.548 1.9.702.798.254 1.524.218 2.098.132.64-.096 1.966-.803 2.244-1.579.277-.777.277-1.442.194-1.58-.083-.138-.305-.221-.638-.388Z" />
+          </svg>
+        </a>
+      )}
+    </>
   );
 }

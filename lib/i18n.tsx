@@ -599,6 +599,7 @@ export const STRINGS: Record<string, Entry> = {
   "settings.pos_manager_removed": { en: "POS Manager removed", bn: "পজ ম্যানেজার সরানো হয়েছে" },
   "settings.pos_manager_username_password_required": { en: "Enter a username and password", bn: "একটা ইউজারনেম ও পাসওয়ার্ড দিন" },
 
+  "settings.whatsapp_label": { en: "Message us on WhatsApp", bn: "হোয়াটসঅ্যাপে মেসেজ করুন" },
 };
 
 const LanguageContext = createContext<{
