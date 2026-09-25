@@ -17,7 +17,6 @@ interface ExpenseCategoryBreakdown {
 
 interface ProfitBreakdown {
   stock_profit: number;
-  outside_profit: number;
   // 50% share of profit from "Outside Stock" phone sales (migrations/0017)
   outside_stock_profit: number;
   expense_categories: ExpenseCategoryBreakdown[];
@@ -28,11 +27,8 @@ interface ProfitBreakdown {
 interface CashBreakdown {
   total_cash: number;
   sales_paid: number;
-  outside_profit: number;
-  loan_cash_in: number;
   total_buy: number;
   expenses: number;
-  loan_cash_out: number;
   adjustment: number;
 }
 
@@ -42,17 +38,8 @@ interface StockSaleRow {
   selling_price: number;
 }
 
-interface OutsideSaleRow {
-  model: string | null;
-  name: string;
-  imei: string | null;
-  profit: number;
-  sell_date?: string;
-}
-
 interface TodaySaleBreakdown {
   stockSales: StockSaleRow[];
-  outsideSales: OutsideSaleRow[];
   total: number;
 }
 
@@ -99,22 +86,11 @@ interface CashSalePaidRow {
   paid_amount: number;
 }
 
-interface LoanEntryRow {
-  person_name: string;
-  direction: "taken" | "given";
-  kind: "disburse" | "repay";
-  amount: number;
-  entry_date: string;
-}
-
 type SubDetailKind =
   | "stockProfitMonth"
-  | "outsideProfitMonth"
   | "outsideStockProfitMonth"
   | "outsideStockList"
-  | "cashSalesPaid"
-  | "cashOutsideProfit"
-  | "cashLoanIn";
+  | "cashSalesPaid";
 
 // "YYYY-MM-DD" for today, in the browser's local time — same approach the
 // rest of the app already uses for "today" comparisons (e.g. ExpenseTab's
@@ -153,11 +129,9 @@ export default function DashboardStats() {
   const [subKind, setSubKind] = useState<SubDetailKind | null>(null);
   const [subLoading, setSubLoading] = useState(false);
   const [subStockProfit, setSubStockProfit] = useState<StockProfitRow[] | null>(null);
-  const [subOutsideDeals, setSubOutsideDeals] = useState<OutsideSaleRow[] | null>(null);
   const [subOutsideStockProfit, setSubOutsideStockProfit] = useState<OutsideStockProfitRow[] | null>(null);
   const [subOutsideStockPhones, setSubOutsideStockPhones] = useState<BuyPhoneRow[] | null>(null);
   const [subCashSales, setSubCashSales] = useState<CashSalePaidRow[] | null>(null);
-  const [subLoanIn, setSubLoanIn] = useState<LoanEntryRow[] | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -210,24 +184,15 @@ export default function DashboardStats() {
     setTodayLoading(true);
     try {
       const today = todayStr();
-      const [sRes, oRes] = await Promise.all([
-        fetch(`/api/sales?from=${today}&to=${today}`, { cache: "no-store" }),
-        fetch(`/api/outside?status=sold`, { cache: "no-store" }),
-      ]);
+      const sRes = await fetch(`/api/sales?from=${today}&to=${today}`, { cache: "no-store" });
       const sData: any = sRes.ok ? await sRes.json() : { sales: [] };
-      const oData: any = oRes.ok ? await oRes.json() : { deals: [] };
       const stockSales: StockSaleRow[] = (sData.sales || []).map((s: any) => ({
         name_model: s.name_model,
         imei: s.imei,
         selling_price: s.selling_price,
       }));
-      const outsideSales: OutsideSaleRow[] = (oData.deals || [])
-        .filter((d: any) => (d.sell_date || "").slice(0, 10) === today)
-        .map((d: any) => ({ model: d.model, name: d.name, imei: d.imei, profit: d.profit }));
-      const total =
-        stockSales.reduce((s, r) => s + Number(r.selling_price), 0) +
-        outsideSales.reduce((s, r) => s + Number(r.profit), 0);
-      setTodayBreakdown({ stockSales, outsideSales, total });
+      const total = stockSales.reduce((s, r) => s + Number(r.selling_price), 0);
+      setTodayBreakdown({ stockSales, total });
     } catch {
       // transient network error
     } finally {
@@ -303,19 +268,6 @@ export default function DashboardStats() {
               share_profit: Number(s.profit) * 0.5,
             }))
         );
-      } else if (kind === "outsideProfitMonth") {
-        // /api/outside filters by deal_date, but the monthly profit
-        // calculation uses sell_date (see the profit-breakdown route) — so
-        // every sold deal is fetched and filtered client-side by sell_date,
-        // exactly like openTodayBreakdown.
-        const monthPrefix = currentMonthStr();
-        const res = await fetch(`/api/outside?status=sold`, { cache: "no-store" });
-        const data: any = res.ok ? await res.json() : { deals: [] };
-        setSubOutsideDeals(
-          (data.deals || [])
-            .filter((d: any) => (d.sell_date || "").slice(0, 7) === monthPrefix)
-            .map((d: any) => ({ model: d.model, name: d.name, imei: d.imei, profit: d.profit, sell_date: d.sell_date }))
-        );
       } else if (kind === "cashSalesPaid") {
         const res = await fetch(`/api/sales`, { cache: "no-store" });
         const data: any = res.ok ? await res.json() : { sales: [] };
@@ -323,26 +275,6 @@ export default function DashboardStats() {
           (data.sales || [])
             .filter((s: any) => Number(s.paid_amount) > 0)
             .map((s: any) => ({ name_model: s.name_model, imei: s.imei, paid_amount: s.paid_amount }))
-        );
-      } else if (kind === "cashOutsideProfit") {
-        const res = await fetch(`/api/outside?status=sold`, { cache: "no-store" });
-        const data: any = res.ok ? await res.json() : { deals: [] };
-        setSubOutsideDeals(
-          (data.deals || []).map((d: any) => ({ model: d.model, name: d.name, imei: d.imei, profit: d.profit, sell_date: d.sell_date }))
-        );
-      } else if (kind === "cashLoanIn") {
-        const res = await fetch(`/api/loan-entries`, { cache: "no-store" });
-        const data: any = res.ok ? await res.json() : { entries: [] };
-        setSubLoanIn(
-          (data.entries || [])
-            .filter((e: any) => (e.direction === "taken" && e.kind === "disburse") || (e.direction === "given" && e.kind === "repay"))
-            .map((e: any) => ({
-              person_name: e.person_name,
-              direction: e.direction,
-              kind: e.kind,
-              amount: e.amount,
-              entry_date: e.entry_date,
-            }))
         );
       }
     } catch {
@@ -370,11 +302,8 @@ export default function DashboardStats() {
         summary: [
           { label: "Total Cash", value: `Tk ${cashBreakdown.total_cash.toLocaleString()}`, tone: cashBreakdown.total_cash >= 0 ? "up" : "down" },
           { label: "Sales Received", value: `Tk ${cashBreakdown.sales_paid.toLocaleString()}`, tone: "up" },
-          { label: "Used Phone Profit", value: `Tk ${cashBreakdown.outside_profit.toLocaleString()}`, tone: "up" },
-          { label: "Loan Cash In", value: `Tk ${cashBreakdown.loan_cash_in.toLocaleString()}`, tone: "up" },
           { label: "Total Buy (Stock)", value: `Tk ${cashBreakdown.total_buy.toLocaleString()}`, tone: "down" },
           { label: "Total Expenses", value: `Tk ${cashBreakdown.expenses.toLocaleString()}`, tone: "down" },
-          { label: "Loan Cash Out", value: `Tk ${cashBreakdown.loan_cash_out.toLocaleString()}`, tone: "down" },
           { label: "Manual Adjustment", value: `Tk ${cashBreakdown.adjustment.toLocaleString()}` },
         ],
         footerNote: "Generated from iPhone Store — Total Cash (all-time)",
@@ -386,10 +315,12 @@ export default function DashboardStats() {
   function downloadTodayReport() {
     if (!todayBreakdown) return;
     const previewWin = window.open("", "_blank");
-    const rows: (string | number)[][] = [
-      ...todayBreakdown.stockSales.map((s) => ["Stock Sale", s.name_model, s.imei, s.selling_price.toLocaleString()]),
-      ...todayBreakdown.outsideSales.map((o) => ["Used Phone", o.model || o.name, o.imei || "-", o.profit.toLocaleString()]),
-    ];
+    const rows: (string | number)[][] = todayBreakdown.stockSales.map((s) => [
+      "Stock Sale",
+      s.name_model,
+      s.imei,
+      s.selling_price.toLocaleString(),
+    ]);
     generateReportPDF(
       {
         shopName: "iPhone Store",
@@ -450,7 +381,6 @@ export default function DashboardStats() {
           { label: "Net Profit", value: `Tk ${profitBreakdown.net_profit.toLocaleString()}`, tone: profitBreakdown.net_profit >= 0 ? "up" : "down" },
           { label: "Stock Profit", value: `Tk ${profitBreakdown.stock_profit.toLocaleString()}`, tone: "up" },
           { label: "Outside Stock Profit", value: `Tk ${profitBreakdown.outside_stock_profit.toLocaleString()}`, tone: "up" },
-          { label: "Used Phone Profit", value: `Tk ${profitBreakdown.outside_profit.toLocaleString()}`, tone: "up" },
           { label: "Total Expense", value: `Tk ${profitBreakdown.total_expense.toLocaleString()}`, tone: "down" },
         ],
         table: {
@@ -536,27 +466,6 @@ export default function DashboardStats() {
         },
         previewWin
       );
-    } else if (subKind === "outsideProfitMonth") {
-      generateReportPDF(
-        {
-          shopName: "iPhone Store",
-          title: "Used Phone Profit Detail",
-          subtitle: "This Month",
-          summary: [{ label: "Used Phone Profit", value: `Tk ${(profitBreakdown?.outside_profit ?? 0).toLocaleString()}`, tone: "up" }],
-          table: {
-            head: ["Model", "IMEI", "Sell Date", "Profit (Tk)"],
-            rows: (subOutsideDeals || []).map((d) => [
-              d.model || d.name,
-              d.imei || "-",
-              (d.sell_date || "-").toString().slice(0, 10),
-              Number(d.profit).toLocaleString(),
-            ]),
-            emptyLabel: "No Used Phone entries this month",
-          },
-          footerNote: "Generated from iPhone Store — Dashboard",
-        },
-        previewWin
-      );
     } else if (subKind === "cashSalesPaid") {
       generateReportPDF(
         {
@@ -568,43 +477,6 @@ export default function DashboardStats() {
             head: ["Model", "IMEI", "Paid (Tk)"],
             rows: (subCashSales || []).map((s) => [s.name_model, s.imei, Number(s.paid_amount).toLocaleString()]),
             emptyLabel: "No sales yet",
-          },
-          footerNote: "Generated from iPhone Store — Dashboard (Total Cash, all-time)",
-        },
-        previewWin
-      );
-    } else if (subKind === "cashOutsideProfit") {
-      generateReportPDF(
-        {
-          shopName: "iPhone Store",
-          title: "Used Phone Profit Detail",
-          subtitle: `As of ${todayLabel()}`,
-          summary: [{ label: "Used Phone Profit", value: `Tk ${(cashBreakdown?.outside_profit ?? 0).toLocaleString()}`, tone: "up" }],
-          table: {
-            head: ["Model / IMEI", "Profit (Tk)"],
-            rows: (subOutsideDeals || []).map((d) => [d.model || d.name, Number(d.profit).toLocaleString()]),
-            emptyLabel: "No Used Phone entries yet",
-          },
-          footerNote: "Generated from iPhone Store — Dashboard (Total Cash, all-time)",
-        },
-        previewWin
-      );
-    } else {
-      generateReportPDF(
-        {
-          shopName: "iPhone Store",
-          title: "Loan Cash-In Detail",
-          subtitle: `As of ${todayLabel()}`,
-          summary: [{ label: "Loan Cash In", value: `Tk ${(cashBreakdown?.loan_cash_in ?? 0).toLocaleString()}`, tone: "up" }],
-          table: {
-            head: ["Person", "Type", "Amount (Tk)", "Date"],
-            rows: (subLoanIn || []).map((e) => [
-              e.person_name,
-              e.direction === "taken" ? "Taken" : "Repayment Received",
-              Number(e.amount).toLocaleString(),
-              (e.entry_date || "-").toString().slice(0, 10),
-            ]),
-            emptyLabel: "No loan cash-in entries yet",
           },
           footerNote: "Generated from iPhone Store — Dashboard (Total Cash, all-time)",
         },
@@ -667,18 +539,6 @@ export default function DashboardStats() {
                   tone="up"
                   onClick={() => openSub("cashSalesPaid")}
                 />
-                <BreakdownRow
-                  label={t("dashboard.used_phone_profit_label")}
-                  value={cashBreakdown.outside_profit}
-                  tone="up"
-                  onClick={() => openSub("cashOutsideProfit")}
-                />
-                <BreakdownRow
-                  label={t("dashboard.loan_cash_in_label")}
-                  value={cashBreakdown.loan_cash_in}
-                  tone="up"
-                  onClick={() => openSub("cashLoanIn")}
-                />
               </div>
             </div>
             <div>
@@ -686,7 +546,6 @@ export default function DashboardStats() {
               <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
                 <BreakdownRow label={t("dashboard.total_buy_stock_label")} value={cashBreakdown.total_buy} tone="down" negative />
                 <BreakdownRow label={t("dashboard.total_expense_label")} value={cashBreakdown.expenses} tone="down" negative />
-                <BreakdownRow label={t("dashboard.loan_cash_out_label")} value={cashBreakdown.loan_cash_out} tone="down" negative />
               </div>
             </div>
             {cashBreakdown.adjustment !== 0 && (
@@ -725,7 +584,7 @@ export default function DashboardStats() {
           <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.loading")}</p>
         ) : todayBreakdown ? (
           <div className="space-y-4">
-            {todayBreakdown.stockSales.length === 0 && todayBreakdown.outsideSales.length === 0 ? (
+            {todayBreakdown.stockSales.length === 0 ? (
               <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-ink-muted">
                 {t("dashboard.no_sales_today")}
               </p>
@@ -733,9 +592,6 @@ export default function DashboardStats() {
               <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
                 {todayBreakdown.stockSales.map((s, i) => (
                   <BreakdownRow key={`s-${i}`} label={s.name_model} value={s.selling_price} tone="up" />
-                ))}
-                {todayBreakdown.outsideSales.map((o, i) => (
-                  <BreakdownRow key={`o-${i}`} label={`${o.model || o.name} (Outside)`} value={o.profit} tone="up" />
                 ))}
               </div>
             )}
@@ -814,12 +670,6 @@ export default function DashboardStats() {
                   tone="up"
                   onClick={() => openSub("outsideStockProfitMonth")}
                 />
-                <BreakdownRow
-                  label={t("dashboard.used_phone_profit_label")}
-                  value={profitBreakdown.outside_profit}
-                  tone="up"
-                  onClick={() => openSub("outsideProfitMonth")}
-                />
               </div>
             </div>
 
@@ -866,13 +716,7 @@ export default function DashboardStats() {
             ? t("dashboard.sub_title_outside_stock_profit_month")
             : subKind === "outsideStockList"
             ? t("dashboard.sub_title_outside_stock_list")
-            : subKind === "outsideProfitMonth"
-            ? t("dashboard.sub_title_outside_profit_month")
-            : subKind === "cashSalesPaid"
-            ? t("dashboard.sub_title_cash_sales_paid")
-            : subKind === "cashOutsideProfit"
-            ? t("dashboard.sub_title_cash_outside_profit")
-            : t("dashboard.sub_title_cash_loan_in")
+            : t("dashboard.sub_title_cash_sales_paid")
         }
       >
         {subLoading ? (
@@ -939,24 +783,6 @@ export default function DashboardStats() {
           ) : (
             <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.no_outside_stock_phones")}</p>
           )
-        ) : subKind === "outsideProfitMonth" || subKind === "cashOutsideProfit" ? (
-          subOutsideDeals && subOutsideDeals.length > 0 ? (
-            <div className="space-y-3">
-              <div className="max-h-72 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
-                {subOutsideDeals.map((d, i) => (
-                  <div key={i} className="flex items-center justify-between gap-3">
-                    <p className="text-sm text-ink-muted truncate">{d.model || d.name}</p>
-                    <p className={`tabular text-sm font-semibold shrink-0 ${Number(d.profit) >= 0 ? "text-up" : "text-down"}`}>
-                      {Number(d.profit) >= 0 ? "+" : ""}৳{money(d.profit)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <DownloadPdfButton onClick={downloadSubReport} />
-            </div>
-          ) : (
-            <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.no_used_phone_entries")}</p>
-          )
         ) : subKind === "cashSalesPaid" ? (
           subCashSales && subCashSales.length > 0 ? (
             <div className="space-y-3">
@@ -972,27 +798,6 @@ export default function DashboardStats() {
             </div>
           ) : (
             <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.no_sale_entries")}</p>
-          )
-        ) : subKind === "cashLoanIn" ? (
-          subLoanIn && subLoanIn.length > 0 ? (
-            <div className="space-y-3">
-              <div className="max-h-72 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
-                {subLoanIn.map((e, i) => (
-                  <div key={i} className="flex items-center justify-between gap-3">
-                    <p className="text-sm text-ink-muted truncate">
-                      {e.person_name}{" "}
-                      <span className="text-[11px] text-ink-faint">
-                        ({e.direction === "taken" ? t("dashboard.loan_taken_tag") : t("dashboard.loan_repaid_tag")})
-                      </span>
-                    </p>
-                    <p className="tabular text-sm font-semibold shrink-0 text-up">৳{money(e.amount)}</p>
-                  </div>
-                ))}
-              </div>
-              <DownloadPdfButton onClick={downloadSubReport} />
-            </div>
-          ) : (
-            <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.no_entries")}</p>
           )
         ) : null}
       </Sheet>

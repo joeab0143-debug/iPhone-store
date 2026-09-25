@@ -3,7 +3,7 @@ import type { D1Database } from "@cloudflare/workers-types";
 // Central helper for the POS Manager approval workflow.
 //
 // The rule (set in Settings): a POS Manager can Sell, and can add Expense/
-// Loan/Gadget-sale entries, freely -- those are their day-to-day job and
+// Gadget-sale entries, freely -- those are their day-to-day job and
 // apply immediately, same as an admin. But editing or deleting any existing
 // record, or buying new stock (Buy), does NOT take effect right away for a
 // POS Manager -- it's queued here instead, and only applied once the admin
@@ -18,11 +18,9 @@ export type ApprovalActionType = "edit" | "delete" | "buy";
 export type ApprovalResourceType =
   | "phone"
   | "sale"
-  | "loan_account"
   | "expense_category"
   | "expense"
-  | "gadget"
-  | "outside_deal";
+  | "gadget";
 
 export interface QueueApprovalParams {
   actionType: ApprovalActionType;

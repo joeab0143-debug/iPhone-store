@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trash2, TrendingUp, TrendingDown, Download, ChevronRight } from "lucide-react";
+import { TrendingUp, TrendingDown, Download, ChevronRight } from "lucide-react";
 import { money, formatDate, MonthPicker, currentMonthStr, monthRange, Sheet } from "./ui";
-import { emitDashboardRefresh } from "@/lib/events";
 import { generateReportPDF } from "@/lib/report-pdf";
 import { useLang } from "@/lib/i18n";
-import type { NetProfitSummary, OutsideDeal } from "@/lib/types";
+import type { NetProfitSummary } from "@/lib/types";
 
 export default function ProfitTab() {
   const { t } = useLang();
@@ -15,20 +14,13 @@ export default function ProfitTab() {
   // ever lost.
   const [month, setMonth] = useState(currentMonthStr());
   const [summary, setSummary] = useState<NetProfitSummary | null>(null);
-  const [deals, setDeals] = useState<OutsideDeal[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
     const { from, to } = monthRange(month);
-    const qs = `?from=${from}&to=${to}`;
-    const [sRes, dRes] = await Promise.all([
-      fetch(`/api/summary${qs}`),
-      fetch(`/api/outside${qs}`),
-    ]);
-    setSummary(await sRes.json());
-    const dData: any = await dRes.json();
-    setDeals(dData.deals || []);
+    const res = await fetch(`/api/summary?from=${from}&to=${to}`);
+    setSummary(await res.json());
     setLoading(false);
   }
 
@@ -37,49 +29,13 @@ export default function ProfitTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
 
-  async function deleteDeal(id: number) {
-    await fetch(`/api/outside/${id}`, { method: "DELETE" });
-    emitDashboardRefresh();
-    load();
-  }
-
   function monthLabel(m: string) {
     const [y, mo] = m.split("-").map(Number);
     return new Date(y, mo - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
   }
 
-  function downloadReport() {
-    const previewWin = window.open("", "_blank");
-    generateReportPDF(
-      {
-        shopName: "iPhone Store",
-        title: "Profit Report",
-        subtitle: monthLabel(month),
-        summary: [
-          { label: "Net Profit", value: `Tk ${(summary?.net_profit ?? 0).toLocaleString()}`, tone: (summary?.net_profit ?? 0) >= 0 ? "up" : "down" },
-          { label: "Stock Profit", value: `Tk ${(summary?.stock_profit ?? 0).toLocaleString()}`, tone: "up" },
-          { label: "Outside Stock Profit", value: `Tk ${(summary?.outside_stock_profit ?? 0).toLocaleString()}`, tone: "up" },
-          { label: "Used Phone Profit", value: `Tk ${(summary?.outside_profit ?? 0).toLocaleString()}`, tone: "up" },
-          { label: "Total Expense", value: `Tk ${(summary?.total_expense ?? 0).toLocaleString()}`, tone: "down" },
-          { label: "Due Outstanding", value: `Tk ${(summary?.total_due_outstanding ?? 0).toLocaleString()}` },
-        ],
-        table: {
-          head: ["Model / IMEI", "Date", "Profit (Tk)"],
-          rows: deals.map((d) => [
-            d.model || d.name || "-",
-            (d.sell_date || d.deal_date || "-").toString().slice(0, 10),
-            d.profit.toLocaleString(),
-          ]),
-          emptyLabel: "No Used Phone entries this month",
-        },
-        footerNote: "Generated from iPhone Store — Profit Tab (Used Phone log)",
-      },
-      previewWin
-    );
-  }
-
   // A separate detail sheet for each tile under the profit hero.
-  const [detailKind, setDetailKind] = useState<"stock" | "outsideStock" | "outside" | "expense" | "due" | null>(null);
+  const [detailKind, setDetailKind] = useState<"stock" | "outsideStock" | "expense" | "due" | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [stockSales, setStockSales] = useState<{ name_model: string; imei: string; selling_price: number; profit: number }[] | null>(null);
   const [outsideStockSales, setOutsideStockSales] = useState<
@@ -88,9 +44,8 @@ export default function ProfitTab() {
   const [expenseCategories, setExpenseCategories] = useState<{ name: string; total: number }[] | null>(null);
   const [dueSales, setDueSales] = useState<{ name_model: string; customer_name: string | null; customer_phone: string | null; due_amount: number }[] | null>(null);
 
-  async function openDetail(kind: "stock" | "outsideStock" | "outside" | "expense" | "due") {
+  async function openDetail(kind: "stock" | "outsideStock" | "expense" | "due") {
     setDetailKind(kind);
-    if (kind === "outside") return; // already have `deals` loaded
     setDetailLoading(true);
     try {
       if (kind === "stock") {
@@ -157,7 +112,7 @@ export default function ProfitTab() {
     }
   }
 
-  function downloadDetailReport(kind: "stock" | "outsideStock" | "outside" | "expense" | "due") {
+  function downloadDetailReport(kind: "stock" | "outsideStock" | "expense" | "due") {
     const previewWin = window.open("", "_blank");
     if (kind === "stock") {
       generateReportPDF(
@@ -194,22 +149,6 @@ export default function ProfitTab() {
               Number(s.share_profit).toLocaleString(),
             ]),
             emptyLabel: "No outside stock sales this month",
-          },
-          footerNote: "Generated from iPhone Store — Profit Tab",
-        },
-        previewWin
-      );
-    } else if (kind === "outside") {
-      generateReportPDF(
-        {
-          shopName: "iPhone Store",
-          title: "Used Phone Profit Report",
-          subtitle: monthLabel(month),
-          summary: [{ label: "Used Phone Profit", value: `Tk ${(summary?.outside_profit ?? 0).toLocaleString()}`, tone: "up" }],
-          table: {
-            head: ["Model / IMEI", "Date", "Profit (Tk)"],
-            rows: deals.map((d) => [d.model || d.name || "-", (d.sell_date || d.deal_date || "-").toString().slice(0, 10), d.profit.toLocaleString()]),
-            emptyLabel: "No Used Phone entries this month",
           },
           footerNote: "Generated from iPhone Store — Profit Tab",
         },
@@ -277,67 +216,10 @@ export default function ProfitTab() {
         <div className="mt-4 grid grid-cols-2 gap-2.5 text-sm">
           <SummaryStat label={t("profit.stock_profit")} value={summary?.stock_profit} tone="up" onClick={() => openDetail("stock")} />
           <SummaryStat label={t("profit.outside_stock_profit")} value={summary?.outside_stock_profit} tone="up" onClick={() => openDetail("outsideStock")} />
-          <SummaryStat label={t("profit.used_phone_profit")} value={summary?.outside_profit} tone="up" onClick={() => openDetail("outside")} />
           <SummaryStat label={t("profit.total_expense")} value={summary?.total_expense} tone="down" negative onClick={() => openDetail("expense")} />
           <SummaryStat label={t("profit.due_outstanding")} value={summary?.total_due_outstanding} tone="due" onClick={() => openDetail("due")} />
         </div>
       </div>
-
-      {/* Used Phone log — a simple Model/IMEI/Profit entry added via the
-          Used Phone action */}
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-display font-semibold">{t("profit.used_phone_log_heading")}</h3>
-        <button
-          onClick={downloadReport}
-          className="flex items-center gap-1 text-xs font-semibold text-teal"
-        >
-          <Download size={13} /> {t("profit.download_pdf")}
-        </button>
-      </div>
-
-      {loading ? (
-        <p className="text-center text-sm text-ink-muted py-10">{t("profit.loading")}</p>
-      ) : deals.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border py-10 text-center text-ink-muted">
-          {t("profit.no_entries_period")}
-        </div>
-      ) : (
-        <ul className="space-y-2">
-          {deals.map((d) => (
-            <li
-              key={d.id}
-              className="rounded-xl border border-border bg-surface p-3.5"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-medium truncate">{d.model || d.name}</p>
-                  {d.imei && (
-                    <p className="text-xs text-ink-faint truncate">IMEI: {d.imei}</p>
-                  )}
-                  <p className="text-xs text-ink-faint">
-                    {formatDate(d.sell_date || d.deal_date)}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span
-                    className={`tabular font-semibold ${
-                      d.profit >= 0 ? "text-up" : "text-down"
-                    }`}
-                  >
-                    {d.profit >= 0 ? "+" : ""}৳{money(d.profit)}
-                  </span>
-                  <button
-                    onClick={() => deleteDeal(d.id)}
-                    className="text-ink-faint hover:text-down"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
 
       <Sheet
         open={detailKind === "stock"}
@@ -401,34 +283,6 @@ export default function ProfitTab() {
           </div>
         ) : (
           <p className="py-6 text-center text-sm text-ink-muted">{t("profit.no_outside_stock_sales_month")}</p>
-        )}
-      </Sheet>
-
-      <Sheet
-        open={detailKind === "outside"}
-        onClose={() => setDetailKind(null)}
-        title={t("profit.used_phone_detail_title")}
-      >
-        {deals.length > 0 ? (
-          <div className="space-y-3">
-            <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
-              {deals.map((d) => (
-                <div key={d.id} className="flex items-center justify-between gap-3">
-                  <p className="text-sm text-ink-muted truncate">{d.model || d.name}</p>
-                  <p className={`tabular text-sm font-semibold shrink-0 ${d.profit >= 0 ? "text-up" : "text-down"}`}>
-                    {d.profit >= 0 ? "+" : ""}৳{money(d.profit)}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">{t("profit.used_phone_profit")}</p>
-              <p className="tabular font-display text-xl font-extrabold text-up">৳{money(summary?.outside_profit)}</p>
-            </div>
-            <DetailDownloadButton label={t("profit.download_pdf")} onClick={() => downloadDetailReport("outside")} />
-          </div>
-        ) : (
-          <p className="py-6 text-center text-sm text-ink-muted">{t("profit.no_used_phone_entries_month")}</p>
         )}
       </Sheet>
 

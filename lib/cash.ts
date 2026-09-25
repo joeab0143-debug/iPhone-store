@@ -12,40 +12,20 @@ export async function computeCashParts(): Promise<{
   totalBuyAmt: number;
 }> {
   const db = getDB();
-  const [salesPaidAllTime, outsideProfitAllTime, totalBuy, expenseAllTime, loanFlow] =
+  const [salesPaidAllTime, totalBuy, expenseAllTime] =
     await Promise.all([
       db.prepare("SELECT COALESCE(SUM(paid_amount),0) AS total FROM sales").first<{ total: number }>(),
-      db
-        .prepare("SELECT COALESCE(SUM(profit),0) AS total FROM outside_deals WHERE status = 'sold'")
-        .first<{ total: number }>(),
       // "Outside Stock" phones (migrations/0017) are bought without touching
       // Total Cash at all — only their regular-stock counterparts count here.
       db
         .prepare("SELECT COALESCE(SUM(buy_price),0) AS total FROM phones WHERE stock_type != 'outside'")
         .first<{ total: number }>(),
       db.prepare("SELECT COALESCE(SUM(amount),0) AS total FROM expenses").first<{ total: number }>(),
-      db
-        .prepare(
-          `SELECT
-             COALESCE(SUM(CASE WHEN la.direction='taken' AND le.kind='disburse' THEN le.amount ELSE 0 END),0) AS taken_in,
-             COALESCE(SUM(CASE WHEN la.direction='given' AND le.kind='repay' THEN le.amount ELSE 0 END),0) AS given_repaid_in,
-             COALESCE(SUM(CASE WHEN la.direction='given' AND le.kind='disburse' THEN le.amount ELSE 0 END),0) AS given_out,
-             COALESCE(SUM(CASE WHEN la.direction='taken' AND le.kind='repay' THEN le.amount ELSE 0 END),0) AS taken_repaid_out
-           FROM loan_entries le JOIN loan_accounts la ON la.id = le.account_id`
-        )
-        .first<{
-          taken_in: number;
-          given_repaid_in: number;
-          given_out: number;
-          taken_repaid_out: number;
-        }>(),
     ]);
 
-  const loanCashIn = (loanFlow?.taken_in ?? 0) + (loanFlow?.given_repaid_in ?? 0);
-  const loanCashOut = (loanFlow?.given_out ?? 0) + (loanFlow?.taken_repaid_out ?? 0);
   const totalBuyAmt = totalBuy?.total ?? 0;
-  const cashIn = (salesPaidAllTime?.total ?? 0) + (outsideProfitAllTime?.total ?? 0) + loanCashIn;
-  const cashOut = totalBuyAmt + (expenseAllTime?.total ?? 0) + loanCashOut;
+  const cashIn = salesPaidAllTime?.total ?? 0;
+  const cashOut = totalBuyAmt + (expenseAllTime?.total ?? 0);
 
   return { cashIn, cashOut, totalBuyAmt };
 }

@@ -47,29 +47,6 @@ export interface DuePayment {
   note: string | null;
 }
 
-export interface OutsideDeal {
-  id: number;
-  // Used Phone is now a standalone 3-field profit log (Model, IMEI,
-  // Profit) — most other columns are legacy from the old staged-Buy flow
-  // and stay optional/unused for new rows.
-  name: string;
-  model: string | null;
-  imei: string | null;
-  ram_rom: string | null;
-  bought_from: string | null;
-  buy_price: number;
-  nid: string | null;
-  phone_number: string | null;
-  status: "unsold" | "sold";
-  sell_price: number | null;
-  profit: number;
-  customer_name: string | null;
-  customer_phone: string | null;
-  deal_date: string; // legacy buy date
-  sell_date: string | null;
-  created_at: string;
-}
-
 export interface DashboardSummary {
   total_cash: number;
   today_sale: number;
@@ -116,36 +93,10 @@ export interface GadgetSale {
   sold_at: string;
 }
 
-// A loan account is one running ledger per (direction, person) — every
-// amount taken/given from that person and every repayment merges into it
-// instead of creating a separate row each time.
-export interface LoanAccount {
-  id: number;
-  direction: "taken" | "given";
-  person_name: string;
-  created_at: string;
-  // joined aggregates
-  disbursed?: number; // total taken/given, all-time
-  repaid?: number; // total repaid/recovered, all-time
-  remaining?: number; // disbursed - repaid
-  last_entry_date?: string | null;
-}
-
-export interface LoanEntry {
-  id: number;
-  account_id: number;
-  kind: "disburse" | "repay";
-  amount: number;
-  entry_date: string;
-  note: string | null;
-  created_at: string;
-}
-
 export interface NetProfitSummary {
   from: string;
   to: string;
   stock_profit: number;
-  outside_profit: number;
   // 50% share of profit from sales of "outside" stock_type phones — the
   // other 50% belongs to whoever actually owns those phones (see
   // migrations/0017_outside_stock.sql). Already excluded from stock_profit.
@@ -154,6 +105,5 @@ export interface NetProfitSummary {
   total_due_outstanding: number;
   net_profit: number;
   stock_sales_count: number;
-  outside_deals_count: number;
   outside_stock_sales_count: number;
 }

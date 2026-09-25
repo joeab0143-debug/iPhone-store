@@ -7,10 +7,8 @@ import StockTab from "./components/StockTab";
 import ExpenseTab from "./components/ExpenseTab";
 import ProfitTab from "./components/ProfitTab";
 import GadgetsTab from "./components/GadgetsTab";
-import LoansTab from "./components/LoansTab";
 import DashboardStats from "./components/DashboardStats";
 import SellSheet from "./components/SellSheet";
-import OutsideSellSheet from "./components/OutsideSellSheet";
 import BuySheet from "./components/BuySheet";
 import SettingsSheet from "./components/SettingsSheet";
 import ApprovalsTab from "./components/ApprovalsTab";
@@ -46,11 +44,7 @@ export default function Home() {
             {tab === "expense" && <ExpenseTab />}
             {tab === "profit" && <ProfitTab />}
             {tab === "gadgets" && <GadgetsTab />}
-            {tab === "loans" && <LoansTab />}
             {tab === "sell" && <SellSheet open onClose={() => {}} />}
-            {tab === "outside-sell" && (
-              <OutsideSellSheet open onClose={() => {}} />
-            )}
             {tab === "buy" && <BuySheet open onClose={() => {}} />}
             {tab === "approvals" && role === "admin" && <ApprovalsTab />}
             {tab === "settings" && (

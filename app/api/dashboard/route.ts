@@ -9,18 +9,16 @@ export const runtime = "edge";
 // has been sold/bought/spent up to that moment.
 //
 // Buy always writes into `phones` now (Stock tab shows everything bought),
-// so total_buy / stock_count come from `phones` alone. Used Phone is a
-// standalone profit log (no buy cost, no stock impact) — its profit adds
-// straight into cash and total profit. "Outside Stock" (migrations/0017) is
-// different again — it's a real phones-table row, Buy just skips the cash
+// so total_buy / stock_count come from `phones` alone. "Outside Stock"
+// (migrations/0017) is a real phones-table row, Buy just skips the cash
 // deduction for it, and only 50% of its sale profit counts toward profit.
 //
 // Total Cash and Stock never reset — they always come from the all-time
 // totals, carrying over from one month to the next. But "Profit (So
 // Far)" restarts at 0 at the beginning of every calendar month — it's
-// just this month's sale profit + Outside profit + used phone profit
-// (50%) minus this month's expenses. Older months' figures aren't lost —
-// they can still be viewed via the Expense/Profit tab's month picker.
+// just this month's sale profit + Outside Stock profit (50%) minus this
+// month's expenses. Older months' figures aren't lost — they can still be
+// viewed via the Expense/Profit tab's month picker.
 //
 // Total Cash's own formula (cashIn/cashOut/the manual adjustment) lives in
 // lib/cash.ts, shared with /api/cash-adjustment (Settings → "Fix Total
@@ -33,8 +31,6 @@ export async function GET() {
     salesToday,
     salesProfitThisMonth,
     outsideStockProfitThisMonth,
-    outsideProfitToday,
-    outsideProfitThisMonth,
     expenseThisMonth,
     { cashIn, cashOut, totalBuyAmt },
     cashAdjustmentAmt,
@@ -61,16 +57,6 @@ export async function GET() {
       .first<{ total: number }>(),
     db
       .prepare(
-        "SELECT COALESCE(SUM(profit),0) AS total FROM outside_deals WHERE status = 'sold' AND date(sell_date) = date('now','localtime')"
-      )
-      .first<{ total: number }>(),
-    db
-      .prepare(
-        "SELECT COALESCE(SUM(profit),0) AS total FROM outside_deals WHERE status = 'sold' AND strftime('%Y-%m', sell_date) = strftime('%Y-%m','now','localtime')"
-      )
-      .first<{ total: number }>(),
-    db
-      .prepare(
         "SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE strftime('%Y-%m', expense_date) = strftime('%Y-%m','now','localtime')"
       )
       .first<{ total: number }>(),
@@ -79,18 +65,16 @@ export async function GET() {
   ]);
 
   const stockCountAmt = stockCount?.cnt ?? 0;
-  const todaySale = (salesToday?.total ?? 0) + (outsideProfitToday?.total ?? 0);
+  const todaySale = salesToday?.total ?? 0;
 
-  // Cash on hand = actual cash received (sales' paid_amount + Used Phone
-  // profit + loans taken + loan repayments received) minus everything
-  // spent (buying stock, expenses, loans given out, loans paid back), plus
-  // any manual correction — all-time, never resets.
+  // Cash on hand = actual cash received (sales' paid_amount) minus
+  // everything spent (buying stock, expenses), plus any manual
+  // correction — all-time, never resets.
   const totalCash = cashIn - cashOut + cashAdjustmentAmt;
 
   // Profit (So Far) — restarts at the beginning of every calendar month.
   const profitTillNow =
     (salesProfitThisMonth?.total ?? 0) +
-    (outsideProfitThisMonth?.total ?? 0) +
     (outsideStockProfitThisMonth?.total ?? 0) * 0.5 -
     (expenseThisMonth?.total ?? 0);
 

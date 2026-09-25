@@ -48,20 +48,6 @@ export async function GET(req: NextRequest) {
     .bind(...outsideStockWhere.binds)
     .first<{ total: number; cnt: number }>();
 
-  // Used Phone profit is realized at sell time (the Used Phone sheet),
-  // not at purchase time, and only sold rows have a profit — so filter on
-  // sell_date and require status='sold' rather than filtering on buy date.
-  const outsideWhere = dateWhere("sell_date");
-  const outsideBaseClause = outsideWhere.clause
-    ? outsideWhere.clause + " AND status = 'sold'"
-    : "WHERE status = 'sold'";
-  const outsideRow = await db
-    .prepare(
-      `SELECT COALESCE(SUM(profit),0) AS total, COUNT(*) AS cnt FROM outside_deals ${outsideBaseClause}`
-    )
-    .bind(...outsideWhere.binds)
-    .first<{ total: number; cnt: number }>();
-
   const expenseWhere = dateWhere("expense_date");
   const expenseRow = await db
     .prepare(
@@ -75,22 +61,19 @@ export async function GET(req: NextRequest) {
     .first<{ total: number }>();
 
   const stockProfit = stockRow?.total ?? 0;
-  const outsideProfit = outsideRow?.total ?? 0;
   const outsideStockProfit = (outsideStockRow?.total ?? 0) * 0.5;
   const totalExpense = expenseRow?.total ?? 0;
-  const netProfit = stockProfit + outsideProfit + outsideStockProfit - totalExpense;
+  const netProfit = stockProfit + outsideStockProfit - totalExpense;
 
   return NextResponse.json({
     from: from || null,
     to: to || null,
     stock_profit: stockProfit,
-    outside_profit: outsideProfit,
     outside_stock_profit: outsideStockProfit,
     total_expense: totalExpense,
     total_due_outstanding: dueRow?.total ?? 0,
     net_profit: netProfit,
     stock_sales_count: stockRow?.cnt ?? 0,
-    outside_deals_count: outsideRow?.cnt ?? 0,
     outside_stock_sales_count: outsideStockRow?.cnt ?? 0,
   });
 }

@@ -7,9 +7,7 @@ import {
   Wallet2,
   TrendingUp,
   Package,
-  HandCoins,
   ShoppingCart,
-  Repeat,
   PackagePlus,
   Settings,
   Languages,
@@ -22,9 +20,7 @@ export type TabId =
   | "expense"
   | "profit"
   | "gadgets"
-  | "loans"
   | "sell"
-  | "outside-sell"
   | "buy"
   | "approvals"
   | "settings";
@@ -73,9 +69,7 @@ export default function Sidebar({
     { id: "expense", label: t("sidebar.expense"), icon: Wallet2 },
     { id: "profit", label: t("sidebar.profit"), icon: TrendingUp },
     { id: "gadgets", label: t("sidebar.gadgets"), icon: Package },
-    { id: "loans", label: t("sidebar.loans"), icon: HandCoins },
     { id: "sell", label: t("sidebar.sell"), icon: ShoppingCart },
-    { id: "outside-sell", label: t("sidebar.used_phone"), icon: Repeat },
     { id: "buy", label: t("sidebar.buy"), icon: PackagePlus },
   ];
 
