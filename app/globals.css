@@ -146,6 +146,47 @@ body {
   transform: scale(0.98);
 }
 
+/* Announcement bar -- continuous marquee scroll, a diagonal shimmer
+   sweep, and a soft pulsing glow on the Apple mark. All three
+   automatically respect the prefers-reduced-motion rule below (it
+   freezes every animation's duration on the page, these included). */
+@keyframes announce-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-announce-marquee {
+  animation: announce-marquee 26s linear infinite;
+}
+
+@keyframes announce-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+.animate-announce-shimmer {
+  animation: announce-shimmer 4.5s ease-in-out infinite;
+}
+
+@keyframes announce-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.35));
+  }
+  50% {
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.95));
+  }
+}
+.animate-announce-glow {
+  animation: announce-glow 2.2s ease-in-out infinite;
+}
+
 @media print {
   body {
     background: white !important;

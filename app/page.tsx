@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AnnouncementBar from "./components/AnnouncementBar";
 import Sidebar from "./components/Sidebar";
 import type { TabId } from "./components/Sidebar";
 import StockTab from "./components/StockTab";
@@ -30,9 +31,10 @@ export default function Home() {
 
   return (
     <div className="min-h-dvh w-full">
+      <AnnouncementBar />
       <Sidebar tab={tab} onChange={setTab} role={role} />
 
-      <main className="min-w-0 ml-[68px] sm:ml-[212px] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 lg:px-8">
+      <main className="min-w-0 ml-[68px] sm:ml-[212px] mt-[calc(2.25rem_+_env(safe-area-inset-top))] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 lg:px-8">
         <div className="mx-auto w-full max-w-[1600px]">
           {/* Dashboard stats (Total Cash, Today's Sale, Total Buy, This
               Month's Profit, etc.) live on the Profit tab now -- Stock is
