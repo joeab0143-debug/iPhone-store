@@ -7,3 +7,20 @@ pages_build_output_dir = ".vercel/output/static"
 binding = "DB"
 database_name = "iphone-store-db"
 database_id = "ade15ecc-c720-4240-aff9-f345c8d94104"
+
+# Weekly automatic backup storage (see lib/backup.ts and app/api/backup/*).
+# Commented out for now -- R2 isn't enabled on this Cloudflare account yet
+# (wrangler r2 bucket create failed with "Please enable R2 through the
+# Cloudflare Dashboard [code: 10042]"), and shipping this binding while the
+# bucket doesn't exist could make the Pages deploy itself fail, not just
+# the backup feature. The admin's manual "Download Full Backup Now" button
+# in Settings needs none of this and works either way.
+#
+# To turn on the weekly automatic backup later: enable R2 in the Cloudflare
+# Dashboard (Storage & Databases -> R2 -> Overview -> complete the
+# subscription/checkout step -- it has a free tier), then run
+# `wrangler r2 bucket create iphone-store-backups`, then uncomment the
+# 3 lines below and redeploy.
+# [[r2_buckets]]
+# binding = "BACKUPS"
+# bucket_name = "iphone-store-backups"

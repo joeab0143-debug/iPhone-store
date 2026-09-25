@@ -16,6 +16,11 @@ export async function GET(req: NextRequest) {
   // Purchase History" so the owner can pull just a date range instead of everything.
   const from = req.nextUrl.searchParams.get("from");
   const to = req.nextUrl.searchParams.get("to");
+  // seller_type/bought_from -- used by the Buy sheet's "Download Purchase
+  // History" filter (All / Supplier / Used Phone, and an optional specific
+  // supplier name).
+  const sellerType = req.nextUrl.searchParams.get("seller_type"); // supplier | individual
+  const boughtFrom = req.nextUrl.searchParams.get("bought_from"); // exact match
 
   let query = "SELECT * FROM phones WHERE 1=1";
   const binds: string[] = [];
@@ -38,6 +43,14 @@ export async function GET(req: NextRequest) {
   if (to) {
     query += " AND date(buy_date) <= date(?)";
     binds.push(to);
+  }
+  if (sellerType === "supplier" || sellerType === "individual") {
+    query += " AND seller_type = ?";
+    binds.push(sellerType);
+  }
+  if (boughtFrom) {
+    query += " AND bought_from = ?";
+    binds.push(boughtFrom);
   }
   query += " ORDER BY created_at DESC";
   if (imeiLike) {

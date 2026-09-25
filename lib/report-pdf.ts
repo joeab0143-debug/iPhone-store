@@ -37,6 +37,22 @@ export interface ReportTableSpec {
   emptyLabel?: string;
 }
 
+export interface ReportPhoto {
+  /** e.g. "NID Card — Page 1". */
+  label: string;
+  /** A "data:image/jpeg;base64,..." URL. */
+  dataUrl: string;
+  /** Natural pixel dimensions, used to keep the aspect ratio correct. */
+  width: number;
+  height: number;
+}
+
+export interface ReportPhotoEntry {
+  /** e.g. "iPhone 12, 128GB — Karim Uddin — 25 Sep 2026 — IMEI 3512...". */
+  heading: string;
+  photos: ReportPhoto[];
+}
+
 export interface ReportData {
   shopName: string;
   /** e.g. "Expense Report" — kept in English, see file header note. */
@@ -46,6 +62,14 @@ export interface ReportData {
   summary?: ReportSummaryItem[];
   table?: ReportTableSpec;
   footerNote?: string;
+  /**
+   * Optional appendix used by the Buy sheet's "Used Phone" purchase
+   * history download -- one entry per phone, each with its seller's NID
+   * photos and portrait, so the printed record can prove who a used
+   * phone was actually bought from. Rendered on fresh pages after the
+   * main table, several records per page, with page breaks as needed.
+   */
+  photoSections?: ReportPhotoEntry[];
 }
 
 function formatReportDate(d = new Date()): string {
@@ -158,6 +182,77 @@ export function generateReportPDF(data: ReportData, previewWindow?: Window | nul
     doc.setFontSize(8);
     doc.setTextColor(...INK_MUTED);
     doc.text(data.footerNote, marginX, y);
+  }
+
+  // ---- Photo appendix (Used Phone purchase history) ----
+  // One fresh set of pages, several records per page, each showing that
+  // seller's NID photos and portrait next to the phone/date/IMEI they go
+  // with -- see the ReportPhotoEntry doc comment above for why this exists.
+  if (data.photoSections && data.photoSections.length > 0) {
+    const pageH = doc.internal.pageSize.getHeight();
+    const topMargin = 40;
+    const bottomMargin = 40;
+    const photoBoxMax = 130; // pt -- both the width and height cap per photo
+    const gap = 10;
+
+    doc.addPage();
+    let sectionY = topMargin;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.setTextColor(...INK_DARK);
+    doc.text("Seller ID Documents", marginX, sectionY);
+    sectionY += 22;
+
+    for (const entry of data.photoSections) {
+      const rowH = photoBoxMax + 16;
+      const entryH = 14 + rowH + gap;
+      if (sectionY + entryH > pageH - bottomMargin) {
+        doc.addPage();
+        sectionY = topMargin;
+      }
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(...INK);
+      doc.text(entry.heading, marginX, sectionY);
+      sectionY += 12;
+
+      const cellGap = 10;
+      const n = Math.max(entry.photos.length, 1);
+      const cellW = (contentW - cellGap * (n - 1)) / n;
+      let x = marginX;
+      for (const photo of entry.photos) {
+        const boxW = Math.min(cellW, photoBoxMax * 1.3);
+        const aspect = photo.height / Math.max(photo.width, 1);
+        let drawW = boxW;
+        let drawH = drawW * aspect;
+        if (drawH > photoBoxMax) {
+          drawH = photoBoxMax;
+          drawW = drawH / Math.max(aspect, 0.0001);
+        }
+        doc.setDrawColor(...BORDER);
+        doc.rect(x, sectionY, boxW, photoBoxMax, "S");
+        try {
+          doc.addImage(
+            photo.dataUrl,
+            "JPEG",
+            x + (boxW - drawW) / 2,
+            sectionY + (photoBoxMax - drawH) / 2,
+            drawW,
+            drawH
+          );
+        } catch {
+          // A malformed/undecodable image shouldn't blow up the whole
+          // PDF -- leave the bordered placeholder box empty and move on.
+        }
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(...INK_MUTED);
+        doc.text(photo.label, x + boxW / 2, sectionY + photoBoxMax + 10, { align: "center" });
+        x += boxW + cellGap;
+      }
+      sectionY += rowH + gap;
+    }
   }
 
   const safeTitle = data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");

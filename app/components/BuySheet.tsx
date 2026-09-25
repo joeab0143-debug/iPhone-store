@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ScanLine, Download, Camera } from "lucide-react";
+import { ScanLine, Download, Camera, X } from "lucide-react";
 import { Button, Field, inputClass, Sheet } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
 import CameraCapture from "./CameraCapture";
-import { generateReportPDF } from "@/lib/report-pdf";
+import { generateReportPDF, type ReportPhotoEntry } from "@/lib/report-pdf";
 import { emitDashboardRefresh } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
 import type { Supplier } from "@/lib/types";
@@ -18,6 +18,18 @@ const SHOP_NAME = "iPhone Store";
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Loads a "data:image/..." URL's natural pixel size -- used so the Purchase
+// History PDF's photo appendix (see downloadBuyHistory) can fit each NID/
+// portrait photo into its box without stretching it out of shape.
+function loadImageDims(dataUrl: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.onload = () => resolve({ width: img.naturalWidth || 1, height: img.naturalHeight || 1 });
+    img.onerror = () => resolve({ width: 1, height: 1 });
+    img.src = dataUrl;
+  });
 }
 
 function makeEmptyForm() {
@@ -172,10 +184,18 @@ export default function BuySheet({
   // Purchase history download — even after a phone sells and leaves stock,
   // who it was bought from is never lost (stays in the phones table); this
   // downloads that history any time, all-time or a chosen date range, as a
-  // PDF.
+  // PDF. Renders as a real full-screen overlay (see the JSX below) rather
+  // than a second inline <Sheet> -- it used to just get appended below the
+  // whole Buy form, which made the Download button look broken since nothing
+  // visible happened until you scrolled all the way past Save Purchase.
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyFrom, setHistoryFrom] = useState("");
   const [historyTo, setHistoryTo] = useState("");
+  // all -> every purchase; supplier -> Buy sheet's "Supplier" seller type,
+  // optionally narrowed to one saved supplier; individual -> "Used Phone"
+  // purchases, whose PDF also gets each seller's NID + portrait photos.
+  const [historyFilterType, setHistoryFilterType] = useState<"all" | "supplier" | "individual">("all");
+  const [historySupplier, setHistorySupplier] = useState(""); // "" = all suppliers
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
 
@@ -190,6 +210,15 @@ export default function BuySheet({
     onClose();
   }
 
+  function closeHistory() {
+    setHistoryOpen(false);
+    setHistoryFrom("");
+    setHistoryTo("");
+    setHistoryFilterType("all");
+    setHistorySupplier("");
+    setHistoryError("");
+  }
+
   async function downloadBuyHistory() {
     setHistoryError("");
     // Open the tab now, inside this click's user gesture — browsers block
@@ -199,6 +228,12 @@ export default function BuySheet({
     const params = new URLSearchParams();
     if (historyFrom) params.set("from", historyFrom);
     if (historyTo) params.set("to", historyTo);
+    if (historyFilterType === "supplier" || historyFilterType === "individual") {
+      params.set("seller_type", historyFilterType);
+    }
+    if (historyFilterType === "supplier" && historySupplier) {
+      params.set("bought_from", historySupplier);
+    }
     let data: any;
     try {
       const res = await fetch(`/api/stock?${params.toString()}`);
@@ -209,13 +244,57 @@ export default function BuySheet({
       setHistoryError(t("buy.history_load_failed"));
       return;
     }
-    setHistoryLoading(false);
     const phones: any[] = data?.phones || [];
+
+    // For "Used Phone" purchases, the PDF also carries each seller's NID
+    // (both sides) and portrait photo, so the printed record can prove who
+    // it was actually bought from. Image natural dimensions are loaded up
+    // front so report-pdf.ts can fit each one into its box without
+    // stretching it.
+    let photoSections: ReportPhotoEntry[] | undefined;
+    if (historyFilterType === "individual") {
+      const withPhotos = phones.filter(
+        (p) => p.nid_front_photo || p.nid_back_photo || p.person_photo
+      );
+      photoSections = await Promise.all(
+        withPhotos.map(async (p) => {
+          const slots: [string, string, string][] = [
+            ["nid_front_photo", t("buy.nid_front"), p.nid_front_photo],
+            ["nid_back_photo", t("buy.nid_back"), p.nid_back_photo],
+            ["person_photo", t("buy.person_photo"), p.person_photo],
+          ];
+          const photos = (
+            await Promise.all(
+              slots.map(async ([, label, dataUrl]) => {
+                if (!dataUrl) return null;
+                const dims = await loadImageDims(dataUrl);
+                return { label, dataUrl, ...dims };
+              })
+            )
+          ).filter((x): x is NonNullable<typeof x> => x !== null);
+          return {
+            heading: `${p.name_model} — ${p.bought_from || "-"} — ${(p.buy_date || "-")
+              .toString()
+              .slice(0, 10)} — IMEI ${p.imei}`,
+            photos,
+          };
+        })
+      );
+    }
+
+    setHistoryLoading(false);
     const totalBuyValue = phones.reduce((s, p) => s + Number(p.buy_price), 0);
-    const subtitle =
+    const rangeLabel =
       historyFrom || historyTo
         ? `${historyFrom || t("buy.pdf_from_start")} — ${historyTo || t("buy.pdf_until_today")}`
         : "All Time";
+    const filterLabel =
+      historyFilterType === "individual"
+        ? "Used Phone"
+        : historyFilterType === "supplier"
+          ? historySupplier || "Supplier"
+          : "";
+    const subtitle = filterLabel ? `${filterLabel} — ${rangeLabel}` : rangeLabel;
     generateReportPDF(
       {
         shopName: SHOP_NAME,
@@ -226,11 +305,12 @@ export default function BuySheet({
           { label: "Total Buy Value", value: `Tk ${totalBuyValue.toLocaleString()}` },
         ],
         table: {
-          head: ["Model", "IMEI", "Buy Date", "Bought From", "Number", "NID", "Buy Price (Tk)", "Status"],
+          head: ["Model", "IMEI", "Buy Date", "Type", "Bought From", "Number", "NID", "Buy Price (Tk)", "Status"],
           rows: phones.map((p) => [
             p.name_model,
             p.imei,
             (p.buy_date || "-").toString().slice(0, 10),
+            p.seller_type === "individual" ? "Used Phone" : "Supplier",
             p.bought_from || "-",
             p.phone_number || "-",
             p.nid || "-",
@@ -240,6 +320,7 @@ export default function BuySheet({
           emptyLabel: t("buy.pdf_empty"),
         },
         footerNote: "Generated from iPhone Store — Buy History",
+        photoSections,
       },
       previewWin
     );
@@ -524,40 +605,94 @@ export default function BuySheet({
         }}
       />
 
-      <Sheet
-        open={historyOpen}
-        onClose={() => {
-          setHistoryOpen(false);
-          setHistoryFrom("");
-          setHistoryTo("");
-          setHistoryError("");
-        }}
-        title={t("buy.history_title")}
-      >
-        <div className="space-y-3">
-          <Field label={t("buy.history_from")}>
-            <input
-              type="date"
-              value={historyFrom}
-              onChange={(e) => setHistoryFrom(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label={t("buy.history_to")}>
-            <input
-              type="date"
-              value={historyTo}
-              onChange={(e) => setHistoryTo(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <p className="text-[11px] text-ink-faint">{t("buy.history_note")}</p>
-          {historyError && <p className="text-sm text-down">{historyError}</p>}
-          <Button full onClick={downloadBuyHistory} disabled={historyLoading}>
-            {historyLoading ? t("buy.history_generating") : t("buy.history_download_pdf")}
-          </Button>
+      {/* Purchase History download -- a real full-screen overlay (matches
+          BarcodeScanner/CameraCapture), not a second inline <Sheet>; see
+          the comment on historyOpen above for why. */}
+      {historyOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-bg">
+          <div className="flex items-center justify-between border-b border-border p-4">
+            <h3 className="font-display text-lg font-semibold">{t("buy.history_title")}</h3>
+            <button
+              onClick={closeHistory}
+              className="rounded-full p-1.5 text-ink-muted hover:bg-surface-2 hover:text-ink transition"
+              aria-label={t("common.reset_form")}
+            >
+              <X size={22} />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 py-4">
+            <div className="space-y-3">
+              <Field label={t("buy.history_filter_label")}>
+                <div className="grid grid-cols-3 gap-1.5 rounded-xl bg-surface-2 p-1">
+                  {(["all", "supplier", "individual"] as const).map((ft) => (
+                    <button
+                      key={ft}
+                      type="button"
+                      onClick={() => {
+                        setHistoryFilterType(ft);
+                        if (ft !== "supplier") setHistorySupplier("");
+                      }}
+                      className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${
+                        historyFilterType === ft ? "bg-teal text-white" : "text-ink-muted"
+                      }`}
+                    >
+                      {ft === "all"
+                        ? t("buy.history_filter_all")
+                        : ft === "supplier"
+                          ? t("buy.seller_supplier")
+                          : t("buy.seller_individual")}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+
+              {historyFilterType === "supplier" && (
+                <Field label={t("buy.history_supplier_select_label")}>
+                  <select
+                    value={historySupplier}
+                    onChange={(e) => setHistorySupplier(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">{t("buy.history_supplier_all_option")}</option>
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.name}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+
+              <Field label={t("buy.history_from")}>
+                <input
+                  type="date"
+                  value={historyFrom}
+                  onChange={(e) => setHistoryFrom(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label={t("buy.history_to")}>
+                <input
+                  type="date"
+                  value={historyTo}
+                  onChange={(e) => setHistoryTo(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <p className="text-[11px] text-ink-faint">{t("buy.history_note")}</p>
+              {historyFilterType === "individual" && (
+                <p className="text-[11px] text-ink-faint">{t("buy.history_photos_note")}</p>
+              )}
+              {historyError && <p className="text-sm text-down">{historyError}</p>}
+            </div>
+          </div>
+          <div className="border-t border-border p-4">
+            <Button full onClick={downloadBuyHistory} disabled={historyLoading}>
+              {historyLoading ? t("buy.history_generating") : t("buy.history_download_pdf")}
+            </Button>
+          </div>
         </div>
-      </Sheet>
+      )}
     </>
   );
 }

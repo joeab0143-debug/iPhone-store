@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Wallet, UserCog, Store } from "lucide-react";
-import { Button, Field, Sheet, inputClass, money } from "./ui";
+import { LogOut, Wallet, UserCog, Store, DatabaseBackup, Download } from "lucide-react";
+import { Button, Field, Sheet, inputClass, money, formatDate } from "./ui";
 import { emitDashboardRefresh } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
 
@@ -56,6 +56,17 @@ export default function SettingsSheet({
   const [shopError, setShopError] = useState("");
   const [shopSuccess, setShopSuccess] = useState("");
 
+  // Data Backup (admin-only) -- the manual "download everything right now"
+  // button needs no setup at all; the "Weekly Automatic Backups" list below
+  // it only has anything to show once an R2 bucket + secret + outside cron
+  // are set up (see app/api/backup/*), so `autoBackupsConfigured` drives
+  // whether that section shows the list or setup guidance.
+  const [backupDownloading, setBackupDownloading] = useState(false);
+  const [backupError, setBackupError] = useState("");
+  const [autoBackups, setAutoBackups] = useState<{ key: string; size: number; uploaded: string }[]>([]);
+  const [autoBackupsConfigured, setAutoBackupsConfigured] = useState(true);
+  const [backupListLoading, setBackupListLoading] = useState(false);
+
   const isAdmin = role === "admin";
 
   // Fetch the live Total Cash every time the sheet opens, so it's never
@@ -89,6 +100,19 @@ export default function SettingsSheet({
       .catch(() => {});
   }, [open, isAdmin]);
 
+  useEffect(() => {
+    if (!open || !isAdmin) return;
+    setBackupListLoading(true);
+    fetch("/api/backup/list")
+      .then((r) => r.json())
+      .then((d: any) => {
+        setAutoBackups(d.backups || []);
+        setAutoBackupsConfigured(d.configured !== false);
+      })
+      .catch(() => {})
+      .finally(() => setBackupListLoading(false));
+  }, [open, isAdmin]);
+
   function reset() {
     setCurrentPassword("");
     setNewUsername("");
@@ -105,6 +129,7 @@ export default function SettingsSheet({
     setPosSuccess("");
     setShopError("");
     setShopSuccess("");
+    setBackupError("");
   }
 
   function handleClose() {
@@ -209,6 +234,40 @@ export default function SettingsSheet({
     setShopPhone(d.phone || "");
     setShopEmail(d.email || "");
     setShopSuccess(t("settings.shop_info_saved"));
+  }
+
+  // Grabs a fresh export of the shop's data right now and hands it to the
+  // browser as a file download -- no storage involved, works immediately
+  // regardless of whether the weekly automatic backup (R2) is set up.
+  async function downloadFullBackupNow() {
+    setBackupError("");
+    setBackupDownloading(true);
+    try {
+      const res = await fetch("/api/backup/full");
+      if (!res.ok) {
+        const d: any = await res.json().catch(() => ({}));
+        throw new Error(d.error || "failed");
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get("Content-Disposition") || "";
+      const match = cd.match(/filename="([^"]+)"/);
+      const filename = match ? match[1] : "iphone-store-backup.json";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setBackupError(t("settings.backup_failed"));
+    }
+    setBackupDownloading(false);
+  }
+
+  function downloadAutoBackup(key: string) {
+    window.open(`/api/backup/download?key=${encodeURIComponent(key)}`, "_blank");
   }
 
   async function submit() {
@@ -380,6 +439,47 @@ export default function SettingsSheet({
             <Button full variant="secondary" onClick={saveShopInfo} disabled={shopSaving}>
               {t("settings.shop_info_save_button")}
             </Button>
+          </div>
+        )}
+
+        {isAdmin && (
+          <div className="space-y-3 border-t border-border-soft pt-4">
+            <p className="flex items-center gap-1.5 text-sm font-semibold">
+              <DatabaseBackup size={15} /> {t("settings.backup_heading")}
+            </p>
+            <p className="text-xs text-ink-faint">{t("settings.backup_description")}</p>
+            {backupError && <p className="text-sm text-down">{backupError}</p>}
+            <Button full variant="secondary" onClick={downloadFullBackupNow} disabled={backupDownloading}>
+              <Download size={16} />
+              {backupDownloading ? t("settings.backup_downloading") : t("settings.backup_download_now")}
+            </Button>
+
+            <div className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5">
+              <p className="text-xs text-ink-faint">{t("settings.backup_auto_heading")}</p>
+              {!autoBackupsConfigured ? (
+                <p className="mt-1.5 text-xs text-ink-faint">{t("settings.backup_auto_not_configured")}</p>
+              ) : backupListLoading ? (
+                <p className="mt-1.5 text-xs text-ink-faint">{t("settings.loading")}</p>
+              ) : autoBackups.length === 0 ? (
+                <p className="mt-1.5 text-xs text-ink-faint">{t("settings.backup_auto_none")}</p>
+              ) : (
+                <ul className="mt-2 space-y-1.5">
+                  {autoBackups.map((b) => (
+                    <li key={b.key} className="flex items-center justify-between gap-2">
+                      <span className="text-xs tabular text-ink-muted">
+                        {formatDate(b.uploaded)} · {(b.size / 1024).toFixed(0)} KB
+                      </span>
+                      <button
+                        onClick={() => downloadAutoBackup(b.key)}
+                        className="shrink-0 text-xs font-semibold text-teal"
+                      >
+                        {t("settings.backup_download_button")}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         )}
 

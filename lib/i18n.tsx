@@ -38,8 +38,8 @@ export const STRINGS: Record<string, Entry> = {
   "buy.date_label": { en: "Buy Date", bn: "ক্রয়ের তারিখ" },
   "buy.history_label": { en: "Purchase History", bn: "ক্রয় ইতিহাস" },
   "buy.history_desc": {
-    en: "What was bought from whom — download all-time or a chosen date range",
-    bn: "কার কাছ থেকে কী কেনা হয়েছে — এ যাবতকালের বা ডেট বেছে ডাউনলোড করুন",
+    en: "What was bought from whom — all-time or a date range, filtered by Supplier or Used Phone",
+    bn: "কার কাছ থেকে কী কেনা হয়েছে — এ যাবতকাল বা ডেট রেঞ্জ, সাপ্লায়ার বা ইউজড ফোন দিয়ে ফিল্টার করে",
   },
   "buy.download": { en: "Download", bn: "ডাউনলোড" },
   "buy.saved_success": { en: "Purchase saved — added to stock ✓", bn: "ক্রয় সেভ হয়েছে — স্টকে যোগ হয়েছে ✓" },
@@ -87,6 +87,14 @@ export const STRINGS: Record<string, Entry> = {
   "buy.history_note": {
     en: "Leaving both empty downloads the full all-time purchase history.",
     bn: "দুটোই ফাঁকা রাখলে এ যাবতকালের সকল ক্রয় ইতিহাস ডাউনলোড হবে।",
+  },
+  "buy.history_filter_label": { en: "Filter", bn: "ফিল্টার" },
+  "buy.history_filter_all": { en: "All", bn: "সব" },
+  "buy.history_supplier_select_label": { en: "Supplier", bn: "সাপ্লায়ার" },
+  "buy.history_supplier_all_option": { en: "All Suppliers", bn: "সব সাপ্লায়ার" },
+  "buy.history_photos_note": {
+    en: "Used Phone purchases will also include each seller's NID and photo in the PDF -- this may take a little longer to generate.",
+    bn: "ইউজড ফোন ক্রয়ের সাথে সেলারের এন আই ডি ও ছবিও পিডিএফে যুক্ত হবে -- তাই তৈরি হতে একটু বেশি সময় লাগতে পারে।",
   },
   "buy.history_generating": { en: "Generating...", bn: "তৈরি হচ্ছে..." },
   "buy.history_download_pdf": { en: "Download PDF", bn: "PDF ডাউনলোড করুন" },
@@ -498,6 +506,23 @@ export const STRINGS: Record<string, Entry> = {
   "settings.shop_email_label": { en: "Email (optional)", bn: "ইমেইল (ঐচ্ছিক)" },
   "settings.shop_info_save_button": { en: "Save Shop Info", bn: "শপের তথ্য সেভ করুন" },
   "settings.shop_info_saved": { en: "Shop info saved", bn: "শপের তথ্য সেভ হয়েছে" },
+
+  "settings.loading": { en: "Loading...", bn: "লোড হচ্ছে..." },
+  "settings.backup_heading": { en: "Data Backup", bn: "ডেটা ব্যাকআপ" },
+  "settings.backup_description": {
+    en: "Download every purchase, sale, expense and gadget record as one file, any time -- and see the automatic weekly copies once those are set up.",
+    bn: "সব ক্রয়, বিক্রয়, খরচ ও গ্যাজেটের তথ্য একটা ফাইলে যেকোনো সময় ডাউনলোড করুন -- আর সেটআপ করা থাকলে সাপ্তাহিক অটো ব্যাকআপগুলোও এখানে দেখা যাবে।",
+  },
+  "settings.backup_download_now": { en: "Download Full Backup Now", bn: "এখনই ফুল ব্যাকআপ ডাউনলোড করুন" },
+  "settings.backup_downloading": { en: "Preparing...", bn: "তৈরি হচ্ছে..." },
+  "settings.backup_failed": { en: "Could not create the backup", bn: "ব্যাকআপ তৈরি করা যায়নি" },
+  "settings.backup_auto_heading": { en: "Weekly Automatic Backups", bn: "সাপ্তাহিক অটোমেটিক ব্যাকআপ" },
+  "settings.backup_auto_not_configured": {
+    en: "Not set up yet -- ask your developer to finish the one-time weekly-backup setup (see the project notes).",
+    bn: "এখনো সেটআপ করা হয়নি -- ডেভেলপারকে সাপ্তাহিক ব্যাকআপের একবারের সেটআপটা শেষ করতে বলুন (প্রজেক্ট নোট দেখুন)।",
+  },
+  "settings.backup_auto_none": { en: "No automatic backups yet", bn: "এখনো কোনো অটো ব্যাকআপ নেই" },
+  "settings.backup_download_button": { en: "Download", bn: "ডাউনলোড" },
 };
 
 const LanguageContext = createContext<{
