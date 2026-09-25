@@ -9,16 +9,14 @@ export const runtime = "edge";
 // has been sold/bought/spent up to that moment.
 //
 // Buy always writes into `phones` now (Stock tab shows everything bought),
-// so total_buy / stock_count come from `phones` alone. "Outside Stock"
-// (migrations/0017) is a real phones-table row, Buy just skips the cash
-// deduction for it, and only 50% of its sale profit counts toward profit.
+// so total_buy / stock_count come from `phones` alone.
 //
 // Total Cash and Stock never reset — they always come from the all-time
 // totals, carrying over from one month to the next. But "Profit (So
 // Far)" restarts at 0 at the beginning of every calendar month — it's
-// just this month's sale profit + Outside Stock profit (50%) minus this
-// month's expenses. Older months' figures aren't lost — they can still be
-// viewed via the Expense/Profit tab's month picker.
+// just this month's sale profit minus this month's expenses. Older
+// months' figures aren't lost — they can still be viewed via the
+// Expense/Profit tab's month picker.
 //
 // Total Cash's own formula (cashIn/cashOut/the manual adjustment) lives in
 // lib/cash.ts, shared with /api/cash-adjustment (Settings → "Fix Total
@@ -30,7 +28,6 @@ export async function GET() {
     stockCount,
     salesToday,
     salesProfitThisMonth,
-    outsideStockProfitThisMonth,
     expenseThisMonth,
     { cashIn, cashOut, totalBuyAmt },
     cashAdjustmentAmt,
@@ -41,18 +38,10 @@ export async function GET() {
         "SELECT COALESCE(SUM(selling_price),0) AS total FROM sales WHERE date(selling_date) = date('now','localtime')"
       )
       .first<{ total: number }>(),
-    // "Outside Stock" sales are excluded here — only 50% of their profit
-    // counts toward this month's profit (see outsideStockProfitThisMonth).
     db
       .prepare(
-        `SELECT COALESCE(SUM(s.profit),0) AS total FROM sales s JOIN phones p ON p.id = s.phone_id
-         WHERE strftime('%Y-%m', s.selling_date) = strftime('%Y-%m','now','localtime') AND p.stock_type != 'outside'`
-      )
-      .first<{ total: number }>(),
-    db
-      .prepare(
-        `SELECT COALESCE(SUM(s.profit),0) AS total FROM sales s JOIN phones p ON p.id = s.phone_id
-         WHERE strftime('%Y-%m', s.selling_date) = strftime('%Y-%m','now','localtime') AND p.stock_type = 'outside'`
+        `SELECT COALESCE(SUM(profit),0) AS total FROM sales
+         WHERE strftime('%Y-%m', selling_date) = strftime('%Y-%m','now','localtime')`
       )
       .first<{ total: number }>(),
     db
@@ -74,9 +63,7 @@ export async function GET() {
 
   // Profit (So Far) — restarts at the beginning of every calendar month.
   const profitTillNow =
-    (salesProfitThisMonth?.total ?? 0) +
-    (outsideStockProfitThisMonth?.total ?? 0) * 0.5 -
-    (expenseThisMonth?.total ?? 0);
+    (salesProfitThisMonth?.total ?? 0) - (expenseThisMonth?.total ?? 0);
 
   return NextResponse.json({
     total_cash: totalCash,

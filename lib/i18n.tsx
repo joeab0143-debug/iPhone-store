@@ -35,6 +35,7 @@ export const STRINGS: Record<string, Entry> = {
 
   // --- Buy sheet ---------------------------------------------------------
   "buy.title": { en: "Buy Phone", bn: "ফোন ক্রয় (Buy)" },
+  "buy.date_label": { en: "Buy Date", bn: "ক্রয়ের তারিখ" },
   "buy.history_label": { en: "Purchase History", bn: "ক্রয় ইতিহাস" },
   "buy.history_desc": {
     en: "What was bought from whom — download all-time or a chosen date range",
@@ -43,17 +44,6 @@ export const STRINGS: Record<string, Entry> = {
   "buy.download": { en: "Download", bn: "ডাউনলোড" },
   "buy.saved_success": { en: "Purchase saved — added to stock ✓", bn: "ক্রয় সেভ হয়েছে — স্টকে যোগ হয়েছে ✓" },
   "buy.buy_another": { en: "Buy another phone", bn: "আরেকটা ফোন ক্রয় করুন" },
-  "buy.destination_label": { en: "Where should this phone go?", bn: "এই ফোনটি কোথায় যাবে?" },
-  "buy.regular_stock": { en: "Regular Stock", bn: "রেগুলার স্টক" },
-  "buy.outside_stock": { en: "Outside Stock", bn: "আউটসাইড স্টক" },
-  "buy.outside_stock_note": {
-    en: "Choosing Outside Stock won't deduct the buy price from Total Cash — when sold, 50% of the profit is added to Profit.",
-    bn: "আউটসাইড স্টক নির্বাচন করলে ক্রয়মূল্য টোটাল ক্যাশ থেকে কাটবে না — বিক্রি হলে লাভের ৫০% প্রফিটে যোগ হবে।",
-  },
-  "buy.regular_stock_note": {
-    en: "Choosing Regular Stock deducts the buy price from Total Cash, same as before.",
-    bn: "রেগুলার স্টক নির্বাচন করলে ক্রয়মূল্য টোটাল ক্যাশ থেকে কাটা হবে, আগের মতোই।",
-  },
   "buy.seller_type_label": { en: "Seller Type", bn: "বিক্রেতার ধরন" },
   "buy.seller_supplier": { en: "Supplier", bn: "সাপ্লায়ার" },
   "buy.seller_individual": { en: "Individual", bn: "ব্যক্তিগত ফোন" },
@@ -108,6 +98,11 @@ export const STRINGS: Record<string, Entry> = {
   "sell.title": { en: "Sell Phone", bn: "ফোন বিক্রি (Sell)" },
   "sell.name_label": { en: "Name", bn: "নাম" },
   "sell.number_label": { en: "Number", bn: "নম্বর" },
+  "sell.date_label": { en: "Sale Date", bn: "বিক্রয়ের তারিখ" },
+  "sell.address_label": { en: "Address (optional)", bn: "ঠিকানা (ঐচ্ছিক)" },
+  "sell.email_label": { en: "Email (optional)", bn: "ইমেইল (ঐচ্ছিক)" },
+  "sell.narration_label": { en: "Narration / Note (optional)", bn: "মন্তব্য / নোট (ঐচ্ছিক)" },
+  "sell.narration_placeholder": { en: "e.g. Box included, no charger", bn: "যেমন: বক্স আছে, চার্জার নেই" },
   "sell.imei_label": { en: "IMEI", bn: "IMEI" },
   "sell.imei_placeholder": { en: "Type a few digits and a list will appear", bn: "কয়েক ডিজিট লিখলেই লিস্ট আসবে" },
   "sell.imei_scan_aria": { en: "Scan IMEI", bn: "IMEI স্ক্যান করুন" },
@@ -126,8 +121,6 @@ export const STRINGS: Record<string, Entry> = {
   "sell.already_sold": { en: "This phone has already been sold", bn: "এই ফোনটি ইতিমধ্যে বিক্রি হয়ে গেছে" },
   "sell.saving": { en: "Saving...", bn: "সেভ হচ্ছে..." },
   "sell.confirm_button": { en: "Confirm Sale & Generate Memo", bn: "বিক্রি নিশ্চিত করুন ও মেমো বানান" },
-
-  // --- Used Phone (was "Outside Sell") sheet ------------------------------
 
   // --- Settings sheet ------------------------------------------------
   "settings.title": { en: "Settings", bn: "সেটিংস" },
@@ -237,19 +230,16 @@ export const STRINGS: Record<string, Entry> = {
   // --- profit tab -----------------------------------------------------
   "profit.net_profit_label": { en: "Net Profit (Selected Month)", bn: "নিট প্রফিট (নির্বাচিত মাসে)" },
   "profit.stock_profit": { en: "Stock Profit", bn: "স্টক প্রফিট" },
-  "profit.outside_stock_profit": { en: "Outside Stock Profit", bn: "আউটসাইড স্টক প্রফিট" },
   "profit.total_expense": { en: "Total Expense", bn: "মোট খরচ" },
   "profit.due_outstanding": { en: "Due Outstanding", bn: "বকেয়া বাকি" },
   "profit.download_pdf": { en: "Download PDF", bn: "PDF ডাউনলোড" },
   "profit.loading": { en: "Loading...", bn: "লোড হচ্ছে..." },
   "profit.stock_detail_title": { en: "Stock Profit Breakdown", bn: "স্টক প্রফিটের হিসাব" },
-  "profit.outside_stock_detail_title": { en: "Outside Stock Profit Breakdown", bn: "আউটসাইড স্টক প্রফিটের হিসাব" },
   "profit.expense_detail_title": { en: "Total Expense Breakdown (by Category)", bn: "মোট খরচের হিসাব (খাত অনুযায়ী)" },
   "profit.due_detail_title": { en: "Due Outstanding Breakdown", bn: "বকেয়া বাকির হিসাব" },
   "profit.full_profit_prefix": { en: "Full Profit: ৳", bn: "ফুল প্রফিট: ৳" },
   "profit.total_due_label": { en: "Total Due", bn: "মোট বকেয়া" },
   "profit.no_sales_month": { en: "No sales this month", bn: "এই মাসে কোনো সেল নেই" },
-  "profit.no_outside_stock_sales_month": { en: "No outside stock sales this month", bn: "এই মাসে কোনো আউটসাইড স্টক সেল নেই" },
   "profit.no_expense_entries_month": { en: "No expense entries this month", bn: "এই মাসে কোনো খরচ এন্ট্রি নেই" },
   "profit.no_due": { en: "No due outstanding", bn: "কোনো বকেয়া নেই" },
 
@@ -320,7 +310,6 @@ export const STRINGS: Record<string, Entry> = {
   "stock.search_placeholder": { en: "Search by name or IMEI", bn: "নাম বা IMEI দিয়ে খুঁজুন" },
   "stock.scan_barcode_aria": { en: "Scan barcode", bn: "বারকোড স্ক্যান" },
   "stock.filter_unsold": { en: "In Stock", bn: "স্টকে আছে" },
-  "stock.filter_outside": { en: "Outside Stock", bn: "আউটসাইড স্টক" },
   "stock.filter_sold": { en: "Sold", bn: "বিক্রি হয়েছে" },
   "stock.filter_all": { en: "All", bn: "সব" },
   "stock.count_summary": {
@@ -345,16 +334,17 @@ export const STRINGS: Record<string, Entry> = {
   "stock.print_sticker_aria": { en: "Print sticker", bn: "স্টিকার প্রিন্ট" },
   "stock.sell_sheet_title_prefix": { en: "Sell — ", bn: "বিক্রি — " },
   "stock.selling_price_label": { en: "Selling Price (৳)", bn: "বিক্রয়মূল্য (৳)" },
-  "stock.selling_date_label": {
-    en: "Selling Date (leave blank for today's date)",
-    bn: "বিক্রয়ের তারিখ (ফাঁকা রাখলে আজকের তারিখ বসবে)",
-  },
+  "stock.selling_date_label": { en: "Selling Date", bn: "বিক্রয়ের তারিখ" },
   "stock.ram_rom_label": { en: "RAM/ROM (optional)", bn: "RAM/ROM (ঐচ্ছিক)" },
   "stock.battery_health_label": { en: "Battery Health (optional)", bn: "Battery Health (ঐচ্ছিক)" },
   "stock.ram_rom_placeholder": { en: "e.g. 4/64 GB", bn: "যেমন: 4/64 GB" },
   "stock.battery_health_placeholder": { en: "e.g. 92%", bn: "যেমন: 92%" },
   "stock.customer_name_label": { en: "Customer Name", bn: "কাস্টমারের নাম" },
   "stock.customer_phone_label": { en: "Customer Phone Number", bn: "কাস্টমারের ফোন নম্বর" },
+  "stock.customer_address_label": { en: "Customer Address (optional)", bn: "কাস্টমারের ঠিকানা (ঐচ্ছিক)" },
+  "stock.customer_email_label": { en: "Customer Email (optional)", bn: "কাস্টমারের ইমেইল (ঐচ্ছিক)" },
+  "stock.narration_label": { en: "Narration / Note (optional)", bn: "মন্তব্য / নোট (ঐচ্ছিক)" },
+  "stock.narration_placeholder": { en: "e.g. Box included, no charger", bn: "যেমন: বক্স আছে, চার্জার নেই" },
   "stock.due_sale_label": { en: "Due Sale", bn: "বাকি বিক্রি (Due)" },
   "stock.paid_now_label": {
     en: "How much paid now (advance, 0 if none)",
@@ -424,14 +414,12 @@ export const STRINGS: Record<string, Entry> = {
   "dashboard.total_buy_sheet_title": { en: "Total Buy Breakdown", bn: "মোট ক্রয়ের হিসাব" },
   "dashboard.in_stock_unsold_label": { en: "In Stock (Unsold)", bn: "স্টকে আছে (Unsold)" },
   "dashboard.sold_label": { en: "Sold", bn: "বিক্রি হয়েছে (Sold)" },
-  "dashboard.outside_stock_label": { en: "Outside Stock", bn: "আউটসাইড স্টক" },
   "dashboard.month_profit_sheet_title": { en: "This Month's Profit Breakdown", bn: "এই মাসের প্রফিটের হিসাব" },
   "dashboard.profit_added_heading": { en: "Added (Profit)", bn: "যা যোগ হয়েছে (লাভ)" },
   "dashboard.stock_profit_month_label": {
     en: "Stock Profit (from this month's sales)",
     bn: "স্টক প্রফিট (এই মাসের সেল থেকে)",
   },
-  "dashboard.outside_stock_profit_label": { en: "Outside Stock Profit", bn: "আউটসাইড স্টক প্রফিট" },
   "dashboard.expense_deducted_heading": {
     en: "Subtracted (Expenses, by Category)",
     bn: "যা বিয়োগ হয়েছে (খরচ, খাত অনুযায়ী)",
@@ -439,14 +427,8 @@ export const STRINGS: Record<string, Entry> = {
   "dashboard.no_expense_entries_month": { en: "No expense entries this month", bn: "এই মাসে কোনো খরচ এন্ট্রি নেই" },
   "dashboard.net_profit_month_label": { en: "Net Profit (This Month)", bn: "নিট প্রফিট (এই মাসে)" },
   "dashboard.sub_title_stock_profit_month": { en: "Stock Profit Details (This Month)", bn: "স্টক প্রফিটের ডিটেইলস (এই মাসে)" },
-  "dashboard.sub_title_outside_stock_profit_month": {
-    en: "Outside Stock Profit Details (This Month)",
-    bn: "আউটসাইড স্টক প্রফিটের ডিটেইলস (এই মাসে)",
-  },
-  "dashboard.sub_title_outside_stock_list": { en: "Outside Stock Details", bn: "আউটসাইড স্টকের ডিটেইলস" },
   "dashboard.sub_title_cash_sales_paid": { en: "Money from Sales — Details", bn: "সেল থেকে পাওয়া টাকার ডিটেইলস" },
   "dashboard.no_stock_sales_month": { en: "No stock sales this month", bn: "এই মাসে কোনো স্টক সেল নেই" },
-  "dashboard.no_outside_stock_phones": { en: "No outside stock phones", bn: "কোনো আউটসাইড স্টক ফোন নেই" },
   "dashboard.no_sale_entries": { en: "No sale entries", bn: "কোনো সেল এন্ট্রি নেই" },
   "dashboard.no_entries": { en: "No entries", bn: "কোনো এন্ট্রি নেই" },
   "dashboard.download_pdf": { en: "Download PDF", bn: "PDF ডাউনলোড" },

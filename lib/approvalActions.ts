@@ -25,7 +25,6 @@ export async function applyPhoneBuy(db: D1Database, payload: any): Promise<Apply
     bought_from,
     phone_number,
     nid,
-    stock_type,
     seller_type,
     nid_front_photo,
     nid_back_photo,
@@ -36,14 +35,13 @@ export async function applyPhoneBuy(db: D1Database, payload: any): Promise<Apply
     return { ok: false, error: "Name/model, IMEI, and buy price are required", status: 400 };
   }
 
-  const stockType = stock_type === "outside" ? "outside" : "regular";
   const sellerType = seller_type === "individual" ? "individual" : "supplier";
 
   try {
     const result = await db
       .prepare(
-        `INSERT INTO phones (name_model, imei, buy_price, buy_date, status, ram_rom, battery_health, bought_from, phone_number, nid, stock_type, seller_type, nid_front_photo, nid_back_photo, person_photo)
-         VALUES (?, ?, ?, COALESCE(?, datetime('now','localtime')), 'unsold', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO phones (name_model, imei, buy_price, buy_date, status, ram_rom, battery_health, bought_from, phone_number, nid, seller_type, nid_front_photo, nid_back_photo, person_photo)
+         VALUES (?, ?, ?, COALESCE(?, datetime('now','localtime')), 'unsold', ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         name_model,
@@ -55,7 +53,6 @@ export async function applyPhoneBuy(db: D1Database, payload: any): Promise<Apply
         bought_from || null,
         phone_number || null,
         nid || null,
-        stockType,
         sellerType,
         sellerType === "individual" ? nid_front_photo || null : null,
         sellerType === "individual" ? nid_back_photo || null : null,

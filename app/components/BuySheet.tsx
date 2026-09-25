@@ -11,21 +11,31 @@ import { useLang } from "@/lib/i18n";
 
 const SHOP_NAME = "iPhone Store";
 
-const EMPTY_FORM = {
-  model: "",
-  imei: "",
-  ram_rom: "",
-  battery_health: "",
-  buy_price: "",
-  bought_from: "",
-  phone_number: "",
-  nid: "",
-  stock_type: "regular" as "regular" | "outside",
-  seller_type: "supplier" as "supplier" | "individual",
-  nid_front_photo: "",
-  nid_back_photo: "",
-  person_photo: "",
-};
+// "YYYY-MM-DD" for today, in the browser's local time -- pre-fills the
+// Buy Date field so a normal purchase doesn't need a date typed in; stays
+// editable for a backdated entry.
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function makeEmptyForm() {
+  return {
+    buy_date: todayStr(),
+    model: "",
+    imei: "",
+    ram_rom: "",
+    battery_health: "",
+    buy_price: "",
+    bought_from: "",
+    phone_number: "",
+    nid: "",
+    seller_type: "supplier" as "supplier" | "individual",
+    nid_front_photo: "",
+    nid_back_photo: "",
+    person_photo: "",
+  };
+}
 
 // A single photo capture slot: shows a "Take Photo" button, opens the
 // device camera (rear camera — this is the shop owner photographing the
@@ -108,7 +118,7 @@ export default function BuySheet({
   onClose: () => void;
 }) {
   const { t } = useLang();
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(makeEmptyForm);
   const [scanOpen, setScanOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -125,7 +135,7 @@ export default function BuySheet({
   const [historyError, setHistoryError] = useState("");
 
   function reset() {
-    setForm(EMPTY_FORM);
+    setForm(makeEmptyForm());
     setError("");
     setDone(false);
   }
@@ -171,7 +181,7 @@ export default function BuySheet({
           { label: "Total Buy Value", value: `Tk ${totalBuyValue.toLocaleString()}` },
         ],
         table: {
-          head: ["Model", "IMEI", "Buy Date", "Bought From", "Number", "NID", "Buy Price (Tk)", "Type", "Status"],
+          head: ["Model", "IMEI", "Buy Date", "Bought From", "Number", "NID", "Buy Price (Tk)", "Status"],
           rows: phones.map((p) => [
             p.name_model,
             p.imei,
@@ -180,7 +190,6 @@ export default function BuySheet({
             p.phone_number || "-",
             p.nid || "-",
             Number(p.buy_price).toLocaleString(),
-            p.stock_type === "outside" ? "Outside" : "Regular",
             p.status === "sold" ? "Sold" : "In Stock",
           ]),
           emptyLabel: t("buy.pdf_empty"),
@@ -206,10 +215,7 @@ export default function BuySheet({
     }
     setSaving(true);
     // Buy always adds the phone straight into the main stock (phones table)
-    // so it shows up in the Stock tab immediately — no separate table for
-    // "outside" phones. stock_type just flags whether this purchase should
-    // deduct from Total Cash (regular) or not (outside — see /api/stock and
-    // lib/cash.ts).
+    // so it shows up in the Stock tab immediately.
     const res = await fetch("/api/stock", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -217,12 +223,12 @@ export default function BuySheet({
         name_model: form.model,
         imei: form.imei,
         buy_price: Number(form.buy_price),
+        buy_date: form.buy_date ? `${form.buy_date} 00:00:00` : null,
         ram_rom: form.ram_rom || null,
         battery_health: form.battery_health || null,
         bought_from: form.bought_from,
         phone_number: form.phone_number || null,
         nid: form.nid || null,
-        stock_type: form.stock_type,
         seller_type: form.seller_type,
         nid_front_photo: form.seller_type === "individual" ? form.nid_front_photo : null,
         nid_back_photo: form.seller_type === "individual" ? form.nid_back_photo : null,
@@ -269,36 +275,13 @@ export default function BuySheet({
           </div>
         ) : (
           <div className="space-y-3">
-            <Field label={t("buy.destination_label")}>
-              <div className="grid grid-cols-2 gap-2 rounded-xl bg-surface-2 p-1.5">
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, stock_type: "regular" })}
-                  className={`rounded-lg py-2 text-sm font-semibold transition ${
-                    form.stock_type === "regular"
-                      ? "bg-gold text-white"
-                      : "text-ink-muted"
-                  }`}
-                >
-                  {t("buy.regular_stock")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, stock_type: "outside" })}
-                  className={`rounded-lg py-2 text-sm font-semibold transition ${
-                    form.stock_type === "outside"
-                      ? "bg-gold text-white"
-                      : "text-ink-muted"
-                  }`}
-                >
-                  {t("buy.outside_stock")}
-                </button>
-              </div>
-              <p className="mt-1.5 text-[11px] text-ink-faint">
-                {form.stock_type === "outside"
-                  ? t("buy.outside_stock_note")
-                  : t("buy.regular_stock_note")}
-              </p>
+            <Field label={t("buy.date_label")}>
+              <input
+                type="date"
+                value={form.buy_date}
+                onChange={(e) => setForm({ ...form, buy_date: e.target.value })}
+                className={inputClass}
+              />
             </Field>
             <Field label={t("buy.seller_type_label")}>
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-surface-2 p-1.5">

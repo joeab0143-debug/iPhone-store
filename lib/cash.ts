@@ -15,11 +15,7 @@ export async function computeCashParts(): Promise<{
   const [salesPaidAllTime, totalBuy, expenseAllTime] =
     await Promise.all([
       db.prepare("SELECT COALESCE(SUM(paid_amount),0) AS total FROM sales").first<{ total: number }>(),
-      // "Outside Stock" phones (migrations/0017) are bought without touching
-      // Total Cash at all — only their regular-stock counterparts count here.
-      db
-        .prepare("SELECT COALESCE(SUM(buy_price),0) AS total FROM phones WHERE stock_type != 'outside'")
-        .first<{ total: number }>(),
+      db.prepare("SELECT COALESCE(SUM(buy_price),0) AS total FROM phones").first<{ total: number }>(),
       db.prepare("SELECT COALESCE(SUM(amount),0) AS total FROM expenses").first<{ total: number }>(),
     ]);
 

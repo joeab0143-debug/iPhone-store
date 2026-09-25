@@ -12,11 +12,6 @@ export interface Phone {
   bought_from?: string | null;
   phone_number?: string | null;
   nid?: string | null;
-  // "regular" (default) — Buy price is deducted from Total Cash like always.
-  // "outside" — a consignment-style phone: Buy doesn't touch Total Cash, and
-  // only 50% of its eventual sale profit counts toward the shop's own
-  // Profit (see migrations/0017_outside_stock.sql).
-  stock_type?: "regular" | "outside";
 }
 
 export interface Sale {
@@ -28,6 +23,9 @@ export interface Sale {
   is_due: number;
   customer_name: string | null;
   customer_phone: string | null;
+  customer_address: string | null;
+  customer_email: string | null;
+  narration: string | null;
   due_amount: number;
   paid_amount: number;
   created_at: string;
@@ -36,7 +34,6 @@ export interface Sale {
   imei?: string;
   buy_price?: number;
   buy_date?: string;
-  stock_type?: "regular" | "outside";
 }
 
 export interface DuePayment {
@@ -97,13 +94,8 @@ export interface NetProfitSummary {
   from: string;
   to: string;
   stock_profit: number;
-  // 50% share of profit from sales of "outside" stock_type phones — the
-  // other 50% belongs to whoever actually owns those phones (see
-  // migrations/0017_outside_stock.sql). Already excluded from stock_profit.
-  outside_stock_profit: number;
   total_expense: number;
   total_due_outstanding: number;
   net_profit: number;
   stock_sales_count: number;
-  outside_stock_sales_count: number;
 }

@@ -354,6 +354,9 @@ export interface SalesInvoiceSaleInput {
   dueAmount: number;
   customerName?: string | null;
   customerPhone?: string | null;
+  customerAddress?: string | null;
+  customerEmail?: string | null;
+  narration?: string | null;
   isReturn?: boolean;
 }
 

@@ -4,31 +4,20 @@ import { getDB } from "@/lib/db";
 export const runtime = "edge";
 
 // The breakdown shown when the "This Month's Profit" dashboard tile is
-// clicked — which categories (stock profit, Outside Stock profit, each
-// expense category) add up or subtract to make this month's profit. Scoped
-// to just the current calendar month — uses the same month-scope as
-// /api/dashboard's profit_till_now (strftime('%Y-%m', ...) = current
-// month), so the two numbers always match. Multiple expense categories with
-// the same name are GROUP BY'd together and shown as one line.
-//
-// "Outside Stock" (migrations/0017) excludes stock_profit from that
-// phone's sale — instead, 50% of that sale's full profit is added
-// separately into outside_stock_profit (the other 50% belongs to the
-// phone's actual owner, not tracked in this app).
+// clicked — which categories (stock profit, each expense category) add up
+// or subtract to make this month's profit. Scoped to just the current
+// calendar month — uses the same month-scope as /api/dashboard's
+// profit_till_now (strftime('%Y-%m', ...) = current month), so the two
+// numbers always match. Multiple expense categories with the same name are
+// GROUP BY'd together and shown as one line.
 export async function GET() {
   const db = getDB();
 
-  const [stockProfitRow, outsideStockProfitRow, expenseRows] = await Promise.all([
+  const [stockProfitRow, expenseRows] = await Promise.all([
     db
       .prepare(
-        `SELECT COALESCE(SUM(s.profit),0) AS total FROM sales s JOIN phones p ON p.id = s.phone_id
-         WHERE strftime('%Y-%m', s.selling_date) = strftime('%Y-%m','now','localtime') AND p.stock_type != 'outside'`
-      )
-      .first<{ total: number }>(),
-    db
-      .prepare(
-        `SELECT COALESCE(SUM(s.profit),0) AS total FROM sales s JOIN phones p ON p.id = s.phone_id
-         WHERE strftime('%Y-%m', s.selling_date) = strftime('%Y-%m','now','localtime') AND p.stock_type = 'outside'`
+        `SELECT COALESCE(SUM(profit),0) AS total FROM sales
+         WHERE strftime('%Y-%m', selling_date) = strftime('%Y-%m','now','localtime')`
       )
       .first<{ total: number }>(),
     db
@@ -44,17 +33,15 @@ export async function GET() {
   ]);
 
   const stockProfit = stockProfitRow?.total ?? 0;
-  const outsideStockProfit = (outsideStockProfitRow?.total ?? 0) * 0.5;
   const expenseCategories = (expenseRows?.results ?? []).map((r) => ({
     name: r.category_name,
     total: r.total,
   }));
   const totalExpense = expenseCategories.reduce((s, c) => s + c.total, 0);
-  const netProfit = stockProfit + outsideStockProfit - totalExpense;
+  const netProfit = stockProfit - totalExpense;
 
   return NextResponse.json({
     stock_profit: stockProfit,
-    outside_stock_profit: outsideStockProfit,
     expense_categories: expenseCategories,
     total_expense: totalExpense,
     net_profit: netProfit,

@@ -9,15 +9,30 @@ import { emitDashboardRefresh } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
 import type { Phone } from "@/lib/types";
 
-const EMPTY_FORM = {
-  customer_name: "",
-  customer_phone: "",
-  model: "",
-  imei: "",
-  selling_price: "",
-  ram_rom: "",
-  battery_health: "",
-};
+// "YYYY-MM-DD" for today, in the browser's local time -- used to
+// pre-fill the Sale Date field so a normal sale doesn't require typing a
+// date at all; the field stays editable for the rare case of a backdated
+// entry.
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function makeEmptyForm() {
+  return {
+    selling_date: todayStr(),
+    customer_name: "",
+    customer_phone: "",
+    customer_address: "",
+    customer_email: "",
+    narration: "",
+    model: "",
+    imei: "",
+    selling_price: "",
+    ram_rom: "",
+    battery_health: "",
+  };
+}
 
 export default function SellSheet({
   open,
@@ -27,7 +42,7 @@ export default function SellSheet({
   onClose: () => void;
 }) {
   const { t } = useLang();
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(makeEmptyForm);
   const [matchedPhone, setMatchedPhone] = useState<Phone | null>(null);
   const [suggestions, setSuggestions] = useState<Phone[]>([]);
   const [checkingImei, setCheckingImei] = useState(false);
@@ -100,7 +115,7 @@ export default function SellSheet({
   }
 
   function reset() {
-    setForm(EMPTY_FORM);
+    setForm(makeEmptyForm());
     setMatchedPhone(null);
     setIsDue(false);
     setPaidNow("");
@@ -124,6 +139,10 @@ export default function SellSheet({
       setError(t("sell.validation_all_fields"));
       return;
     }
+    // Address/Email/Narration are optional -- if the shop owner doesn't
+    // type them, they simply print as "-" on the memo, same as before.
+    // Date defaults to today (pre-filled) but can be changed for a
+    // backdated entry.
     if (matchedPhone && matchedPhone.status === "sold") {
       setError(t("sell.already_sold"));
       return;
@@ -158,9 +177,13 @@ export default function SellSheet({
       body: JSON.stringify({
         phone_id: phoneId,
         selling_price: Number(form.selling_price),
+        selling_date: form.selling_date ? `${form.selling_date} 00:00:00` : null,
         is_due: isDue,
         customer_name: form.customer_name,
         customer_phone: form.customer_phone,
+        customer_address: form.customer_address || null,
+        customer_email: form.customer_email || null,
+        narration: form.narration || null,
         paid_now: isDue ? Number(paidNow || 0) : undefined,
         ram_rom: form.ram_rom || null,
         battery_health: form.battery_health || null,
@@ -189,6 +212,9 @@ export default function SellSheet({
         isDue: !!sd.sale.is_due,
         customerName: sd.sale.customer_name,
         customerPhone: sd.sale.customer_phone,
+        customerAddress: sd.sale.customer_address,
+        customerEmail: sd.sale.customer_email,
+        narration: sd.sale.narration,
         paidAmount: sd.sale.paid_amount,
         dueAmount: sd.sale.due_amount,
         ramRom: sd.sale.ram_rom,
@@ -204,6 +230,14 @@ export default function SellSheet({
     <>
       <Sheet open={open} onClose={handleClose} title={t("sell.title")}>
         <div className="space-y-3">
+          <Field label={t("sell.date_label")}>
+            <input
+              type="date"
+              value={form.selling_date}
+              onChange={(e) => setForm({ ...form, selling_date: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
           <Field label={t("sell.name_label")}>
             <input
               value={form.customer_name}
@@ -215,6 +249,29 @@ export default function SellSheet({
             <input
               value={form.customer_phone}
               onChange={(e) => setForm({ ...form, customer_phone: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+          <Field label={t("sell.address_label")}>
+            <input
+              value={form.customer_address}
+              onChange={(e) => setForm({ ...form, customer_address: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+          <Field label={t("sell.email_label")}>
+            <input
+              type="email"
+              value={form.customer_email}
+              onChange={(e) => setForm({ ...form, customer_email: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+          <Field label={t("sell.narration_label")}>
+            <input
+              value={form.narration}
+              onChange={(e) => setForm({ ...form, narration: e.target.value })}
+              placeholder={t("sell.narration_placeholder")}
               className={inputClass}
             />
           </Field>

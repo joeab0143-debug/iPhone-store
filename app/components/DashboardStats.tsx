@@ -17,8 +17,6 @@ interface ExpenseCategoryBreakdown {
 
 interface ProfitBreakdown {
   stock_profit: number;
-  // 50% share of profit from "Outside Stock" phone sales (migrations/0017)
-  outside_stock_profit: number;
   expense_categories: ExpenseCategoryBreakdown[];
   total_expense: number;
   net_profit: number;
@@ -49,15 +47,12 @@ interface BuyPhoneRow {
   buy_price: number;
   buy_date: string;
   status: "unsold" | "sold";
-  stock_type?: "regular" | "outside";
 }
 
 interface TotalBuyBreakdown {
-  phones: BuyPhoneRow[]; // regular stock only — matches the cash-based "Total Buy" tile
-  outsidePhones: BuyPhoneRow[]; // "Outside Stock" — never counted in Total Cash
+  phones: BuyPhoneRow[];
   unsoldValue: number;
   soldValue: number;
-  outsideValue: number;
   total: number;
 }
 
@@ -70,27 +65,13 @@ interface StockProfitRow {
   profit: number;
 }
 
-interface OutsideStockProfitRow {
-  name_model: string;
-  imei: string;
-  buy_date: string;
-  buy_price: number;
-  selling_price: number;
-  profit: number; // full profit from the sale
-  share_profit: number; // 50% share that actually counts toward this month's profit
-}
-
 interface CashSalePaidRow {
   name_model: string;
   imei: string;
   paid_amount: number;
 }
 
-type SubDetailKind =
-  | "stockProfitMonth"
-  | "outsideStockProfitMonth"
-  | "outsideStockList"
-  | "cashSalesPaid";
+type SubDetailKind = "stockProfitMonth" | "cashSalesPaid";
 
 // "YYYY-MM-DD" for today, in the browser's local time — same approach the
 // rest of the app already uses for "today" comparisons (e.g. ExpenseTab's
@@ -129,8 +110,6 @@ export default function DashboardStats() {
   const [subKind, setSubKind] = useState<SubDetailKind | null>(null);
   const [subLoading, setSubLoading] = useState(false);
   const [subStockProfit, setSubStockProfit] = useState<StockProfitRow[] | null>(null);
-  const [subOutsideStockProfit, setSubOutsideStockProfit] = useState<OutsideStockProfitRow[] | null>(null);
-  const [subOutsideStockPhones, setSubOutsideStockPhones] = useState<BuyPhoneRow[] | null>(null);
   const [subCashSales, setSubCashSales] = useState<CashSalePaidRow[] | null>(null);
 
   const load = useCallback(async () => {
@@ -206,24 +185,16 @@ export default function DashboardStats() {
     try {
       const res = await fetch(`/api/stock`, { cache: "no-store" });
       const data: any = res.ok ? await res.json() : { phones: [] };
-      const allPhones: BuyPhoneRow[] = (data.phones || []).map((p: any) => ({
+      const phones: BuyPhoneRow[] = (data.phones || []).map((p: any) => ({
         name_model: p.name_model,
         imei: p.imei,
         buy_price: p.buy_price,
         buy_date: p.buy_date,
         status: p.status,
-        stock_type: p.stock_type === "outside" ? "outside" : "regular",
       }));
-      // "Outside Stock" phones' buy price is never deducted from Total Cash
-      // (lib/cash.ts), so they're kept separate from regular stock here too
-      // — unsoldValue/soldValue/total match the "Total Buy" tile's number
-      // exactly.
-      const phones = allPhones.filter((p) => p.stock_type !== "outside");
-      const outsidePhones = allPhones.filter((p) => p.stock_type === "outside");
       const unsoldValue = phones.filter((p) => p.status === "unsold").reduce((s, p) => s + Number(p.buy_price), 0);
       const soldValue = phones.filter((p) => p.status === "sold").reduce((s, p) => s + Number(p.buy_price), 0);
-      const outsideValue = outsidePhones.reduce((s, p) => s + Number(p.buy_price), 0);
-      setBuyBreakdown({ phones, outsidePhones, unsoldValue, soldValue, outsideValue, total: unsoldValue + soldValue });
+      setBuyBreakdown({ phones, unsoldValue, soldValue, total: unsoldValue + soldValue });
     } catch {
       // transient network error
     } finally {
@@ -240,33 +211,14 @@ export default function DashboardStats() {
         const res = await fetch(`/api/sales?from=${from}&to=${to}`, { cache: "no-store" });
         const data: any = res.ok ? await res.json() : { sales: [] };
         setSubStockProfit(
-          (data.sales || [])
-            .filter((s: any) => s.stock_type !== "outside")
-            .map((s: any) => ({
-              name_model: s.name_model,
-              imei: s.imei,
-              buy_date: s.buy_date,
-              buy_price: s.buy_price,
-              selling_price: s.selling_price,
-              profit: s.profit,
-            }))
-        );
-      } else if (kind === "outsideStockProfitMonth") {
-        const { from, to } = monthRange(currentMonthStr());
-        const res = await fetch(`/api/sales?from=${from}&to=${to}`, { cache: "no-store" });
-        const data: any = res.ok ? await res.json() : { sales: [] };
-        setSubOutsideStockProfit(
-          (data.sales || [])
-            .filter((s: any) => s.stock_type === "outside")
-            .map((s: any) => ({
-              name_model: s.name_model,
-              imei: s.imei,
-              buy_date: s.buy_date,
-              buy_price: s.buy_price,
-              selling_price: s.selling_price,
-              profit: s.profit,
-              share_profit: Number(s.profit) * 0.5,
-            }))
+          (data.sales || []).map((s: any) => ({
+            name_model: s.name_model,
+            imei: s.imei,
+            buy_date: s.buy_date,
+            buy_price: s.buy_price,
+            selling_price: s.selling_price,
+            profit: s.profit,
+          }))
         );
       } else if (kind === "cashSalesPaid") {
         const res = await fetch(`/api/sales`, { cache: "no-store" });
@@ -283,13 +235,6 @@ export default function DashboardStats() {
       setSubLoading(false);
     }
   }, []);
-
-  // Tapping the "Outside Stock" box — shown straight from outsidePhones
-  // already loaded in buyBreakdown, no new fetch needed.
-  function openOutsideStockList() {
-    setSubOutsideStockPhones(buyBreakdown?.outsidePhones ?? []);
-    setSubKind("outsideStockList");
-  }
 
   function downloadCashReport() {
     if (!cashBreakdown) return;
@@ -350,7 +295,6 @@ export default function DashboardStats() {
           { label: "Total Buy Value", value: `Tk ${buyBreakdown.total.toLocaleString()}`, tone: "down" },
           { label: "In Stock (Unsold)", value: `Tk ${buyBreakdown.unsoldValue.toLocaleString()}` },
           { label: "Sold", value: `Tk ${buyBreakdown.soldValue.toLocaleString()}` },
-          { label: "Outside Stock Value", value: `Tk ${buyBreakdown.outsideValue.toLocaleString()}` },
         ],
         table: {
           head: ["Model", "IMEI", "Status", "Buy Price (Tk)", "Buy Date"],
@@ -363,7 +307,7 @@ export default function DashboardStats() {
           ]),
           emptyLabel: "No phones bought yet",
         },
-        footerNote: "Generated from iPhone Store — Total Buy (all-time, regular stock)",
+        footerNote: "Generated from iPhone Store — Total Buy (all-time)",
       },
       previewWin
     );
@@ -380,7 +324,6 @@ export default function DashboardStats() {
         summary: [
           { label: "Net Profit", value: `Tk ${profitBreakdown.net_profit.toLocaleString()}`, tone: profitBreakdown.net_profit >= 0 ? "up" : "down" },
           { label: "Stock Profit", value: `Tk ${profitBreakdown.stock_profit.toLocaleString()}`, tone: "up" },
-          { label: "Outside Stock Profit", value: `Tk ${profitBreakdown.outside_stock_profit.toLocaleString()}`, tone: "up" },
           { label: "Total Expense", value: `Tk ${profitBreakdown.total_expense.toLocaleString()}`, tone: "down" },
         ],
         table: {
@@ -417,52 +360,6 @@ export default function DashboardStats() {
             emptyLabel: "No sales this month",
           },
           footerNote: "Generated from iPhone Store — Dashboard",
-        },
-        previewWin
-      );
-    } else if (subKind === "outsideStockProfitMonth") {
-      generateReportPDF(
-        {
-          shopName: "iPhone Store",
-          title: "Outside Stock Profit Detail",
-          subtitle: "This Month",
-          summary: [{ label: "Outside Stock Profit (50% Share)", value: `Tk ${(profitBreakdown?.outside_stock_profit ?? 0).toLocaleString()}`, tone: "up" }],
-          table: {
-            head: ["Model", "IMEI", "Buy Date", "Buy Price (Tk)", "Sell Price (Tk)", "Full Profit (Tk)", "Your Share (Tk)"],
-            rows: (subOutsideStockProfit || []).map((s) => [
-              s.name_model,
-              s.imei,
-              (s.buy_date || "-").toString().slice(0, 10),
-              Number(s.buy_price).toLocaleString(),
-              Number(s.selling_price).toLocaleString(),
-              Number(s.profit).toLocaleString(),
-              Number(s.share_profit).toLocaleString(),
-            ]),
-            emptyLabel: "No outside stock sales this month",
-          },
-          footerNote: "Generated from iPhone Store — Dashboard",
-        },
-        previewWin
-      );
-    } else if (subKind === "outsideStockList") {
-      generateReportPDF(
-        {
-          shopName: "iPhone Store",
-          title: "Outside Stock Report",
-          subtitle: `As of ${todayLabel()}`,
-          summary: [{ label: "Outside Stock Value", value: `Tk ${(buyBreakdown?.outsideValue ?? 0).toLocaleString()}` }],
-          table: {
-            head: ["Model", "IMEI", "Status", "Buy Price (Tk)", "Buy Date"],
-            rows: (subOutsideStockPhones || []).map((p) => [
-              p.name_model,
-              p.imei,
-              p.status === "sold" ? "Sold" : "In Stock",
-              Number(p.buy_price).toLocaleString(),
-              (p.buy_date || "-").toString().slice(0, 10),
-            ]),
-            emptyLabel: "No outside stock phones",
-          },
-          footerNote: "Generated from iPhone Store — Dashboard (Total Buy)",
         },
         previewWin
       );
@@ -612,7 +509,7 @@ export default function DashboardStats() {
           <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.loading")}</p>
         ) : buyBreakdown ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <div className="rounded-xl bg-surface-2 p-2.5">
                 <p className="text-[11px] text-ink-muted">{t("dashboard.in_stock_unsold_label")}</p>
                 <p className="tabular text-sm font-semibold">৳{money(buyBreakdown.unsoldValue)}</p>
@@ -621,17 +518,6 @@ export default function DashboardStats() {
                 <p className="text-[11px] text-ink-muted">{t("dashboard.sold_label")}</p>
                 <p className="tabular text-sm font-semibold">৳{money(buyBreakdown.soldValue)}</p>
               </div>
-              <button
-                type="button"
-                onClick={openOutsideStockList}
-                className="rounded-xl bg-surface-2 p-2.5 text-left"
-              >
-                <div className="flex items-center justify-between gap-1">
-                  <p className="text-[11px] text-ink-muted">{t("dashboard.outside_stock_label")}</p>
-                  <ChevronRight size={11} className="shrink-0 text-ink-faint" />
-                </div>
-                <p className="tabular text-sm font-semibold">৳{money(buyBreakdown.outsideValue)}</p>
-              </button>
             </div>
             <div className="max-h-64 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
               {buyBreakdown.phones.map((p, i) => (
@@ -663,12 +549,6 @@ export default function DashboardStats() {
                   value={profitBreakdown.stock_profit}
                   tone="up"
                   onClick={() => openSub("stockProfitMonth")}
-                />
-                <BreakdownRow
-                  label={t("dashboard.outside_stock_profit_label")}
-                  value={profitBreakdown.outside_stock_profit}
-                  tone="up"
-                  onClick={() => openSub("outsideStockProfitMonth")}
                 />
               </div>
             </div>
@@ -712,10 +592,6 @@ export default function DashboardStats() {
         title={
           subKind === "stockProfitMonth"
             ? t("dashboard.sub_title_stock_profit_month")
-            : subKind === "outsideStockProfitMonth"
-            ? t("dashboard.sub_title_outside_stock_profit_month")
-            : subKind === "outsideStockList"
-            ? t("dashboard.sub_title_outside_stock_list")
             : t("dashboard.sub_title_cash_sales_paid")
         }
       >
@@ -738,50 +614,6 @@ export default function DashboardStats() {
             </div>
           ) : (
             <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.no_stock_sales_month")}</p>
-          )
-        ) : subKind === "outsideStockProfitMonth" ? (
-          subOutsideStockProfit && subOutsideStockProfit.length > 0 ? (
-            <div className="space-y-3">
-              <div className="max-h-72 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
-                {subOutsideStockProfit.map((s, i) => (
-                  <div key={i} className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm text-ink-muted truncate">{s.name_model}</p>
-                      <p className="text-[11px] text-ink-faint truncate">
-                        IMEI: {s.imei} · {t("profit.full_profit_prefix")}{money(s.profit)}
-                      </p>
-                    </div>
-                    <p className={`tabular text-sm font-semibold shrink-0 ${Number(s.share_profit) >= 0 ? "text-up" : "text-down"}`}>
-                      {Number(s.share_profit) >= 0 ? "+" : ""}৳{money(s.share_profit)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <DownloadPdfButton onClick={downloadSubReport} />
-            </div>
-          ) : (
-            <p className="py-6 text-center text-sm text-ink-muted">{t("profit.no_outside_stock_sales_month")}</p>
-          )
-        ) : subKind === "outsideStockList" ? (
-          subOutsideStockPhones && subOutsideStockPhones.length > 0 ? (
-            <div className="space-y-3">
-              <div className="max-h-72 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
-                {subOutsideStockPhones.map((p, i) => (
-                  <div key={i} className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm text-ink-muted truncate">{p.name_model}</p>
-                      <p className="text-[11px] text-ink-faint truncate">
-                        IMEI: {p.imei} · {p.status === "sold" ? "Sold" : "Unsold"} · {formatDate(p.buy_date)}
-                      </p>
-                    </div>
-                    <p className="tabular text-sm font-semibold shrink-0 text-down">৳{money(p.buy_price)}</p>
-                  </div>
-                ))}
-              </div>
-              <DownloadPdfButton onClick={downloadSubReport} />
-            </div>
-          ) : (
-            <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.no_outside_stock_phones")}</p>
           )
         ) : subKind === "cashSalesPaid" ? (
           subCashSales && subCashSales.length > 0 ? (

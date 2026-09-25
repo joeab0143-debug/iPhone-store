@@ -13,10 +13,18 @@ import type { Phone, Sale } from "@/lib/types";
 
 const SHOP_NAME = "iPhone Store";
 
+// "YYYY-MM-DD" for today, in the browser's local time -- pre-fills the
+// Selling Date field so a normal sale doesn't need a date typed in; stays
+// editable for a backdated entry.
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export default function StockTab() {
   const { t } = useLang();
   const [phones, setPhones] = useState<Phone[]>([]);
-  const [filter, setFilter] = useState<"all" | "unsold" | "sold" | "outside">("unsold");
+  const [filter, setFilter] = useState<"all" | "unsold" | "sold">("unsold");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -29,10 +37,13 @@ export default function StockTab() {
 
   const [sellForm, setSellForm] = useState({
     selling_price: "",
-    selling_date: "",
+    selling_date: todayStr(),
     is_due: false,
     customer_name: "",
     customer_phone: "",
+    customer_address: "",
+    customer_email: "",
+    narration: "",
     paid_now: "",
     ram_rom: "",
     battery_health: "",
@@ -65,10 +76,13 @@ export default function StockTab() {
     if (sellPhone) {
       setSellForm({
         selling_price: "",
-        selling_date: "",
+        selling_date: todayStr(),
         is_due: false,
         customer_name: "",
         customer_phone: "",
+        customer_address: "",
+        customer_email: "",
+        narration: "",
         paid_now: "",
         ram_rom: sellPhone.ram_rom || "",
         battery_health: sellPhone.battery_health || "",
@@ -91,15 +105,11 @@ export default function StockTab() {
       const s = search.toLowerCase();
       // While actively searching, ignore the tab entirely — a search for
       // an IMEI/name should find it whether the phone is currently
-      // sold/unsold or regular/outside stock.
+      // sold or unsold.
       return (
         p.name_model.toLowerCase().includes(s) || p.imei.toLowerCase().includes(s)
       );
     }
-    // Outside stock phones are now completely separate from main stock —
-    // they only show in their own tab, never in "In Stock"/"Sold"/"All".
-    if (filter === "outside") return p.stock_type === "outside";
-    if (p.stock_type === "outside") return false;
     if (filter === "all") return true;
     return p.status === filter;
   });
@@ -125,6 +135,9 @@ export default function StockTab() {
         is_due: sellForm.is_due,
         customer_name: sellForm.customer_name || null,
         customer_phone: sellForm.customer_phone || null,
+        customer_address: sellForm.customer_address || null,
+        customer_email: sellForm.customer_email || null,
+        narration: sellForm.narration || null,
         paid_now: sellForm.is_due ? Number(sellForm.paid_now || 0) : undefined,
         ram_rom: sellForm.ram_rom || null,
         battery_health: sellForm.battery_health || null,
@@ -140,10 +153,13 @@ export default function StockTab() {
     const d: any = await res.json();
     setSellForm({
       selling_price: "",
-      selling_date: "",
+      selling_date: todayStr(),
       is_due: false,
       customer_name: "",
       customer_phone: "",
+      customer_address: "",
+      customer_email: "",
+      narration: "",
       paid_now: "",
       ram_rom: "",
       battery_health: "",
@@ -166,6 +182,9 @@ export default function StockTab() {
         isDue: !!sd.sale.is_due,
         customerName: sd.sale.customer_name,
         customerPhone: sd.sale.customer_phone,
+        customerAddress: sd.sale.customer_address,
+        customerEmail: sd.sale.customer_email,
+        narration: sd.sale.narration,
         paidAmount: sd.sale.paid_amount,
         dueAmount: sd.sale.due_amount,
         ramRom: sd.sale.ram_rom,
@@ -203,6 +222,9 @@ export default function StockTab() {
         isDue: !!d.sale.is_due,
         customerName: d.sale.customer_name,
         customerPhone: d.sale.customer_phone,
+        customerAddress: d.sale.customer_address,
+        customerEmail: d.sale.customer_email,
+        narration: d.sale.narration,
         paidAmount: d.sale.paid_amount,
         dueAmount: d.sale.due_amount,
         ramRom: d.sale.ram_rom,
@@ -256,6 +278,9 @@ export default function StockTab() {
         isDue: !!sale.is_due,
         customerName: sale.customer_name,
         customerPhone: sale.customer_phone,
+        customerAddress: sale.customer_address,
+        customerEmail: sale.customer_email,
+        narration: sale.narration,
         paidAmount: sale.paid_amount,
         dueAmount: sale.due_amount,
         ramRom: sale.ram_rom,
@@ -308,8 +333,6 @@ export default function StockTab() {
     const filterLabel =
       filter === "unsold"
         ? "In Stock"
-        : filter === "outside"
-        ? "Outside Stock"
         : filter === "sold"
         ? "Sold"
         : "All";
@@ -365,7 +388,7 @@ export default function StockTab() {
       </div>
 
       <div className="mb-4 flex gap-2 overflow-x-auto">
-        {(["unsold", "outside", "sold", "all"] as const).map((f) => (
+        {(["unsold", "sold", "all"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -377,8 +400,6 @@ export default function StockTab() {
           >
             {f === "unsold"
               ? t("stock.filter_unsold")
-              : f === "outside"
-              ? t("stock.filter_outside")
               : f === "sold"
               ? t("stock.filter_sold")
               : t("stock.filter_all")}
@@ -425,7 +446,6 @@ export default function StockTab() {
                     <Badge tone={p.status === "unsold" ? "default" : "up"}>
                       {p.status === "unsold" ? "Unsold" : "Sold"}
                     </Badge>
-                    {p.stock_type === "outside" && <Badge tone="due">Outside</Badge>}
                   </div>
                   <p className="mt-0.5 truncate text-xs text-ink-faint tabular">
                     IMEI: {p.imei}
@@ -554,6 +574,33 @@ export default function StockTab() {
               onChange={(e) =>
                 setSellForm({ ...sellForm, customer_phone: e.target.value })
               }
+              className={inputClass}
+            />
+          </Field>
+          <Field label={t("stock.customer_address_label")}>
+            <input
+              value={sellForm.customer_address}
+              onChange={(e) =>
+                setSellForm({ ...sellForm, customer_address: e.target.value })
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label={t("stock.customer_email_label")}>
+            <input
+              type="email"
+              value={sellForm.customer_email}
+              onChange={(e) =>
+                setSellForm({ ...sellForm, customer_email: e.target.value })
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label={t("stock.narration_label")}>
+            <input
+              value={sellForm.narration}
+              onChange={(e) => setSellForm({ ...sellForm, narration: e.target.value })}
+              placeholder={t("stock.narration_placeholder")}
               className={inputClass}
             />
           </Field>
@@ -735,7 +782,6 @@ function PhoneDetailsSheet({
             <Badge tone={phone.status === "unsold" ? "default" : "up"}>
               {phone.status === "unsold" ? "Unsold" : "Sold"}
             </Badge>
-            {phone.stock_type === "outside" && <Badge tone="due">Outside</Badge>}
           </div>
           <button
             onClick={() => onEdit(phone)}

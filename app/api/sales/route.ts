@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const dueOnly = req.nextUrl.searchParams.get("due_only");
 
   let query = `
-    SELECT s.*, p.name_model, p.imei, p.buy_price, p.buy_date, p.stock_type
+    SELECT s.*, p.name_model, p.imei, p.buy_price, p.buy_date
     FROM sales s
     JOIN phones p ON p.id = s.phone_id
     WHERE 1=1
@@ -44,6 +44,9 @@ export async function POST(req: NextRequest) {
     is_due,
     customer_name,
     customer_phone,
+    customer_address,
+    customer_email,
+    narration,
     paid_now, // amount paid immediately, even if due
     ram_rom,
     battery_health,
@@ -71,11 +74,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // sales.profit always stores the FULL (sell − buy) profit, regardless of
-  // stock_type — the 50%-for-"outside" split (migrations/0017) is applied
-  // only when aggregating this month's/this range's Profit (see
-  // /api/profit-breakdown and /api/summary), so a per-sale receipt or list
-  // still shows the true transaction profit.
   const profit = Number(selling_price) - Number(phone.buy_price);
   const dueFlag = is_due ? 1 : 0;
   const paidAmount = dueFlag ? Number(paid_now || 0) : Number(selling_price);
@@ -84,8 +82,8 @@ export async function POST(req: NextRequest) {
   const result = await db
     .prepare(
       `INSERT INTO sales
-        (phone_id, selling_price, selling_date, profit, is_due, customer_name, customer_phone, due_amount, paid_amount, ram_rom, battery_health)
-       VALUES (?, ?, COALESCE(?, datetime('now','localtime')), ?, ?, ?, ?, ?, ?, ?, ?)`
+        (phone_id, selling_price, selling_date, profit, is_due, customer_name, customer_phone, customer_address, customer_email, narration, due_amount, paid_amount, ram_rom, battery_health)
+       VALUES (?, ?, COALESCE(?, datetime('now','localtime')), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       phone_id,
@@ -95,6 +93,9 @@ export async function POST(req: NextRequest) {
       dueFlag,
       customer_name || null,
       customer_phone || null,
+      customer_address || null,
+      customer_email || null,
+      narration || null,
       dueAmount,
       paidAmount,
       ram_rom || null,

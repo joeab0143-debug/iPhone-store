@@ -35,16 +35,13 @@ export default function ProfitTab() {
   }
 
   // A separate detail sheet for each tile under the profit hero.
-  const [detailKind, setDetailKind] = useState<"stock" | "outsideStock" | "expense" | "due" | null>(null);
+  const [detailKind, setDetailKind] = useState<"stock" | "expense" | "due" | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [stockSales, setStockSales] = useState<{ name_model: string; imei: string; selling_price: number; profit: number }[] | null>(null);
-  const [outsideStockSales, setOutsideStockSales] = useState<
-    { name_model: string; imei: string; buy_date: string; buy_price: number; selling_price: number; profit: number; share_profit: number }[] | null
-  >(null);
   const [expenseCategories, setExpenseCategories] = useState<{ name: string; total: number }[] | null>(null);
   const [dueSales, setDueSales] = useState<{ name_model: string; customer_name: string | null; customer_phone: string | null; due_amount: number }[] | null>(null);
 
-  async function openDetail(kind: "stock" | "outsideStock" | "expense" | "due") {
+  async function openDetail(kind: "stock" | "expense" | "due") {
     setDetailKind(kind);
     setDetailLoading(true);
     try {
@@ -53,31 +50,12 @@ export default function ProfitTab() {
         const res = await fetch(`/api/sales?from=${from}&to=${to}`, { cache: "no-store" });
         const data: any = res.ok ? await res.json() : { sales: [] };
         setStockSales(
-          (data.sales || [])
-            .filter((s: any) => s.stock_type !== "outside")
-            .map((s: any) => ({
-              name_model: s.name_model,
-              imei: s.imei,
-              selling_price: s.selling_price,
-              profit: s.profit,
-            }))
-        );
-      } else if (kind === "outsideStock") {
-        const { from, to } = monthRange(month);
-        const res = await fetch(`/api/sales?from=${from}&to=${to}`, { cache: "no-store" });
-        const data: any = res.ok ? await res.json() : { sales: [] };
-        setOutsideStockSales(
-          (data.sales || [])
-            .filter((s: any) => s.stock_type === "outside")
-            .map((s: any) => ({
-              name_model: s.name_model,
-              imei: s.imei,
-              buy_date: s.buy_date,
-              buy_price: s.buy_price,
-              selling_price: s.selling_price,
-              profit: s.profit,
-              share_profit: Number(s.profit) * 0.5,
-            }))
+          (data.sales || []).map((s: any) => ({
+            name_model: s.name_model,
+            imei: s.imei,
+            selling_price: s.selling_price,
+            profit: s.profit,
+          }))
         );
       } else if (kind === "expense") {
         const { from, to } = monthRange(month);
@@ -112,7 +90,7 @@ export default function ProfitTab() {
     }
   }
 
-  function downloadDetailReport(kind: "stock" | "outsideStock" | "expense" | "due") {
+  function downloadDetailReport(kind: "stock" | "expense" | "due") {
     const previewWin = window.open("", "_blank");
     if (kind === "stock") {
       generateReportPDF(
@@ -125,30 +103,6 @@ export default function ProfitTab() {
             head: ["Model", "IMEI", "Selling Price (Tk)", "Profit (Tk)"],
             rows: (stockSales || []).map((s) => [s.name_model, s.imei, Number(s.selling_price).toLocaleString(), Number(s.profit).toLocaleString()]),
             emptyLabel: "No sales this month",
-          },
-          footerNote: "Generated from iPhone Store — Profit Tab",
-        },
-        previewWin
-      );
-    } else if (kind === "outsideStock") {
-      generateReportPDF(
-        {
-          shopName: "iPhone Store",
-          title: "Outside Stock Profit Report",
-          subtitle: monthLabel(month),
-          summary: [{ label: "Outside Stock Profit (50% Share)", value: `Tk ${(summary?.outside_stock_profit ?? 0).toLocaleString()}`, tone: "up" }],
-          table: {
-            head: ["Model", "IMEI", "Buy Date", "Buy Price (Tk)", "Sell Price (Tk)", "Full Profit (Tk)", "Your Share (Tk)"],
-            rows: (outsideStockSales || []).map((s) => [
-              s.name_model,
-              s.imei,
-              (s.buy_date || "-").toString().slice(0, 10),
-              Number(s.buy_price).toLocaleString(),
-              Number(s.selling_price).toLocaleString(),
-              Number(s.profit).toLocaleString(),
-              Number(s.share_profit).toLocaleString(),
-            ]),
-            emptyLabel: "No outside stock sales this month",
           },
           footerNote: "Generated from iPhone Store — Profit Tab",
         },
@@ -215,7 +169,6 @@ export default function ProfitTab() {
 
         <div className="mt-4 grid grid-cols-2 gap-2.5 text-sm">
           <SummaryStat label={t("profit.stock_profit")} value={summary?.stock_profit} tone="up" onClick={() => openDetail("stock")} />
-          <SummaryStat label={t("profit.outside_stock_profit")} value={summary?.outside_stock_profit} tone="up" onClick={() => openDetail("outsideStock")} />
           <SummaryStat label={t("profit.total_expense")} value={summary?.total_expense} tone="down" negative onClick={() => openDetail("expense")} />
           <SummaryStat label={t("profit.due_outstanding")} value={summary?.total_due_outstanding} tone="due" onClick={() => openDetail("due")} />
         </div>
@@ -248,41 +201,6 @@ export default function ProfitTab() {
           </div>
         ) : (
           <p className="py-6 text-center text-sm text-ink-muted">{t("profit.no_sales_month")}</p>
-        )}
-      </Sheet>
-
-      <Sheet
-        open={detailKind === "outsideStock"}
-        onClose={() => setDetailKind(null)}
-        title={t("profit.outside_stock_detail_title")}
-      >
-        {detailLoading && !outsideStockSales ? (
-          <p className="py-6 text-center text-sm text-ink-muted">{t("profit.loading")}</p>
-        ) : outsideStockSales && outsideStockSales.length > 0 ? (
-          <div className="space-y-3">
-            <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
-              {outsideStockSales.map((s, i) => (
-                <div key={i} className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm text-ink-muted truncate">{s.name_model}</p>
-                    <p className="text-[11px] text-ink-faint truncate">
-                      IMEI: {s.imei} · {t("profit.full_profit_prefix")}{money(s.profit)}
-                    </p>
-                  </div>
-                  <p className={`tabular text-sm font-semibold shrink-0 ${s.share_profit >= 0 ? "text-up" : "text-down"}`}>
-                    {s.share_profit >= 0 ? "+" : ""}৳{money(s.share_profit)}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
-              <p className="text-sm font-semibold">{t("profit.outside_stock_profit")}</p>
-              <p className="tabular font-display text-xl font-extrabold text-up">৳{money(summary?.outside_stock_profit)}</p>
-            </div>
-            <DetailDownloadButton label={t("profit.download_pdf")} onClick={() => downloadDetailReport("outsideStock")} />
-          </div>
-        ) : (
-          <p className="py-6 text-center text-sm text-ink-muted">{t("profit.no_outside_stock_sales_month")}</p>
         )}
       </Sheet>
 

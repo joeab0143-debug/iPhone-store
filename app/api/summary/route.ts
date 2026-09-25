@@ -22,30 +22,13 @@ export async function GET(req: NextRequest) {
     return { clause: parts.length ? "WHERE " + parts.join(" AND ") : "", binds };
   };
 
-  // "Outside Stock" (migrations/0017) sales are excluded from stock_profit —
-  // only 50% of their profit counts, tallied separately below.
-  const stockWhere = dateWhere("s.selling_date");
-  const stockClause = stockWhere.clause
-    ? stockWhere.clause + " AND p.stock_type != 'outside'"
-    : "WHERE p.stock_type != 'outside'";
+  const stockWhere = dateWhere("selling_date");
   const stockRow = await db
     .prepare(
-      `SELECT COALESCE(SUM(s.profit),0) AS total, COUNT(*) AS cnt
-       FROM sales s JOIN phones p ON p.id = s.phone_id ${stockClause}`
+      `SELECT COALESCE(SUM(profit),0) AS total, COUNT(*) AS cnt
+       FROM sales ${stockWhere.clause}`
     )
     .bind(...stockWhere.binds)
-    .first<{ total: number; cnt: number }>();
-
-  const outsideStockWhere = dateWhere("s.selling_date");
-  const outsideStockClause = outsideStockWhere.clause
-    ? outsideStockWhere.clause + " AND p.stock_type = 'outside'"
-    : "WHERE p.stock_type = 'outside'";
-  const outsideStockRow = await db
-    .prepare(
-      `SELECT COALESCE(SUM(s.profit),0) AS total, COUNT(*) AS cnt
-       FROM sales s JOIN phones p ON p.id = s.phone_id ${outsideStockClause}`
-    )
-    .bind(...outsideStockWhere.binds)
     .first<{ total: number; cnt: number }>();
 
   const expenseWhere = dateWhere("expense_date");
@@ -61,19 +44,16 @@ export async function GET(req: NextRequest) {
     .first<{ total: number }>();
 
   const stockProfit = stockRow?.total ?? 0;
-  const outsideStockProfit = (outsideStockRow?.total ?? 0) * 0.5;
   const totalExpense = expenseRow?.total ?? 0;
-  const netProfit = stockProfit + outsideStockProfit - totalExpense;
+  const netProfit = stockProfit - totalExpense;
 
   return NextResponse.json({
     from: from || null,
     to: to || null,
     stock_profit: stockProfit,
-    outside_stock_profit: outsideStockProfit,
     total_expense: totalExpense,
     total_due_outstanding: dueRow?.total ?? 0,
     net_profit: netProfit,
     stock_sales_count: stockRow?.cnt ?? 0,
-    outside_stock_sales_count: outsideStockRow?.cnt ?? 0,
   });
 }
