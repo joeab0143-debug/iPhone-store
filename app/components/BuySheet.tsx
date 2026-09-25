@@ -246,15 +246,19 @@ export default function BuySheet({
     }
     const phones: any[] = data?.phones || [];
 
-    // For "Used Phone" purchases, the PDF also carries each seller's NID
-    // (both sides) and portrait photo, so the printed record can prove who
-    // it was actually bought from. Image natural dimensions are loaded up
-    // front so report-pdf.ts can fit each one into its box without
-    // stretching it.
+    // Any "Used Phone" purchases in the downloaded set also carry each
+    // seller's NID (both sides) and portrait photo in the PDF, so the
+    // printed record can prove who it was actually bought from -- this
+    // applies whether the download is filtered to "Used Phone" specifically
+    // or is an "All" / date-range / mixed download that happens to include
+    // some Used Phone entries. Image natural dimensions are loaded up front
+    // so report-pdf.ts can fit each one into its box without stretching it.
     let photoSections: ReportPhotoEntry[] | undefined;
-    if (historyFilterType === "individual") {
+    {
       const withPhotos = phones.filter(
-        (p) => p.nid_front_photo || p.nid_back_photo || p.person_photo
+        (p) =>
+          p.seller_type === "individual" &&
+          (p.nid_front_photo || p.nid_back_photo || p.person_photo)
       );
       photoSections = await Promise.all(
         withPhotos.map(async (p) => {
