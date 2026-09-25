@@ -284,6 +284,7 @@ export const STRINGS: Record<string, Entry> = {
   "profit.no_sales_month": { en: "No sales this month", bn: "এই মাসে কোনো সেল নেই" },
   "profit.no_expense_entries_month": { en: "No expense entries this month", bn: "এই মাসে কোনো খরচ এন্ট্রি নেই" },
   "profit.no_due": { en: "No due outstanding", bn: "কোনো বকেয়া নেই" },
+  "profit.back_to_due_list": { en: "← Back to due list", bn: "← বকেয়া তালিকায় ফিরুন" },
 
   // --- gadgets tab -----------------------------------------------------
   "gadgets.hero_label": {

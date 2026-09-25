@@ -2,10 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, Download, ChevronRight } from "lucide-react";
-import { money, formatDate, MonthPicker, currentMonthStr, monthRange, Sheet } from "./ui";
+import { money, formatDate, MonthPicker, currentMonthStr, monthRange, Sheet, Field, inputClass, Button } from "./ui";
 import { generateReportPDF } from "@/lib/report-pdf";
+import { emitDashboardRefresh } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
 import type { NetProfitSummary } from "@/lib/types";
+
+type DueSaleRow = {
+  id: number;
+  name_model: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  selling_price: number;
+  due_amount: number;
+  paid_amount: number;
+};
 
 export default function ProfitTab() {
   const { t } = useLang();
@@ -39,7 +50,14 @@ export default function ProfitTab() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [stockSales, setStockSales] = useState<{ name_model: string; imei: string; selling_price: number; profit: number }[] | null>(null);
   const [expenseCategories, setExpenseCategories] = useState<{ name: string; total: number }[] | null>(null);
-  const [dueSales, setDueSales] = useState<{ name_model: string; customer_name: string | null; customer_phone: string | null; due_amount: number }[] | null>(null);
+  const [dueSales, setDueSales] = useState<DueSaleRow[] | null>(null);
+
+  // Collecting a full or partial due payment for one sale, drilled into
+  // from the due list below (same "Due Outstanding Breakdown" sheet).
+  const [collectSale, setCollectSale] = useState<DueSaleRow | null>(null);
+  const [collectAmount, setCollectAmount] = useState("");
+  const [collectSaving, setCollectSaving] = useState(false);
+  const [collectError, setCollectError] = useState("");
 
   async function openDetail(kind: "stock" | "expense" | "due") {
     setDetailKind(kind);
@@ -76,10 +94,13 @@ export default function ProfitTab() {
         const data: any = res.ok ? await res.json() : { sales: [] };
         setDueSales(
           (data.sales || []).map((s: any) => ({
+            id: s.id,
             name_model: s.name_model,
             customer_name: s.customer_name,
             customer_phone: s.customer_phone,
+            selling_price: s.selling_price,
             due_amount: s.due_amount,
+            paid_amount: s.paid_amount,
           }))
         );
       }
@@ -88,6 +109,42 @@ export default function ProfitTab() {
     } finally {
       setDetailLoading(false);
     }
+  }
+
+  function openCollect(row: DueSaleRow) {
+    setCollectSale(row);
+    setCollectAmount("");
+    setCollectError("");
+  }
+
+  async function backFromCollect() {
+    setCollectSale(null);
+    // A payment may have just changed the due list and the all-time total.
+    await Promise.all([openDetail("due"), load()]);
+  }
+
+  async function submitCollectPayment() {
+    if (!collectSale) return;
+    setCollectError("");
+    if (!collectAmount || Number(collectAmount) <= 0) {
+      setCollectError(t("stock.invalid_amount"));
+      return;
+    }
+    setCollectSaving(true);
+    const res = await fetch("/api/due-payments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sale_id: collectSale.id, amount: Number(collectAmount) }),
+    });
+    setCollectSaving(false);
+    const d: any = await res.json();
+    if (!res.ok) {
+      setCollectError(d.error || t("stock.save_failed"));
+      return;
+    }
+    setCollectSale({ ...collectSale, due_amount: d.due_amount, paid_amount: d.paid_amount });
+    setCollectAmount("");
+    emitDashboardRefresh();
   }
 
   function downloadDetailReport(kind: "stock" | "expense" | "due") {
@@ -234,21 +291,79 @@ export default function ProfitTab() {
 
       <Sheet
         open={detailKind === "due"}
-        onClose={() => setDetailKind(null)}
-        title={t("profit.due_detail_title")}
+        onClose={() => {
+          setDetailKind(null);
+          setCollectSale(null);
+        }}
+        title={collectSale ? `${t("stock.due_sheet_title_prefix")}${collectSale.name_model}` : t("profit.due_detail_title")}
       >
-        {detailLoading && !dueSales ? (
+        {collectSale ? (
+          <div className="space-y-4">
+            <button
+              type="button"
+              onClick={backFromCollect}
+              className="text-xs font-semibold text-teal"
+            >
+              {t("profit.back_to_due_list")}
+            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-surface-2 p-3 text-center">
+                <p className="text-xs text-ink-muted">{t("stock.total_selling_price_label")}</p>
+                <p className="tabular text-lg font-semibold">৳{money(collectSale.selling_price)}</p>
+              </div>
+              <div className="rounded-xl bg-due/10 p-3 text-center">
+                <p className="text-xs text-due">{t("stock.due_remaining_label")}</p>
+                <p className="tabular text-lg font-semibold text-due">৳{money(collectSale.due_amount)}</p>
+              </div>
+            </div>
+            {collectSale.customer_name && (
+              <p className="text-sm text-ink-muted">
+                {t("stock.customer_prefix")}
+                <span className="text-ink">{collectSale.customer_name}</span>{" "}
+                {collectSale.customer_phone && `· ${collectSale.customer_phone}`}
+              </p>
+            )}
+            {collectSale.due_amount > 0 ? (
+              <>
+                <Field label={t("stock.how_much_paid_label")}>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={collectAmount}
+                    onChange={(e) => setCollectAmount(e.target.value)}
+                    placeholder="0"
+                    className={inputClass}
+                  />
+                </Field>
+                {collectError && <p className="text-sm text-down">{collectError}</p>}
+                <Button full onClick={submitCollectPayment} disabled={collectSaving}>
+                  {collectSaving ? t("stock.saving") : t("stock.add_payment_button")}
+                </Button>
+              </>
+            ) : (
+              <p className="text-center text-sm font-medium text-up">{t("stock.fully_paid")}</p>
+            )}
+          </div>
+        ) : detailLoading && !dueSales ? (
           <p className="py-6 text-center text-sm text-ink-muted">{t("profit.loading")}</p>
         ) : dueSales && dueSales.length > 0 ? (
           <div className="space-y-3">
             <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
-              {dueSales.map((s, i) => (
-                <div key={i} className="flex items-center justify-between gap-3">
+              {dueSales.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => openCollect(s)}
+                  className="flex w-full items-center justify-between gap-3 rounded-lg px-1 py-1 text-left transition hover:bg-surface"
+                >
                   <p className="text-sm text-ink-muted truncate">
                     {s.name_model} {s.customer_name ? `— ${s.customer_name}` : ""}
                   </p>
-                  <p className="tabular text-sm font-semibold shrink-0 text-due">৳{money(s.due_amount)}</p>
-                </div>
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    <span className="tabular text-sm font-semibold text-due">৳{money(s.due_amount)}</span>
+                    <ChevronRight size={14} className="text-ink-faint" />
+                  </span>
+                </button>
               ))}
             </div>
             <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
