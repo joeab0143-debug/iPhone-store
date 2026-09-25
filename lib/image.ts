@@ -42,3 +42,31 @@ export function compressImageFile(
     reader.readAsDataURL(file);
   });
 }
+
+// Same downscale-and-compress treatment as compressImageFile(), but for a
+// live <video> frame from CameraCapture.tsx instead of a File -- this is
+// what actually takes the photo once the shop owner taps "Capture".
+export function captureVideoFrame(
+  video: HTMLVideoElement,
+  maxDim = 720,
+  quality = 0.55
+): string {
+  let width = video.videoWidth;
+  let height = video.videoHeight;
+  if (width > maxDim || height > maxDim) {
+    if (width >= height) {
+      height = Math.round((height * maxDim) / width);
+      width = maxDim;
+    } else {
+      width = Math.round((width * maxDim) / height);
+      height = maxDim;
+    }
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return "";
+  ctx.drawImage(video, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", quality);
+}

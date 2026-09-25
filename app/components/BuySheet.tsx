@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { ScanLine, Download, Camera } from "lucide-react";
 import { Button, Field, inputClass, Sheet } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
+import CameraCapture from "./CameraCapture";
 import { generateReportPDF } from "@/lib/report-pdf";
 import { emitDashboardRefresh } from "@/lib/events";
-import { compressImageFile } from "@/lib/image";
 import { useLang } from "@/lib/i18n";
 import type { Supplier } from "@/lib/types";
 
@@ -38,34 +38,21 @@ function makeEmptyForm() {
   };
 }
 
-// A single photo capture slot: shows a "Take Photo" button, opens the
-// device camera (rear camera — this is the shop owner photographing the
-// card/person in front of them), then compresses the shot down before it
-// ever touches state so the DB row stays small. Tap again to retake.
+// A single photo capture slot: shows a "Take Photo" button that opens the
+// CameraCapture modal (a real live-camera flow, not a file picker) -- see
+// CameraCapture.tsx for why: a plain `<input capture="environment">` only
+// forces the camera on some mobile browsers and just opens the
+// gallery/file picker everywhere else, desktop Chrome included.
 function PhotoField({
   label,
   value,
-  onChange,
+  onTakePhoto,
 }: {
   label: string;
   value: string;
-  onChange: (dataUrl: string) => void;
+  onTakePhoto: () => void;
 }) {
   const { t } = useLang();
-  const [busy, setBusy] = useState(false);
-
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setBusy(true);
-    try {
-      const dataUrl = await compressImageFile(file);
-      onChange(dataUrl);
-    } finally {
-      setBusy(false);
-    }
-  }
 
   return (
     <Field label={label}>
@@ -76,36 +63,24 @@ function PhotoField({
             alt={label}
             className="h-16 w-16 shrink-0 rounded-lg object-cover"
           />
-          <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-center text-xs font-semibold text-teal">
+          <button
+            type="button"
+            onClick={onTakePhoto}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-center text-xs font-semibold text-teal"
+          >
             <Camera size={14} />
-            {busy ? t("buy.photo_processing") : t("buy.photo_retake")}
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleFile}
-              disabled={busy}
-            />
-          </label>
+            {t("buy.photo_retake")}
+          </button>
         </div>
       ) : (
-        <label
-          className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-2 px-3.5 py-3 text-sm font-semibold ${
-            busy ? "text-ink-faint" : "text-teal"
-          }`}
+        <button
+          type="button"
+          onClick={onTakePhoto}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-2 px-3.5 py-3 text-sm font-semibold text-teal"
         >
           <Camera size={16} />
-          {busy ? t("buy.photo_processing") : t("buy.photo_take")}
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handleFile}
-            disabled={busy}
-          />
-        </label>
+          {t("buy.photo_take")}
+        </button>
       )}
     </Field>
   );
@@ -121,6 +96,11 @@ export default function BuySheet({
   const { t } = useLang();
   const [form, setForm] = useState(makeEmptyForm);
   const [scanOpen, setScanOpen] = useState(false);
+  // Which of the 3 individual-seller photo fields the camera modal is
+  // currently capturing for -- null means the modal is closed.
+  const [cameraTarget, setCameraTarget] = useState<
+    "nid_front_photo" | "nid_back_photo" | "person_photo" | null
+  >(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -385,17 +365,17 @@ export default function BuySheet({
                 <PhotoField
                   label={t("buy.nid_front")}
                   value={form.nid_front_photo}
-                  onChange={(v) => setForm({ ...form, nid_front_photo: v })}
+                  onTakePhoto={() => setCameraTarget("nid_front_photo")}
                 />
                 <PhotoField
                   label={t("buy.nid_back")}
                   value={form.nid_back_photo}
-                  onChange={(v) => setForm({ ...form, nid_back_photo: v })}
+                  onTakePhoto={() => setCameraTarget("nid_back_photo")}
                 />
                 <PhotoField
                   label={t("buy.person_photo")}
                   value={form.person_photo}
-                  onChange={(v) => setForm({ ...form, person_photo: v })}
+                  onTakePhoto={() => setCameraTarget("person_photo")}
                 />
               </>
             )}
@@ -530,6 +510,17 @@ export default function BuySheet({
         onResult={(code) => {
           setScanOpen(false);
           setForm((f) => ({ ...f, imei: code }));
+        }}
+      />
+
+      <CameraCapture
+        open={!!cameraTarget}
+        onClose={() => setCameraTarget(null)}
+        onCapture={(dataUrl) => {
+          if (cameraTarget) {
+            setForm((f) => ({ ...f, [cameraTarget]: dataUrl }));
+          }
+          setCameraTarget(null);
         }}
       />
 

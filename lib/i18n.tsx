@@ -54,7 +54,6 @@ export const STRINGS: Record<string, Entry> = {
   "buy.nid_front": { en: "NID Card — Page 1", bn: "এন আই ডি কার্ডের ১ম পেজ" },
   "buy.nid_back": { en: "NID Card — Page 2", bn: "এন আই ডি কার্ডের ২য় পেজ" },
   "buy.person_photo": { en: "Person's Photo", bn: "ব্যবহারকারীর ছবি" },
-  "buy.photo_processing": { en: "Processing...", bn: "প্রসেস হচ্ছে..." },
   "buy.photo_retake": { en: "Retake", bn: "আবার তুলুন" },
   "buy.photo_take": { en: "Take Photo", bn: "ছবি তুলুন" },
   "buy.model_label": { en: "Model Number", bn: "Model Number" },
@@ -181,6 +180,21 @@ export const STRINGS: Record<string, Entry> = {
   "scanner.camera_permission_note": {
     en: "Allow the browser camera access in camera mode",
     bn: "ক্যামেরা মোডে ব্রাউজারকে ক্যামেরা অ্যাক্সেসের অনুমতি দিন",
+  },
+
+  // --- Live camera capture (NID/person photos in the Buy sheet) --------
+  "camera.heading": { en: "Take Photo", bn: "ছবি তুলুন" },
+  "camera.capture": { en: "Capture", bn: "ছবি তুলুন" },
+  "camera.retake": { en: "Retake", bn: "আবার তুলুন" },
+  "camera.use_photo": { en: "Use This Photo", bn: "এই ছবিটি ব্যবহার করুন" },
+  "camera.unavailable": {
+    en: "Couldn't access the camera. Check the browser's camera permission, or upload a photo instead.",
+    bn: "ক্যামেরা চালু করা যায়নি। ব্রাউজারের ক্যামেরা পারমিশন চেক করুন, অথবা ছবি আপলোড করুন।",
+  },
+  "camera.upload_instead": { en: "Upload a photo instead", bn: "ছবি আপলোড করুন" },
+  "camera.permission_note": {
+    en: "Allow camera access when the browser asks",
+    bn: "ব্রাউজার জিজ্ঞেস করলে ক্যামেরা অ্যাক্সেসের অনুমতি দিন",
   },
 
   // --- expense tab -----------------------------------------------------
