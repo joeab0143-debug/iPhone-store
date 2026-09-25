@@ -4,7 +4,7 @@ import OrientationFix from "./components/OrientationFix";
 import { LanguageProvider } from "@/lib/i18n";
 
 export const metadata: Metadata = {
-  title: "iPhone Store",
+  title: "Apple Store Satkhira",
   description: "Mobile shop management — stock, expenses and profit in one place",
 };
 

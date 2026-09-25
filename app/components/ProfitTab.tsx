@@ -95,7 +95,7 @@ export default function ProfitTab() {
     if (kind === "stock") {
       generateReportPDF(
         {
-          shopName: "iPhone Store",
+          shopName: "Apple Store Satkhira",
           title: "Stock Profit Report",
           subtitle: monthLabel(month),
           summary: [{ label: "Stock Profit", value: `Tk ${(summary?.stock_profit ?? 0).toLocaleString()}`, tone: "up" }],
@@ -104,14 +104,14 @@ export default function ProfitTab() {
             rows: (stockSales || []).map((s) => [s.name_model, s.imei, Number(s.selling_price).toLocaleString(), Number(s.profit).toLocaleString()]),
             emptyLabel: "No sales this month",
           },
-          footerNote: "Generated from iPhone Store — Profit Tab",
+          footerNote: "Generated from Apple Store Satkhira — Profit Tab",
         },
         previewWin
       );
     } else if (kind === "expense") {
       generateReportPDF(
         {
-          shopName: "iPhone Store",
+          shopName: "Apple Store Satkhira",
           title: "Expense Report",
           subtitle: monthLabel(month),
           summary: [{ label: "Total Expense", value: `Tk ${(summary?.total_expense ?? 0).toLocaleString()}`, tone: "down" }],
@@ -120,14 +120,14 @@ export default function ProfitTab() {
             rows: (expenseCategories || []).map((c) => [c.name, c.total.toLocaleString()]),
             emptyLabel: "No expense entries this month",
           },
-          footerNote: "Generated from iPhone Store — Profit Tab",
+          footerNote: "Generated from Apple Store Satkhira — Profit Tab",
         },
         previewWin
       );
     } else {
       generateReportPDF(
         {
-          shopName: "iPhone Store",
+          shopName: "Apple Store Satkhira",
           title: "Due Outstanding Report",
           subtitle: `As of ${monthLabel(currentMonthStr())}`,
           summary: [{ label: "Total Due Outstanding", value: `Tk ${(summary?.total_due_outstanding ?? 0).toLocaleString()}` }],
@@ -136,7 +136,7 @@ export default function ProfitTab() {
             rows: (dueSales || []).map((s) => [s.name_model, s.customer_name || "-", s.customer_phone || "-", Number(s.due_amount).toLocaleString()]),
             emptyLabel: "No outstanding due",
           },
-          footerNote: "Generated from iPhone Store — Profit Tab (all-time)",
+          footerNote: "Generated from Apple Store Satkhira — Profit Tab (all-time)",
         },
         previewWin
       );

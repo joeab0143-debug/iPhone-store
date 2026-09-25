@@ -241,7 +241,7 @@ export default function DashboardStats() {
     const previewWin = window.open("", "_blank");
     generateReportPDF(
       {
-        shopName: "iPhone Store",
+        shopName: "Apple Store Satkhira",
         title: "Total Cash Report",
         subtitle: `As of ${todayLabel()}`,
         summary: [
@@ -251,7 +251,7 @@ export default function DashboardStats() {
           { label: "Total Expenses", value: `Tk ${cashBreakdown.expenses.toLocaleString()}`, tone: "down" },
           { label: "Manual Adjustment", value: `Tk ${cashBreakdown.adjustment.toLocaleString()}` },
         ],
-        footerNote: "Generated from iPhone Store — Total Cash (all-time)",
+        footerNote: "Generated from Apple Store Satkhira — Total Cash (all-time)",
       },
       previewWin
     );
@@ -268,7 +268,7 @@ export default function DashboardStats() {
     ]);
     generateReportPDF(
       {
-        shopName: "iPhone Store",
+        shopName: "Apple Store Satkhira",
         title: "Today's Sale Report",
         subtitle: todayLabel(),
         summary: [{ label: "Total (Today)", value: `Tk ${todayBreakdown.total.toLocaleString()}`, tone: "up" }],
@@ -277,7 +277,7 @@ export default function DashboardStats() {
           rows,
           emptyLabel: "No sales today",
         },
-        footerNote: "Generated from iPhone Store — Dashboard",
+        footerNote: "Generated from Apple Store Satkhira — Dashboard",
       },
       previewWin
     );
@@ -288,7 +288,7 @@ export default function DashboardStats() {
     const previewWin = window.open("", "_blank");
     generateReportPDF(
       {
-        shopName: "iPhone Store",
+        shopName: "Apple Store Satkhira",
         title: "Total Buy Report",
         subtitle: `As of ${todayLabel()}`,
         summary: [
@@ -307,7 +307,7 @@ export default function DashboardStats() {
           ]),
           emptyLabel: "No phones bought yet",
         },
-        footerNote: "Generated from iPhone Store — Total Buy (all-time)",
+        footerNote: "Generated from Apple Store Satkhira — Total Buy (all-time)",
       },
       previewWin
     );
@@ -318,7 +318,7 @@ export default function DashboardStats() {
     const previewWin = window.open("", "_blank");
     generateReportPDF(
       {
-        shopName: "iPhone Store",
+        shopName: "Apple Store Satkhira",
         title: "Profit Report",
         subtitle: "This Month",
         summary: [
@@ -331,7 +331,7 @@ export default function DashboardStats() {
           rows: profitBreakdown.expense_categories.map((c) => [c.name, c.total.toLocaleString()]),
           emptyLabel: "No expense entries this month",
         },
-        footerNote: "Generated from iPhone Store — Dashboard (This Month's Profit)",
+        footerNote: "Generated from Apple Store Satkhira — Dashboard (This Month's Profit)",
       },
       previewWin
     );
@@ -343,7 +343,7 @@ export default function DashboardStats() {
     if (subKind === "stockProfitMonth") {
       generateReportPDF(
         {
-          shopName: "iPhone Store",
+          shopName: "Apple Store Satkhira",
           title: "Stock Profit Detail",
           subtitle: "This Month",
           summary: [{ label: "Stock Profit", value: `Tk ${(profitBreakdown?.stock_profit ?? 0).toLocaleString()}`, tone: "up" }],
@@ -359,14 +359,14 @@ export default function DashboardStats() {
             ]),
             emptyLabel: "No sales this month",
           },
-          footerNote: "Generated from iPhone Store — Dashboard",
+          footerNote: "Generated from Apple Store Satkhira — Dashboard",
         },
         previewWin
       );
     } else if (subKind === "cashSalesPaid") {
       generateReportPDF(
         {
-          shopName: "iPhone Store",
+          shopName: "Apple Store Satkhira",
           title: "Sales Received Detail",
           subtitle: `As of ${todayLabel()}`,
           summary: [{ label: "Sales Received", value: `Tk ${(cashBreakdown?.sales_paid ?? 0).toLocaleString()}`, tone: "up" }],
@@ -375,7 +375,7 @@ export default function DashboardStats() {
             rows: (subCashSales || []).map((s) => [s.name_model, s.imei, Number(s.paid_amount).toLocaleString()]),
             emptyLabel: "No sales yet",
           },
-          footerNote: "Generated from iPhone Store — Dashboard (Total Cash, all-time)",
+          footerNote: "Generated from Apple Store Satkhira — Dashboard (Total Cash, all-time)",
         },
         previewWin
       );

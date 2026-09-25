@@ -9,7 +9,7 @@ export default function BarcodeSticker({
   ramRom,
   batteryHealth,
   price,
-  shopName = "iPhone Store",
+  shopName = "Apple Store Satkhira",
   width = 2,
   height = 50,
 }: {

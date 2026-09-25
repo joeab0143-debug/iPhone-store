@@ -46,7 +46,7 @@ export default function GadgetsTab() {
       const sold = gadgets.filter((g) => Number(g.sold_count || 0) > 0);
       generateReportPDF(
         {
-          shopName: "iPhone Store",
+          shopName: "Apple Store Satkhira",
           title: "Gadgets Profit Report",
           subtitle: `As of ${todayLabel()}`,
           summary: [{ label: "Total Profit", value: `Tk ${totalProfit.toLocaleString()}`, tone: totalProfit >= 0 ? "up" : "down" }],
@@ -55,14 +55,14 @@ export default function GadgetsTab() {
             rows: sold.map((g) => [g.buy_name, Number(g.sold_count || 0), Number(g.total_sell || 0).toLocaleString(), Number(g.total_profit || 0).toLocaleString()]),
             emptyLabel: "No gadgets sold yet",
           },
-          footerNote: "Generated from iPhone Store — Gadgets & Accessories",
+          footerNote: "Generated from Apple Store Satkhira — Gadgets & Accessories",
         },
         previewWin
       );
     } else if (kind === "buy") {
       generateReportPDF(
         {
-          shopName: "iPhone Store",
+          shopName: "Apple Store Satkhira",
           title: "Gadgets Buy Report",
           subtitle: `As of ${todayLabel()}`,
           summary: [{ label: "Total Buy Value", value: `Tk ${totalBuy.toLocaleString()}`, tone: "down" }],
@@ -76,7 +76,7 @@ export default function GadgetsTab() {
             ]),
             emptyLabel: "No gadgets bought yet",
           },
-          footerNote: "Generated from iPhone Store — Gadgets & Accessories",
+          footerNote: "Generated from Apple Store Satkhira — Gadgets & Accessories",
         },
         previewWin
       );
@@ -84,7 +84,7 @@ export default function GadgetsTab() {
       const sold = gadgets.filter((g) => Number(g.total_sell || 0) > 0);
       generateReportPDF(
         {
-          shopName: "iPhone Store",
+          shopName: "Apple Store Satkhira",
           title: "Gadgets Sell Report",
           subtitle: `As of ${todayLabel()}`,
           summary: [{ label: "Total Sell", value: `Tk ${totalSell.toLocaleString()}`, tone: "up" }],
@@ -93,7 +93,7 @@ export default function GadgetsTab() {
             rows: sold.map((g) => [g.buy_name, Number(g.sold_count || 0), Number(g.total_sell || 0).toLocaleString()]),
             emptyLabel: "No gadgets sold yet",
           },
-          footerNote: "Generated from iPhone Store — Gadgets & Accessories",
+          footerNote: "Generated from Apple Store Satkhira — Gadgets & Accessories",
         },
         previewWin
       );

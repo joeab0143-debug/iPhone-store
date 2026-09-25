@@ -374,7 +374,7 @@ interface ShopInfoResponse {
  * Return) shares the same two small fetches instead of repeating them.
  */
 export async function printSalesInvoice(sale: SalesInvoiceSaleInput, previewWindow?: Window | null) {
-  let shop: ShopInfoResponse = { shop_name: "iPhone Store", address: null, phone: null, email: null };
+  let shop: ShopInfoResponse = { shop_name: "Apple Store Satkhira", address: null, phone: null, email: null };
   let preparedBy = "";
   try {
     const [shopRes, meRes] = await Promise.all([fetch("/api/shop-info"), fetch("/api/auth/me")]);
@@ -390,7 +390,7 @@ export async function printSalesInvoice(sale: SalesInvoiceSaleInput, previewWind
   generateSalesInvoicePDF(
     {
       ...sale,
-      shopName: shop.shop_name || "iPhone Store",
+      shopName: shop.shop_name || "Apple Store Satkhira",
       shopAddress: shop.address,
       shopPhone: shop.phone,
       shopEmail: shop.email,

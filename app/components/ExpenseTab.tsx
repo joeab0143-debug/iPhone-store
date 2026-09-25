@@ -194,7 +194,7 @@ export default function ExpenseTab() {
     const previewWin = window.open("", "_blank");
     generateReportPDF(
       {
-        shopName: "iPhone Store",
+        shopName: "Apple Store Satkhira",
         title: "Expense Report",
         subtitle: monthLabel(month),
         summary: [
@@ -208,7 +208,7 @@ export default function ExpenseTab() {
           rows: groupedExpenses.map((g) => [g.name, g.entries.length, g.total.toLocaleString()]),
           emptyLabel: "No expense entries this month",
         },
-        footerNote: "Generated from iPhone Store — Expense Tab",
+        footerNote: "Generated from Apple Store Satkhira — Expense Tab",
       },
       previewWin
     );

@@ -11,7 +11,7 @@ import { emitDashboardRefresh, DASHBOARD_REFRESH_EVENT } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
 import type { Phone, Sale } from "@/lib/types";
 
-const SHOP_NAME = "iPhone Store";
+const SHOP_NAME = "Apple Store Satkhira";
 
 // "YYYY-MM-DD" for today, in the browser's local time -- pre-fills the
 // Selling Date field so a normal sale doesn't need a date typed in; stays
@@ -357,7 +357,7 @@ export default function StockTab() {
           ]),
           emptyLabel: "No phones match this view",
         },
-        footerNote: "Generated from iPhone Store — Stock Tab",
+        footerNote: "Generated from Apple Store Satkhira — Stock Tab",
       },
       previewWin
     );

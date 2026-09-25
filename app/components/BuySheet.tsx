@@ -10,7 +10,7 @@ import { emitDashboardRefresh } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
 import type { Supplier } from "@/lib/types";
 
-const SHOP_NAME = "iPhone Store";
+const SHOP_NAME = "Apple Store Satkhira";
 
 // "YYYY-MM-DD" for today, in the browser's local time -- pre-fills the
 // Buy Date field so a normal purchase doesn't need a date typed in; stays
@@ -323,7 +323,7 @@ export default function BuySheet({
           ]),
           emptyLabel: t("buy.pdf_empty"),
         },
-        footerNote: "Generated from iPhone Store — Buy History",
+        footerNote: "Generated from Apple Store Satkhira — Buy History",
         photoSections,
       },
       previewWin

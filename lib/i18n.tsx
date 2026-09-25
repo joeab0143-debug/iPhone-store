@@ -13,7 +13,7 @@ type Entry = { en: string; bn: string };
 // file-by-file as each screen is translated.
 export const STRINGS: Record<string, Entry> = {
   // --- app shell -----------------------------------------------------
-  "app.title": { en: "iPhone Store", bn: "iPhone Store" },
+  "app.title": { en: "Apple Store Satkhira", bn: "Apple Store Satkhira" },
   "app.tagline": { en: "Mobile Shop Management", bn: "মোবাইল শোরুম ম্যানেজমেন্ট" },
 
   // --- sidebar ---------------------------------------------------------

@@ -16,7 +16,7 @@ interface ShopInfoRow {
 }
 
 const DEFAULT_SHOP_INFO: ShopInfoRow = {
-  shop_name: "iPhone Store",
+  shop_name: "Apple Store Satkhira",
   address: null,
   phone: null,
   email: null,
@@ -42,7 +42,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const body: any = await req.json().catch(() => ({}));
-  const shopName = String(body.shop_name || "").trim() || "iPhone Store";
+  const shopName = String(body.shop_name || "").trim() || "Apple Store Satkhira";
   const address = body.address ? String(body.address).trim() : null;
   const phone = body.phone ? String(body.phone).trim() : null;
   const email = body.email ? String(body.email).trim() : null;

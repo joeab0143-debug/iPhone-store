@@ -3,7 +3,7 @@
 -- editable from Settings -> Shop / Invoice Info (admin only).
 CREATE TABLE IF NOT EXISTS shop_info (
   id INTEGER PRIMARY KEY CHECK (id = 1),
-  shop_name TEXT NOT NULL DEFAULT 'iPhone Store',
+  shop_name TEXT NOT NULL DEFAULT 'Apple Store Satkhira',
   address TEXT,
   phone TEXT,
   email TEXT,
@@ -11,5 +11,5 @@ CREATE TABLE IF NOT EXISTS shop_info (
 );
 
 INSERT INTO shop_info (id, shop_name, address, phone, email)
-VALUES (1, 'iPhone Store', NULL, '01708115797', NULL)
+VALUES (1, 'Apple Store Satkhira', NULL, '01708115797', NULL)
 ON CONFLICT (id) DO NOTHING;
