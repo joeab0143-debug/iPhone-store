@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ScanLine } from "lucide-react";
-import { Button, Field, inputClass, Sheet } from "./ui";
+import { ScanLine, History, X, Search, Download } from "lucide-react";
+import { Button, Field, inputClass, Sheet, Badge, money, formatDate } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
 import { printSalesInvoice } from "@/lib/sales-invoice";
+import { generateReportPDF } from "@/lib/report-pdf";
 import { emitDashboardRefresh } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
 import type { Phone } from "@/lib/types";
+
+const SHOP_NAME = "Apple Store Satkhira";
 
 // "YYYY-MM-DD" for today, in the browser's local time -- used to
 // pre-fill the Sale Date field so a normal sale doesn't require typing a
@@ -51,6 +54,18 @@ export default function SellSheet({
   const [scanOpen, setScanOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Sale History panel -- lets the shop owner browse past sales by date,
+  // or find one specific sale by customer name/phone/invoice number and
+  // reprint its memo (see loadHistory/viewHistoryMemo below).
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyFrom, setHistoryFrom] = useState("");
+  const [historyTo, setHistoryTo] = useState("");
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [historyResults, setHistoryResults] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [historyReportLoading, setHistoryReportLoading] = useState(false);
 
   // As soon as an IMEI is typed/scanned, look it up in stock. A full exact
   // match auto-fills Model/RAM-ROM/Battery Health straight away; a partial
@@ -125,6 +140,111 @@ export default function SellSheet({
   function handleClose() {
     reset();
     onClose();
+  }
+
+  function closeHistory() {
+    setHistoryOpen(false);
+    setHistoryFrom("");
+    setHistoryTo("");
+    setHistoryQuery("");
+    setHistoryResults([]);
+    setHistoryError("");
+  }
+
+  // Fetches /api/sales with whatever filters are currently set (date
+  // range and/or the free-text search box, which the API matches against
+  // customer name, customer phone, and invoice number -- see
+  // app/api/sales/route.ts). Called on open (unfiltered — most recent
+  // sales first) and again whenever the user presses Search.
+  async function loadHistory() {
+    setHistoryError("");
+    setHistoryLoading(true);
+    const params = new URLSearchParams();
+    if (historyFrom) params.set("from", historyFrom);
+    if (historyTo) params.set("to", historyTo);
+    if (historyQuery.trim()) params.set("q", historyQuery.trim());
+    try {
+      const res = await fetch(`/api/sales?${params.toString()}`);
+      const d: any = await res.json();
+      setHistoryResults(Array.isArray(d.sales) ? d.sales : []);
+    } catch {
+      setHistoryError(t("sell.history_load_failed"));
+    }
+    setHistoryLoading(false);
+  }
+
+  function openHistory() {
+    setHistoryOpen(true);
+    loadHistory();
+  }
+
+  // Reprints the exact same memo for a past sale -- every field it needs
+  // (model, IMEI, customer contact info, price/due split, RAM-ROM/battery)
+  // already came back in the /api/sales list itself (s.* plus the phones
+  // join), so this needs no extra per-sale fetch.
+  async function viewHistoryMemo(row: any) {
+    const previewWin = window.open("", "_blank");
+    await printSalesInvoice(
+      {
+        saleId: row.id,
+        nameModel: row.name_model,
+        imei: row.imei,
+        sellingPrice: row.selling_price,
+        sellingDate: row.selling_date,
+        isDue: !!row.is_due,
+        customerName: row.customer_name,
+        customerPhone: row.customer_phone,
+        customerAddress: row.customer_address,
+        customerEmail: row.customer_email,
+        narration: row.narration,
+        paidAmount: row.paid_amount,
+        dueAmount: row.due_amount,
+        ramRom: row.ram_rom,
+        batteryHealth: row.battery_health,
+      },
+      previewWin
+    );
+  }
+
+  // A plain summary-table PDF of whatever's currently listed (same
+  // date-range/search filters as the on-screen list) -- separate from
+  // viewHistoryMemo above, which reprints one specific sale's actual memo.
+  function downloadHistoryReport() {
+    const previewWin = window.open("", "_blank");
+    setHistoryReportLoading(true);
+    const totalValue = historyResults.reduce((s, r) => s + Number(r.selling_price || 0), 0);
+    generateReportPDF(
+      {
+        shopName: SHOP_NAME,
+        title: "Sale History Report",
+        subtitle:
+          historyFrom || historyTo
+            ? `${historyFrom || "..."} to ${historyTo || "..."}`
+            : historyQuery.trim()
+              ? `Search: "${historyQuery.trim()}"`
+              : "All time",
+        summary: [
+          { label: "Total Sales", value: String(historyResults.length) },
+          { label: "Total Value", value: `Tk ${totalValue.toLocaleString()}` },
+        ],
+        table: {
+          head: ["Date", "Model", "IMEI", "Customer", "Phone", "Price (Tk)", "Status"],
+          rows: historyResults.map((r) => [
+            (r.selling_date || "-").toString().slice(0, 10),
+            r.name_model || "-",
+            r.imei || "-",
+            r.customer_name || "-",
+            r.customer_phone || "-",
+            Number(r.selling_price || 0).toLocaleString(),
+            r.is_due ? "Due" : "Paid",
+          ]),
+          emptyLabel: "No sales match this search",
+        },
+        footerNote: "Generated from Apple Store Satkhira — Sale History",
+      },
+      previewWin
+    );
+    setHistoryReportLoading(false);
   }
 
   async function submit() {
@@ -230,6 +350,18 @@ export default function SellSheet({
     <>
       <Sheet open={open} onClose={handleClose} title={t("sell.title")}>
         <div className="space-y-3">
+          <div className="mb-1 flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-2 px-3.5 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">{t("sell.history_label")}</p>
+              <p className="mt-0.5 text-[11px] text-ink-faint">{t("sell.history_desc")}</p>
+            </div>
+            <button
+              onClick={openHistory}
+              className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-surface px-3 py-2 text-xs font-semibold text-teal"
+            >
+              <History size={14} /> {t("sell.history_button")}
+            </button>
+          </div>
           <Field label={t("sell.date_label")}>
             <input
               type="date"
@@ -396,6 +528,126 @@ export default function SellSheet({
           setForm((f) => ({ ...f, imei: code }));
         }}
       />
+
+      {/* Sale History -- a real full-screen overlay (matches
+          BuySheet.tsx's Purchase History panel / BarcodeScanner /
+          CameraCapture), not a second inline <Sheet>. Unlike Buy History
+          (which is filter-then-download-a-PDF only), this one shows the
+          matching sales right on screen too, so a specific customer's old
+          memo can be found and reprinted without generating a report
+          first. */}
+      {historyOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-bg">
+          <div className="flex items-center justify-between border-b border-border p-4">
+            <h3 className="font-display text-lg font-semibold">{t("sell.history_title")}</h3>
+            <button
+              onClick={closeHistory}
+              className="rounded-full p-1.5 text-ink-muted hover:bg-surface-2 hover:text-ink transition"
+              aria-label={t("common.reset_form")}
+            >
+              <X size={22} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-4 py-4">
+            <div className="space-y-3">
+              <Field label={t("sell.history_search_label")}>
+                <div className="relative">
+                  <Search
+                    size={16}
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint"
+                  />
+                  <input
+                    value={historyQuery}
+                    onChange={(e) => setHistoryQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") loadHistory();
+                    }}
+                    placeholder={t("sell.history_search_placeholder")}
+                    className={inputClass + " pl-9"}
+                  />
+                </div>
+              </Field>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label={t("sell.history_from")}>
+                  <input
+                    type="date"
+                    value={historyFrom}
+                    onChange={(e) => setHistoryFrom(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label={t("sell.history_to")}>
+                  <input
+                    type="date"
+                    value={historyTo}
+                    onChange={(e) => setHistoryTo(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+              <Button full variant="secondary" onClick={loadHistory} disabled={historyLoading}>
+                {historyLoading ? t("sell.history_loading") : t("sell.history_search_button")}
+              </Button>
+              {historyError && <p className="text-sm text-down">{historyError}</p>}
+
+              <div className="pt-1">
+                {historyLoading ? (
+                  <p className="text-sm text-ink-muted">{t("sell.history_loading")}</p>
+                ) : historyResults.length === 0 ? (
+                  <div className="rounded-2xl border border-border bg-surface p-6 text-center text-sm text-ink-muted">
+                    {t("sell.history_empty")}
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {historyResults.map((row) => (
+                      <div key={row.id} className="rounded-2xl border border-border bg-surface p-4">
+                        <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-semibold text-ink-faint tabular">
+                            {t("sell.history_invoice_prefix")}
+                            {row.id}
+                          </span>
+                          <Badge tone={row.is_due ? "due" : "up"}>
+                            {row.is_due ? t("sell.history_due_badge") : t("sell.history_paid_badge")}
+                          </Badge>
+                        </div>
+                        <p className="mb-0.5 font-semibold text-ink">{row.name_model}</p>
+                        <p className="text-xs text-ink-faint tabular">IMEI: {row.imei}</p>
+                        <p className="mt-1 text-xs text-ink-muted">
+                          {row.customer_name || "-"}
+                          {row.customer_phone ? ` — ${row.customer_phone}` : ""}
+                        </p>
+                        <div className="mt-2 flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-bold tabular">{money(row.selling_price)}</p>
+                            <p className="text-[11px] text-ink-faint">{formatDate(row.selling_date)}</p>
+                          </div>
+                          <button
+                            onClick={() => viewHistoryMemo(row)}
+                            className="flex items-center gap-1 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-semibold text-teal"
+                          >
+                            <Download size={13} /> {t("sell.history_view_memo")}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-border p-4">
+            <Button
+              full
+              onClick={downloadHistoryReport}
+              disabled={historyReportLoading || historyResults.length === 0}
+            >
+              {historyReportLoading ? t("sell.history_generating") : t("sell.history_download_pdf")}
+            </Button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

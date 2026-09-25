@@ -49,7 +49,10 @@ export default function Home() {
             {tab === "gadgets" && <GadgetsTab />}
             {tab === "sell" && <SellSheet open onClose={() => {}} />}
             {tab === "buy" && <BuySheet open onClose={() => {}} />}
-            {tab === "approvals" && role === "admin" && <ApprovalsTab />}
+            {tab === "approvals" &&
+              (role === "admin" || role === "pos_manager") && (
+                <ApprovalsTab role={role} />
+              )}
             {tab === "settings" && (
               <SettingsSheet open onClose={() => {}} username={username} role={role} />
             )}

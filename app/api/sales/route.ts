@@ -8,6 +8,12 @@ export async function GET(req: NextRequest) {
   const from = req.nextUrl.searchParams.get("from");
   const to = req.nextUrl.searchParams.get("to");
   const dueOnly = req.nextUrl.searchParams.get("due_only");
+  // Free-text search for the Sell tab's Sale History panel -- matches
+  // against customer name, customer phone, OR the invoice number (which
+  // is never its own column; lib/sales-invoice.ts prints it as
+  // "INV-<sale id>"/"RTN-<sale id>", so an "INV-"/"RTN-" prefix the user
+  // typed is stripped before comparing against the sale's id).
+  const q = req.nextUrl.searchParams.get("q");
 
   let query = `
     SELECT s.*, p.name_model, p.imei, p.buy_price, p.buy_date
@@ -27,6 +33,13 @@ export async function GET(req: NextRequest) {
   }
   if (dueOnly === "1") {
     query += " AND s.is_due = 1 AND s.due_amount > 0";
+  }
+  if (q && q.trim()) {
+    const raw = q.trim();
+    const invoiceDigits = raw.replace(/^(inv|rtn)-/i, "");
+    query +=
+      " AND (s.customer_name LIKE ? OR s.customer_phone LIKE ? OR CAST(s.id AS TEXT) LIKE ?)";
+    binds.push(`%${raw}%`, `%${raw}%`, `%${invoiceDigits}%`);
   }
   query += " ORDER BY s.selling_date DESC";
 

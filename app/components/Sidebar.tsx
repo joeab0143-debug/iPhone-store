@@ -14,6 +14,7 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { useLang } from "@/lib/i18n";
+import { APPROVALS_REFRESH_EVENT } from "@/lib/events";
 
 export type TabId =
   | "stock"
@@ -43,10 +44,15 @@ export default function Sidebar({
   const { lang, setLang, t } = useLang();
   const [pendingCount, setPendingCount] = useState(0);
 
-  // The Approvals badge only matters to an admin — a POS Manager never
-  // sees this nav item at all, so there's nothing to poll for them.
+  // The Approvals badge matters to both roles now -- an admin sees how many
+  // POS Manager requests are waiting on them, a POS Manager sees how many of
+  // their own requests are still waiting on the admin. Polls every 5s (down
+  // from 30s) so it feels live without a manual refresh, and also refreshes
+  // instantly the moment something changes in THIS tab (a request just got
+  // queued, or an admin just approved/rejected one) via APPROVALS_REFRESH_EVENT
+  // -- see lib/events.ts. Cross-tab/cross-device changes still ride the poll.
   useEffect(() => {
-    if (role !== "admin") return;
+    if (role !== "admin" && role !== "pos_manager") return;
     let cancelled = false;
     function loadCount() {
       fetch("/api/pending-approvals?status=pending")
@@ -57,10 +63,12 @@ export default function Sidebar({
         .catch(() => {});
     }
     loadCount();
-    const interval = setInterval(loadCount, 30000);
+    const interval = setInterval(loadCount, 5000);
+    window.addEventListener(APPROVALS_REFRESH_EVENT, loadCount);
     return () => {
       cancelled = true;
       clearInterval(interval);
+      window.removeEventListener(APPROVALS_REFRESH_EVENT, loadCount);
     };
   }, [role, tab]);
 
@@ -111,9 +119,11 @@ export default function Sidebar({
           );
         })}
 
-        {/* Admin-only: review/approve or reject what the POS Manager has
-            queued. A POS Manager never sees this item. */}
-        {role === "admin" && (
+        {/* Admin sees every POS Manager request waiting on them here
+            ("Approvals"); a POS Manager sees this same tab but scoped to
+            their own submitted requests, read-only ("My Requests") -- see
+            ApprovalsTab.tsx for the role-aware rendering. */}
+        {(role === "admin" || role === "pos_manager") && (
           <button
             onClick={() => onChange("approvals")}
             className={`nav-item flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left sm:px-3 ${
@@ -124,7 +134,7 @@ export default function Sidebar({
           >
             <ClipboardCheck size={18} className="shrink-0" />
             <span className="hidden min-w-0 flex-1 truncate text-[13px] font-semibold sm:block">
-              {t("sidebar.approvals")}
+              {role === "admin" ? t("sidebar.approvals") : t("sidebar.my_requests")}
             </span>
             {pendingCount > 0 && (
               <span className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-due px-1 text-[10px] font-bold text-white">

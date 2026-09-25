@@ -4,14 +4,19 @@ import { getSessionUser, SESSION_COOKIE } from "@/lib/auth";
 
 export const runtime = "edge";
 
-// Lists queued POS Manager requests for the Approvals tab. Admin-only --
-// defaults to just the still-open ones (status=pending); pass
-// ?status=all to also see past approved/rejected requests (history view).
+// Lists queued POS Manager requests -- powers both the admin's Approvals
+// tab and the POS Manager's own read-only "My Requests" view (same data:
+// there's only ever one POS Manager account, so every row here was
+// requested_by that account anyway -- no extra per-user filtering needed).
+// Any logged-in session (admin or pos_manager) may read this; only the
+// approve/reject routes stay admin-only. Defaults to just the still-open
+// ones (status=pending); pass ?status=all to also see past
+// approved/rejected requests (history view).
 export async function GET(req: NextRequest) {
   const db = getDB();
   const user = await getSessionUser(db, req.cookies.get(SESSION_COOKIE)?.value);
-  if (!user || user.role !== "admin") {
-    return NextResponse.json({ error: "Admin only" }, { status: 403 });
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const status = req.nextUrl.searchParams.get("status");

@@ -7,7 +7,7 @@ import BarcodeScanner from "./BarcodeScanner";
 import BarcodeSticker from "./BarcodeSticker";
 import { printSalesInvoice } from "@/lib/sales-invoice";
 import { generateReportPDF } from "@/lib/report-pdf";
-import { emitDashboardRefresh, DASHBOARD_REFRESH_EVENT } from "@/lib/events";
+import { emitDashboardRefresh, emitApprovalsRefresh, DASHBOARD_REFRESH_EVENT } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
 import type { Phone, Sale } from "@/lib/types";
 
@@ -262,6 +262,7 @@ export default function StockTab() {
       return;
     }
     if (delData.pending) {
+      emitApprovalsRefresh();
       previewWin?.close();
       window.alert(t("approvals.pending_submitted_message"));
       return;
@@ -315,6 +316,7 @@ export default function StockTab() {
       return;
     }
     if (d.pending) {
+      emitApprovalsRefresh();
       window.alert(t("approvals.pending_submitted_message"));
       return;
     }
@@ -1033,6 +1035,7 @@ function EditPhoneSheet({
       return;
     }
     if (d.pending) {
+      emitApprovalsRefresh();
       window.alert(t("approvals.pending_submitted_message"));
       onClose();
       return;

@@ -6,6 +6,7 @@ import { Button, Field, inputClass, money, formatDate, Sheet, Badge } from "./ui
 import { generateReportPDF } from "@/lib/report-pdf";
 import { useLang } from "@/lib/i18n";
 import type { Gadget } from "@/lib/types";
+import { emitApprovalsRefresh } from "@/lib/events";
 
 // Gadgets & Accessories — a private buy/sell log for the user's own
 // reference. Its profit is intentionally separate from the phone
@@ -144,6 +145,7 @@ export default function GadgetsTab() {
     const res = await fetch(`/api/gadgets/${id}`, { method: "DELETE" });
     const d: any = await res.json().catch(() => ({}));
     if (d.pending) {
+      emitApprovalsRefresh();
       window.alert(t("approvals.pending_submitted_message"));
       return;
     }

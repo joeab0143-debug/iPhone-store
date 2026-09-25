@@ -13,7 +13,7 @@ import {
   currentMonthStr,
   monthRange,
 } from "./ui";
-import { emitDashboardRefresh } from "@/lib/events";
+import { emitDashboardRefresh, emitApprovalsRefresh } from "@/lib/events";
 import { generateReportPDF } from "@/lib/report-pdf";
 import { useLang } from "@/lib/i18n";
 import type { Expense, ExpenseCategory } from "@/lib/types";
@@ -90,6 +90,7 @@ export default function ExpenseTab() {
     const res = await fetch(`/api/expense-categories/${id}`, { method: "DELETE" });
     const d: any = await res.json().catch(() => ({}));
     if (d.pending) {
+      emitApprovalsRefresh();
       window.alert(t("approvals.pending_submitted_message"));
       return;
     }
@@ -128,6 +129,7 @@ export default function ExpenseTab() {
     const res = await fetch(`/api/expenses/${id}`, { method: "DELETE" });
     const d: any = await res.json().catch(() => ({}));
     if (d.pending) {
+      emitApprovalsRefresh();
       window.alert(t("approvals.pending_submitted_message"));
       return;
     }

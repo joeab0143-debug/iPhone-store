@@ -6,7 +6,7 @@ import { Button, Field, inputClass, Sheet } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
 import CameraCapture from "./CameraCapture";
 import { generateReportPDF, type ReportPhotoEntry } from "@/lib/report-pdf";
-import { emitDashboardRefresh } from "@/lib/events";
+import { emitDashboardRefresh, emitApprovalsRefresh } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
 import type { Supplier } from "@/lib/types";
 
@@ -372,6 +372,7 @@ export default function BuySheet({
       return;
     }
     if (d.pending) {
+      emitApprovalsRefresh();
       window.alert(t("approvals.pending_submitted_message"));
       handleClose();
       return;

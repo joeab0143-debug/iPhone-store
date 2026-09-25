@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, X as XIcon } from "lucide-react";
 import { useLang } from "@/lib/i18n";
 import { Button, formatDate } from "./ui";
-import { emitDashboardRefresh } from "@/lib/events";
+import { emitDashboardRefresh, emitApprovalsRefresh, APPROVALS_REFRESH_EVENT } from "@/lib/events";
 
 interface ApprovalRow {
   id: number;
@@ -19,12 +19,20 @@ interface ApprovalRow {
   reviewed_at: string | null;
 }
 
-// Admin-only tab: every Edit, Delete, or Buy a POS Manager submits lands
-// here instead of applying right away (see lib/approvals.ts). Approving
-// runs the actual change (through the same code the admin's own requests
-// use, via lib/approvalActions.ts); rejecting just discards the request --
-// nothing about the original record changes either way.
-export default function ApprovalsTab() {
+// Shared by two roles, rendered differently for each (see role checks
+// below): the admin sees every Edit/Delete/Buy a POS Manager submitted
+// (see lib/approvals.ts) with Approve/Reject controls -- approving runs the
+// actual change (through the same code the admin's own requests use, via
+// lib/approvalActions.ts), rejecting just discards the request, nothing
+// about the original record changes either way. A POS Manager sees this
+// same list scoped to their own requests, read-only, so they always know
+// what's still waiting on the admin. Polls every 5s and also listens for
+// APPROVALS_REFRESH_EVENT so it updates without a page refresh.
+export default function ApprovalsTab({
+  role,
+}: {
+  role: "admin" | "pos_manager" | "";
+}) {
   const { t } = useLang();
   const [view, setView] = useState<"pending" | "history">("pending");
   const [items, setItems] = useState<ApprovalRow[]>([]);
@@ -32,8 +40,8 @@ export default function ApprovalsTab() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState("");
 
-  function load() {
-    setLoading(true);
+  function load(opts?: { silent?: boolean }) {
+    if (!opts?.silent) setLoading(true);
     const qs = view === "pending" ? "status=pending" : "status=all";
     fetch(`/api/pending-approvals?${qs}`)
       .then((r) => r.json())
@@ -44,6 +52,15 @@ export default function ApprovalsTab() {
 
   useEffect(() => {
     load();
+    function handleExternalRefresh() {
+      load({ silent: true });
+    }
+    window.addEventListener(APPROVALS_REFRESH_EVENT, handleExternalRefresh);
+    const interval = setInterval(() => load({ silent: true }), 5000);
+    return () => {
+      window.removeEventListener(APPROVALS_REFRESH_EVENT, handleExternalRefresh);
+      clearInterval(interval);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
@@ -72,6 +89,7 @@ export default function ApprovalsTab() {
       return;
     }
     emitDashboardRefresh();
+    emitApprovalsRefresh();
     load();
   }
 
@@ -86,14 +104,19 @@ export default function ApprovalsTab() {
       setError(d.error || t("approvals.reject_failed"));
       return;
     }
+    emitApprovalsRefresh();
     load();
   }
 
   return (
     <div className="pb-24">
       <div className="mb-4">
-        <h2 className="font-display text-lg font-semibold">{t("approvals.title")}</h2>
-        <p className="text-xs text-ink-muted">{t("approvals.subtitle")}</p>
+        <h2 className="font-display text-lg font-semibold">
+          {role === "admin" ? t("approvals.title") : t("approvals.my_title")}
+        </h2>
+        <p className="text-xs text-ink-muted">
+          {role === "admin" ? t("approvals.subtitle") : t("approvals.my_subtitle")}
+        </p>
       </div>
 
       <div className="mb-4 flex w-fit items-center gap-1.5 rounded-xl bg-surface-2 p-1">
@@ -157,7 +180,7 @@ export default function ApprovalsTab() {
                   {item.reviewed_by} — {formatDate(item.reviewed_at || undefined)}
                 </p>
               )}
-              {item.status === "pending" && (
+              {item.status === "pending" && role === "admin" && (
                 <div className="mt-3 flex gap-2">
                   <Button
                     variant="primary"
