@@ -59,6 +59,27 @@ export async function applyPhoneBuy(db: D1Database, payload: any): Promise<Apply
         sellerType === "individual" ? person_photo || null : null
       )
       .run();
+
+    // Supplier purchases (not individual/used-phone ones) feed the reusable
+    // Supplier list -- a name that's new gets remembered, and a known
+    // supplier's phone/NID gets filled in if it was missing before. This is
+    // best-effort: it never blocks or fails the actual phone purchase above.
+    if (sellerType === "supplier" && bought_from && String(bought_from).trim()) {
+      try {
+        await db
+          .prepare(
+            `INSERT INTO suppliers (name, phone_number, nid) VALUES (?, ?, ?)
+             ON CONFLICT(name) DO UPDATE SET
+               phone_number = COALESCE(suppliers.phone_number, excluded.phone_number),
+               nid = COALESCE(suppliers.nid, excluded.nid)`
+          )
+          .bind(String(bought_from).trim(), phone_number || null, nid || null)
+          .run();
+      } catch {
+        // Non-critical -- the phone purchase above already succeeded.
+      }
+    }
+
     return { ok: true, data: { id: result.meta.last_row_id } };
   } catch (e: any) {
     if (String(e.message || e).includes("UNIQUE")) {

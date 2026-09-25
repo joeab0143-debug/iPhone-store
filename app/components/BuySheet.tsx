@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ScanLine, Download, Camera } from "lucide-react";
 import { Button, Field, inputClass, Sheet } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
@@ -8,6 +8,7 @@ import { generateReportPDF } from "@/lib/report-pdf";
 import { emitDashboardRefresh } from "@/lib/events";
 import { compressImageFile } from "@/lib/image";
 import { useLang } from "@/lib/i18n";
+import type { Supplier } from "@/lib/types";
 
 const SHOP_NAME = "iPhone Store";
 
@@ -123,6 +124,70 @@ export default function BuySheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+
+  // Supplier autocomplete -- only relevant for the "supplier" seller type.
+  // The full list is fetched once per sheet-open (suppliers are few enough
+  // that client-side filtering is simpler than a search-as-you-type API,
+  // matching how small this shop's supplier list realistically stays).
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [supplierSuggestions, setSupplierSuggestions] = useState<Supplier[]>([]);
+  const [matchedSupplier, setMatchedSupplier] = useState<Supplier | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    fetch("/api/suppliers")
+      .then((r) => r.json())
+      .then((d: any) => setSuppliers(d.suppliers || []))
+      .catch(() => {});
+  }, [open]);
+
+  // Same exact-match-vs-suggestions pattern as the Sell sheet's IMEI
+  // lookup: typing a name that exactly matches a saved supplier (case
+  // insensitive) auto-fills their known Number/NID and hides those fields;
+  // otherwise a partial match shows a pick-list below the field.
+  useEffect(() => {
+    if (form.seller_type !== "supplier") {
+      setMatchedSupplier(null);
+      setSupplierSuggestions([]);
+      return;
+    }
+    const typed = form.bought_from.trim();
+    if (!typed) {
+      setMatchedSupplier(null);
+      setSupplierSuggestions([]);
+      return;
+    }
+    const exact = suppliers.find((s) => s.name.toLowerCase() === typed.toLowerCase());
+    if (exact) {
+      setMatchedSupplier(exact);
+      setSupplierSuggestions([]);
+      setForm((f) => ({
+        ...f,
+        phone_number: exact.phone_number || f.phone_number,
+        nid: exact.nid || f.nid,
+      }));
+    } else {
+      setMatchedSupplier(null);
+      if (typed.length >= 2) {
+        setSupplierSuggestions(
+          suppliers.filter((s) => s.name.toLowerCase().includes(typed.toLowerCase())).slice(0, 8)
+        );
+      } else {
+        setSupplierSuggestions([]);
+      }
+    }
+  }, [form.bought_from, form.seller_type, suppliers]);
+
+  function selectSupplier(s: Supplier) {
+    setMatchedSupplier(s);
+    setSupplierSuggestions([]);
+    setForm((f) => ({
+      ...f,
+      bought_from: s.name,
+      phone_number: s.phone_number || "",
+      nid: s.nid || "",
+    }));
+  }
 
   // Purchase history download — even after a phone sells and leaves stock,
   // who it was bought from is never lost (stays in the phones table); this
@@ -387,26 +452,70 @@ export default function BuySheet({
               />
             </Field>
             <Field label={t("buy.bought_from_label")}>
-              <input
-                value={form.bought_from}
-                onChange={(e) => setForm({ ...form, bought_from: e.target.value })}
-                className={inputClass}
-              />
+              {form.seller_type === "supplier" ? (
+                <div className="relative">
+                  <input
+                    value={form.bought_from}
+                    onChange={(e) => {
+                      setMatchedSupplier(null);
+                      setForm({ ...form, bought_from: e.target.value });
+                    }}
+                    onBlur={() => setTimeout(() => setSupplierSuggestions([]), 150)}
+                    placeholder={t("buy.bought_from_placeholder")}
+                    className={inputClass}
+                  />
+                  {matchedSupplier && (
+                    <p className="mt-1 text-xs text-up">{t("buy.supplier_matched_note")}</p>
+                  )}
+                  {!matchedSupplier && supplierSuggestions.length > 0 && (
+                    <ul className="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-border bg-bg-elevated shadow-lg">
+                      {supplierSuggestions.map((s) => (
+                        <li key={s.id}>
+                          <button
+                            type="button"
+                            onClick={() => selectSupplier(s)}
+                            className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-surface-2"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{s.name}</p>
+                              {(s.phone_number || s.nid) && (
+                                <p className="truncate text-xs text-ink-faint tabular">
+                                  {[s.phone_number, s.nid].filter(Boolean).join(" · ")}
+                                </p>
+                              )}
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                <input
+                  value={form.bought_from}
+                  onChange={(e) => setForm({ ...form, bought_from: e.target.value })}
+                  className={inputClass}
+                />
+              )}
             </Field>
-            <Field label={t("buy.number_label")}>
-              <input
-                value={form.phone_number}
-                onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
-                className={inputClass}
-              />
-            </Field>
-            <Field label={t("buy.nid_label")}>
-              <input
-                value={form.nid}
-                onChange={(e) => setForm({ ...form, nid: e.target.value })}
-                className={inputClass}
-              />
-            </Field>
+            {!(form.seller_type === "supplier" && matchedSupplier) && (
+              <>
+                <Field label={t("buy.number_label")}>
+                  <input
+                    value={form.phone_number}
+                    onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label={t("buy.nid_label")}>
+                  <input
+                    value={form.nid}
+                    onChange={(e) => setForm({ ...form, nid: e.target.value })}
+                    className={inputClass}
+                  />
+                </Field>
+              </>
+            )}
             {error && <p className="text-sm text-down">{error}</p>}
             <Button full onClick={submit} disabled={saving}>
               {saving ? t("buy.saving") : t("buy.save_button")}

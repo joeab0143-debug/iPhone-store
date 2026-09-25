@@ -446,6 +446,9 @@ export default function StockTab() {
                     <Badge tone={p.status === "unsold" ? "default" : "up"}>
                       {p.status === "unsold" ? "Unsold" : "Sold"}
                     </Badge>
+                    {p.seller_type === "individual" && (
+                      <Badge tone="due">{t("stock.used_phone_badge")}</Badge>
+                    )}
                   </div>
                   <p className="mt-0.5 truncate text-xs text-ink-faint tabular">
                     IMEI: {p.imei}
@@ -782,6 +785,9 @@ function PhoneDetailsSheet({
             <Badge tone={phone.status === "unsold" ? "default" : "up"}>
               {phone.status === "unsold" ? "Unsold" : "Sold"}
             </Badge>
+            {phone.seller_type === "individual" && (
+              <Badge tone="due">{t("stock.used_phone_badge")}</Badge>
+            )}
           </div>
           <button
             onClick={() => onEdit(phone)}

@@ -46,7 +46,7 @@ export const STRINGS: Record<string, Entry> = {
   "buy.buy_another": { en: "Buy another phone", bn: "আরেকটা ফোন ক্রয় করুন" },
   "buy.seller_type_label": { en: "Seller Type", bn: "বিক্রেতার ধরন" },
   "buy.seller_supplier": { en: "Supplier", bn: "সাপ্লায়ার" },
-  "buy.seller_individual": { en: "Individual", bn: "ব্যক্তিগত ফোন" },
+  "buy.seller_individual": { en: "Used Phone", bn: "ইউজড ফোন" },
   "buy.seller_individual_note": {
     en: "When buying directly from an individual, both sides of their NID card and their photo will be kept for accountability.",
     bn: "ব্যক্তির কাছ থেকে সরাসরি কিনলে জবাবদিহিতার জন্য এন আইডি কার্ডের দুই পাশ ও তার একটা ছবি তুলে রাখা হবে।",
@@ -68,6 +68,8 @@ export const STRINGS: Record<string, Entry> = {
   "buy.battery_placeholder": { en: "e.g. 92%", bn: "যেমন: 92%" },
   "buy.price_label": { en: "Buy Price (৳)", bn: "Buy Price (৳)" },
   "buy.bought_from_label": { en: "Buy from whom", bn: "কার কাছ থেকে কেনা হয়েছে" },
+  "buy.bought_from_placeholder": { en: "Type a supplier name — pick from the list or add new", bn: "সাপ্লায়ারের নাম লিখুন — লিস্ট থেকে বেছে নিন অথবা নতুন যোগ করুন" },
+  "buy.supplier_matched_note": { en: "Known supplier — Number/NID already on file", bn: "সেভ করা সাপ্লায়ার — নাম্বার/এনআইডি আগে থেকেই সংরক্ষিত আছে" },
   "buy.number_label": { en: "Number", bn: "নম্বর" },
   "buy.nid_label": { en: "NID", bn: "NID" },
   "buy.validation_required": {
@@ -332,6 +334,7 @@ export const STRINGS: Record<string, Entry> = {
   "stock.view_due_aria": { en: "View due", bn: "বাকি দেখুন" },
   "stock.return_phone_aria": { en: "Return phone", bn: "ফোন ফেরত নিন" },
   "stock.print_sticker_aria": { en: "Print sticker", bn: "স্টিকার প্রিন্ট" },
+  "stock.used_phone_badge": { en: "Used Phone", bn: "ইউজড ফোন" },
   "stock.sell_sheet_title_prefix": { en: "Sell — ", bn: "বিক্রি — " },
   "stock.selling_price_label": { en: "Selling Price (৳)", bn: "বিক্রয়মূল্য (৳)" },
   "stock.selling_date_label": { en: "Selling Date", bn: "বিক্রয়ের তারিখ" },

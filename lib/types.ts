@@ -12,6 +12,9 @@ export interface Phone {
   bought_from?: string | null;
   phone_number?: string | null;
   nid?: string | null;
+  // "individual" == bought directly from a person -- shown to the owner as
+  // "Used Phone" (see buy.seller_individual in lib/i18n.tsx).
+  seller_type?: "supplier" | "individual";
 }
 
 export interface Sale {
@@ -34,6 +37,14 @@ export interface Sale {
   imei?: string;
   buy_price?: number;
   buy_date?: string;
+}
+
+export interface Supplier {
+  id: number;
+  name: string;
+  phone_number: string | null;
+  nid: string | null;
+  created_at: string;
 }
 
 export interface DuePayment {
