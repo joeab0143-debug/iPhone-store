@@ -13,7 +13,11 @@ import {
   currentMonthStr,
   monthRange,
 } from "./ui";
-import { emitDashboardRefresh, emitApprovalsRefresh } from "@/lib/events";
+import { emitDashboardRefresh, emitApprovalsRefresh, DASHBOARD_REFRESH_EVENT } from "@/lib/events";
+
+// Another device/session may add or approve an expense entry while this
+// tab is open -- this is how often it quietly checks for that.
+const POLL_MS = 8000;
 import { generateReportPDF } from "@/lib/report-pdf";
 import { useLang } from "@/lib/i18n";
 import type { Expense, ExpenseCategory } from "@/lib/types";
@@ -44,8 +48,8 @@ export default function ExpenseTab() {
   // Clicking a name shows that group's detail (date-wise list).
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
 
-  async function load() {
-    setLoading(true);
+  async function load(opts?: { silent?: boolean }) {
+    if (!opts?.silent) setLoading(true);
     const { from, to } = monthRange(month);
     const [cRes, eRes] = await Promise.all([
       fetch("/api/expense-categories"),
@@ -60,6 +64,19 @@ export default function ExpenseTab() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month]);
+
+  // Poll quietly in the background (and react instantly to same-tab
+  // activity) so this list stays current without a manual page refresh.
+  useEffect(() => {
+    const handler = () => load({ silent: true });
+    window.addEventListener(DASHBOARD_REFRESH_EVENT, handler);
+    const interval = setInterval(() => load({ silent: true }), POLL_MS);
+    return () => {
+      window.removeEventListener(DASHBOARD_REFRESH_EVENT, handler);
+      clearInterval(interval);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
 

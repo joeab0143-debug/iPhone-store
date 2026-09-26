@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Wallet, UserCog, Store, DatabaseBackup, Download } from "lucide-react";
+import { LogOut, Wallet, UserCog, Store, DatabaseBackup, Download, Plus, Trash2 } from "lucide-react";
 import { Button, Field, Sheet, inputClass, money, formatDate } from "./ui";
 import { emitDashboardRefresh } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
@@ -52,6 +52,9 @@ export default function SettingsSheet({
   const [shopAddress, setShopAddress] = useState("");
   const [shopPhone, setShopPhone] = useState("");
   const [shopEmail, setShopEmail] = useState("");
+  // Free-form warning/notice lines printed on the memo below the PAID
+  // stamp (e.g. return/warranty policy) -- admin adds/removes lines here.
+  const [shopNoticeLines, setShopNoticeLines] = useState<string[]>([]);
   const [shopSaving, setShopSaving] = useState(false);
   const [shopError, setShopError] = useState("");
   const [shopSuccess, setShopSuccess] = useState("");
@@ -96,6 +99,7 @@ export default function SettingsSheet({
         setShopAddress(d.address || "");
         setShopPhone(d.phone || "");
         setShopEmail(d.email || "");
+        setShopNoticeLines(Array.isArray(d.notice_lines) ? d.notice_lines : []);
       })
       .catch(() => {});
   }, [open, isAdmin]);
@@ -221,6 +225,7 @@ export default function SettingsSheet({
         address: shopAddress.trim() || null,
         phone: shopPhone.trim() || null,
         email: shopEmail.trim() || null,
+        notice_lines: shopNoticeLines.map((l) => l.trim()).filter(Boolean),
       }),
     });
     setShopSaving(false);
@@ -233,7 +238,20 @@ export default function SettingsSheet({
     setShopAddress(d.address || "");
     setShopPhone(d.phone || "");
     setShopEmail(d.email || "");
+    setShopNoticeLines(Array.isArray(d.notice_lines) ? d.notice_lines : []);
     setShopSuccess(t("settings.shop_info_saved"));
+  }
+
+  function addNoticeLine() {
+    setShopNoticeLines((prev) => [...prev, ""]);
+  }
+
+  function updateNoticeLine(index: number, value: string) {
+    setShopNoticeLines((prev) => prev.map((l, i) => (i === index ? value : l)));
+  }
+
+  function removeNoticeLine(index: number) {
+    setShopNoticeLines((prev) => prev.filter((_, i) => i !== index));
   }
 
   // Grabs a fresh export of the shop's data right now and hands it to the
@@ -434,6 +452,39 @@ export default function SettingsSheet({
                 className={inputClass}
               />
             </Field>
+            <div>
+              <span className="mb-1.5 block text-xs font-medium text-ink-muted">
+                {t("settings.shop_notice_lines_label")}
+              </span>
+              <p className="mb-2 text-xs text-ink-faint">{t("settings.shop_notice_lines_description")}</p>
+              <div className="space-y-2">
+                {shopNoticeLines.map((line, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      value={line}
+                      onChange={(e) => updateNoticeLine(i, e.target.value)}
+                      placeholder={t("settings.shop_notice_line_placeholder")}
+                      className={inputClass}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeNoticeLine(i)}
+                      className="shrink-0 rounded-full p-1.5 text-ink-faint hover:text-down"
+                      aria-label={t("settings.shop_notice_line_remove")}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addNoticeLine}
+                  className="flex items-center gap-1 text-xs font-semibold text-teal"
+                >
+                  <Plus size={13} /> {t("settings.shop_notice_line_add")}
+                </button>
+              </div>
+            </div>
             {shopError && <p className="text-sm text-down">{shopError}</p>}
             {shopSuccess && <p className="text-sm text-up">{shopSuccess}</p>}
             <Button full variant="secondary" onClick={saveShopInfo} disabled={shopSaving}>

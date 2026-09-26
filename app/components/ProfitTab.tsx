@@ -4,7 +4,12 @@ import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, Download, ChevronRight } from "lucide-react";
 import { money, formatDate, MonthPicker, currentMonthStr, monthRange, Sheet, Field, inputClass, Button } from "./ui";
 import { generateReportPDF } from "@/lib/report-pdf";
-import { emitDashboardRefresh } from "@/lib/events";
+import { emitDashboardRefresh, DASHBOARD_REFRESH_EVENT } from "@/lib/events";
+
+// Another device/session may sell, buy, add an expense, or collect a due
+// payment while this tab is open -- this is how often it quietly checks
+// for that.
+const POLL_MS = 8000;
 import { useLang } from "@/lib/i18n";
 import type { NetProfitSummary } from "@/lib/types";
 
@@ -27,8 +32,8 @@ export default function ProfitTab() {
   const [summary, setSummary] = useState<NetProfitSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function load() {
-    setLoading(true);
+  async function load(opts?: { silent?: boolean }) {
+    if (!opts?.silent) setLoading(true);
     const { from, to } = monthRange(month);
     const res = await fetch(`/api/summary?from=${from}&to=${to}`);
     setSummary(await res.json());
@@ -37,6 +42,20 @@ export default function ProfitTab() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month]);
+
+  // Poll quietly in the background (and react instantly to same-tab
+  // activity) so the Profit numbers stay current without a manual page
+  // refresh.
+  useEffect(() => {
+    const handler = () => load({ silent: true });
+    window.addEventListener(DASHBOARD_REFRESH_EVENT, handler);
+    const interval = setInterval(() => load({ silent: true }), POLL_MS);
+    return () => {
+      window.removeEventListener(DASHBOARD_REFRESH_EVENT, handler);
+      clearInterval(interval);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
 

@@ -528,6 +528,11 @@ export const STRINGS: Record<string, Entry> = {
   "settings.shop_email_label": { en: "Email (optional)", bn: "ইমেইল (ঐচ্ছিক)" },
   "settings.shop_info_save_button": { en: "Save Shop Info", bn: "শপের তথ্য সেভ করুন" },
   "settings.shop_info_saved": { en: "Shop info saved", bn: "শপের তথ্য সেভ হয়েছে" },
+  "settings.shop_notice_lines_label": { en: "Notice / Warning Messages (printed on memo)", bn: "সতর্কবার্তা / নোটিশ (মেমোতে প্রিন্ট হবে)" },
+  "settings.shop_notice_lines_description": { en: "Shown as a numbered list below the PAID/DUE stamp on the Sales Invoice memo.", bn: "Sales Invoice মেমোর PAID/DUE স্ট্যাম্পের নিচে ক্রমিক নম্বর সহ দেখা যাবে।" },
+  "settings.shop_notice_line_placeholder": { en: "e.g. Sold items are non-refundable", bn: "যেমনঃ বিক্রিত পণ্য ফেরতযোগ্য নয়" },
+  "settings.shop_notice_line_add": { en: "Add line", bn: "লাইন যোগ করুন" },
+  "settings.shop_notice_line_remove": { en: "Remove line", bn: "লাইন মুছুন" },
 
   "settings.loading": { en: "Loading...", bn: "লোড হচ্ছে..." },
   "settings.backup_heading": { en: "Data Backup", bn: "ডেটা ব্যাকআপ" },

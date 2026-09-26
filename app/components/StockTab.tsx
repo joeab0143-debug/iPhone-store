@@ -13,6 +13,12 @@ import type { Phone, Sale } from "@/lib/types";
 
 const SHOP_NAME = "Apple Store Satkhira";
 
+// Another device/session may buy, sell, return, edit, delete, or have a
+// pending POS-Manager change approved while this tab is open -- this is
+// how often it quietly checks for that, on top of the instant same-tab
+// event below.
+const POLL_MS = 8000;
+
 // "YYYY-MM-DD" for today, in the browser's local time -- pre-fills the
 // Selling Date field so a normal sale doesn't need a date typed in; stays
 // editable for a backdated entry.
@@ -53,8 +59,8 @@ export default function StockTab() {
   const [returningId, setReturningId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  async function load() {
-    setLoading(true);
+  async function load(opts?: { silent?: boolean }) {
+    if (!opts?.silent) setLoading(true);
     // Always fetch everything — status tab and search are both applied
     // client-side below, so a search matches phones regardless of which
     // tab (In Stock/Sold/All) happens to be selected.
@@ -92,12 +98,18 @@ export default function StockTab() {
   }, [sellPhone]);
 
   // Buy/Sell/Return elsewhere in the app (bottom action bar, etc.) fire this
-  // event — reload so newly bought phones show up here without a manual
-  // page refresh.
+  // event — reload (silently, no "Loading..." flash) so newly bought/sold
+  // phones show up here instantly, without a manual page refresh. The
+  // interval alongside it catches the same kind of change made from a
+  // different device/browser, which can't reach this tab's event listener.
   useEffect(() => {
-    const handler = () => load();
+    const handler = () => load({ silent: true });
     window.addEventListener(DASHBOARD_REFRESH_EVENT, handler);
-    return () => window.removeEventListener(DASHBOARD_REFRESH_EVENT, handler);
+    const interval = setInterval(() => load({ silent: true }), POLL_MS);
+    return () => {
+      window.removeEventListener(DASHBOARD_REFRESH_EVENT, handler);
+      clearInterval(interval);
+    };
   }, []);
 
   const filtered = phones.filter((p) => {

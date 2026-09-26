@@ -45,6 +45,9 @@ export interface SalesInvoiceData {
   /** Logged-in username at print time -- shown as both Prepared By and
    * Sales Person, same as the sample template. */
   preparedBy?: string | null;
+  /** Settings -> Shop / Invoice Info -- printed as a numbered list below
+   * the PAID/DUE stamp (return/warranty policy notices, etc.). */
+  noticeLines?: string[] | null;
 }
 
 const ONES = [
@@ -145,18 +148,29 @@ export function generateSalesInvoicePDF(data: SalesInvoiceData, previewWindow?: 
 
   // ---- Shop header (no logo -- text only) ----
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
+  doc.setFontSize(26);
   doc.setTextColor(...INK_DARK);
   doc.text(data.shopName, pageW / 2, y, { align: "center" });
-  y += 16;
+  y += 20;
 
-  const contactLine = [data.shopAddress, data.shopPhone, data.shopEmail].filter(Boolean).join("   |   ");
-  if (contactLine) {
+  // Address / Phone / Email as three separate left-aligned lines (each
+  // only printed when set in Settings -> Shop / Invoice Info).
+  const contactRows: [string, string][] = (
+    [
+      ["Address", data.shopAddress],
+      ["Phone", data.shopPhone],
+      ["Email", data.shopEmail],
+    ] as [string, string | null | undefined][]
+  ).filter(([, v]) => !!v) as [string, string][];
+  if (contactRows.length) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(...INK_MUTED);
-    doc.text(contactLine, pageW / 2, y, { align: "center" });
-    y += 14;
+    for (const [label, value] of contactRows) {
+      doc.text(`${label}: ${value}`, marginX, y);
+      y += 12;
+    }
+    y += 2;
   }
 
   y += 6;
@@ -331,6 +345,45 @@ export function generateSalesInvoicePDF(data: SalesInvoiceData, previewWindow?: 
   doc.setTextColor(...INK_FAINT);
   doc.text("This is a computer-generated invoice.", pageW - marginX, y + 34, { align: "right" });
 
+  // ---- Notice / warning messages (Settings -> Shop / Invoice Info) ----
+  // Free-form, admin-editable lines printed below the stamp -- e.g. a
+  // return or warranty policy notice. Numbered so several lines read as
+  // a list rather than a wall of text.
+  let noticeY = y + 58;
+  const noticeLines = (data.noticeLines || []).filter((l) => !!l && !!l.trim());
+  if (noticeLines.length) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...INK_MUTED);
+    doc.text("Notice:", marginX, noticeY);
+    noticeY += 12;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...INK_FAINT);
+    noticeLines.forEach((line, i) => {
+      const wrapped = doc.splitTextToSize(`${i + 1}. ${line.trim()}`, contentW);
+      doc.text(wrapped, marginX, noticeY);
+      noticeY += wrapped.length * 10;
+    });
+  }
+
+  // ---- Signature block -- Customer (left) / Shop (right), each with a
+  // sign-here line above the label. Anchored near the bottom of the page
+  // so it lands in the same place regardless of notice-line count, but
+  // pushed lower if the notices ran long enough to reach it. ----
+  const pageH = doc.internal.pageSize.getHeight();
+  const sigLineY = Math.max(pageH - 60, noticeY + 24);
+  const sigLineW = 160;
+  doc.setDrawColor(...INK_MUTED);
+  doc.setLineWidth(0.75);
+  doc.line(leftX, sigLineY, leftX + sigLineW, sigLineY);
+  doc.line(pageW - marginX - sigLineW, sigLineY, pageW - marginX, sigLineY);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(...INK_MUTED);
+  doc.text("Customer Signature", leftX + sigLineW / 2, sigLineY + 14, { align: "center" });
+  doc.text("Shop Signature", pageW - marginX - sigLineW / 2, sigLineY + 14, { align: "center" });
+
   const filename = `${data.isReturn ? "return" : "invoice"}-${data.saleId}.pdf`;
 
   if (previewWindow && !previewWindow.closed) {
@@ -365,6 +418,7 @@ interface ShopInfoResponse {
   address: string | null;
   phone: string | null;
   email: string | null;
+  notice_lines?: string[] | null;
 }
 
 /**
@@ -374,7 +428,13 @@ interface ShopInfoResponse {
  * Return) shares the same two small fetches instead of repeating them.
  */
 export async function printSalesInvoice(sale: SalesInvoiceSaleInput, previewWindow?: Window | null) {
-  let shop: ShopInfoResponse = { shop_name: "Apple Store Satkhira", address: null, phone: null, email: null };
+  let shop: ShopInfoResponse = {
+    shop_name: "Apple Store Satkhira",
+    address: null,
+    phone: null,
+    email: null,
+    notice_lines: [],
+  };
   let preparedBy = "";
   try {
     const [shopRes, meRes] = await Promise.all([fetch("/api/shop-info"), fetch("/api/auth/me")]);
@@ -394,6 +454,7 @@ export async function printSalesInvoice(sale: SalesInvoiceSaleInput, previewWind
       shopAddress: shop.address,
       shopPhone: shop.phone,
       shopEmail: shop.email,
+      noticeLines: shop.notice_lines,
       preparedBy,
     },
     previewWindow

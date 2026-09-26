@@ -8,7 +8,7 @@ import { generateReportPDF } from "@/lib/report-pdf";
 import { useLang } from "@/lib/i18n";
 import type { DashboardSummary } from "@/lib/types";
 
-const POLL_MS = 20000;
+const POLL_MS = 8000;
 
 interface ExpenseCategoryBreakdown {
   name: string;

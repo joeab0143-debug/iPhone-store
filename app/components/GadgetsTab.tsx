@@ -8,6 +8,11 @@ import { useLang } from "@/lib/i18n";
 import type { Gadget } from "@/lib/types";
 import { emitApprovalsRefresh } from "@/lib/events";
 
+// Another device/session may add, sell, or have a pending gadget entry
+// approved while this tab is open -- this is how often it quietly checks
+// for that.
+const POLL_MS = 8000;
+
 // Gadgets & Accessories — a private buy/sell log for the user's own
 // reference. Its profit is intentionally separate from the phone
 // business's numbers: it never touches /api/dashboard or the Profit tab,
@@ -101,8 +106,8 @@ export default function GadgetsTab() {
     }
   }
 
-  async function load() {
-    setLoading(true);
+  async function load(opts?: { silent?: boolean }) {
+    if (!opts?.silent) setLoading(true);
     const res = await fetch("/api/gadgets");
     const data: any = await res.json();
     setGadgets(data.gadgets || []);
@@ -111,6 +116,13 @@ export default function GadgetsTab() {
 
   useEffect(() => {
     load();
+  }, []);
+
+  // Poll quietly in the background so this list stays current without a
+  // manual page refresh.
+  useEffect(() => {
+    const interval = setInterval(() => load({ silent: true }), POLL_MS);
+    return () => clearInterval(interval);
   }, []);
 
   async function submit() {

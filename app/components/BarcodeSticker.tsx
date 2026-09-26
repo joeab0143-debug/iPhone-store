@@ -46,21 +46,68 @@ export default function BarcodeSticker({
     .filter(Boolean)
     .join("  ·  ");
 
+  // Inline styles only (no Tailwind classNames) -- this component's
+  // innerHTML gets copied verbatim into a blank print popup window that has
+  // no access to the app's Tailwind stylesheet, so className-based sizing
+  // here would silently fall back to browser-default (much larger) font
+  // sizes there, overflowing the exact-fit print page onto a 2nd sheet.
   return (
-    <div className="inline-flex flex-col items-center bg-white rounded-lg p-2">
+    <div
+      style={{
+        display: "inline-flex",
+        flexDirection: "column",
+        alignItems: "center",
+        background: "#ffffff",
+        borderRadius: 8,
+        padding: 8,
+        fontFamily: "Arial, Helvetica, sans-serif",
+        lineHeight: 1.3,
+      }}
+    >
       {shopName && (
-        <div className="text-center text-[9px] font-bold uppercase tracking-wide text-black/70">
+        <div
+          style={{
+            textAlign: "center",
+            fontSize: 9,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            color: "rgba(0,0,0,0.7)",
+          }}
+        >
           {shopName}
         </div>
       )}
       {label && (
-        <div className="mb-0.5 text-center text-[11px] font-semibold text-black">{label}</div>
+        <div
+          style={{
+            marginBottom: 2,
+            textAlign: "center",
+            fontSize: 11,
+            fontWeight: 600,
+            color: "#000000",
+          }}
+        >
+          {label}
+        </div>
       )}
       {specLine && (
-        <div className="text-center text-[9px] text-black/80">{specLine}</div>
+        <div style={{ textAlign: "center", fontSize: 9, color: "rgba(0,0,0,0.8)" }}>
+          {specLine}
+        </div>
       )}
       {price != null && price > 0 && (
-        <div className="mb-1 text-center text-[11px] font-bold text-black">৳{price.toLocaleString()}</div>
+        <div
+          style={{
+            marginBottom: 4,
+            textAlign: "center",
+            fontSize: 11,
+            fontWeight: 700,
+            color: "#000000",
+          }}
+        >
+          ৳{price.toLocaleString()}
+        </div>
       )}
       <svg ref={ref} />
     </div>
