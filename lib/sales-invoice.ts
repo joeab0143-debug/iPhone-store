@@ -92,6 +92,23 @@ export function amountInWords(amount: number): string {
   return parts.join(" ") + " Taka Only";
 }
 
+/**
+ * Formats a whole-Taka amount with South Asian (Bangladeshi/Indian)
+ * digit grouping -- the last 3 digits together, then groups of 2 to the
+ * left (e.g. 200000 -> "2,00,000", 1234567 -> "12,34,567") -- instead of
+ * the Western "200,000" that Number.toLocaleString() produces.
+ */
+function formatTaka(amount: number): string {
+  const n = Math.round(amount);
+  const sign = n < 0 ? "-" : "";
+  const s = Math.abs(n).toString();
+  if (s.length <= 3) return sign + s;
+  const lastThree = s.slice(-3);
+  const rest = s.slice(0, -3);
+  const grouped = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",");
+  return sign + grouped + "," + lastThree;
+}
+
 function formatInvoiceDate(input: string): string {
   if (!input) return "-";
   const d = new Date(input.replace(" ", "T"));
@@ -132,6 +149,30 @@ function drawStamp(
   doc.text(dateStr, cx, cy + 14, { align: "center", angle: -8 });
 }
 
+// The shop's own logo, printed very faintly across the middle of the page
+// as a background watermark (see /public/apple-store-watermark.png --
+// pre-cropped to just the mark + wordmark, alpha already reduced to ~10%
+// so it sits behind the invoice content without hurting readability).
+// Cached after the first load since the same asset is reused for every
+// print in a session (Sell, Reprint, Return all call this).
+let cachedWatermarkImg: HTMLImageElement | null | undefined;
+function loadWatermarkLogo(): Promise<HTMLImageElement | null> {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  if (cachedWatermarkImg !== undefined) return Promise.resolve(cachedWatermarkImg);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      cachedWatermarkImg = img;
+      resolve(img);
+    };
+    img.onerror = () => {
+      cachedWatermarkImg = null;
+      resolve(null);
+    };
+    img.src = "/apple-store-watermark.png";
+  });
+}
+
 /**
  * Builds the A4 Sales Invoice memo and opens it in a new tab as a print
  * preview. Pass `previewWindow` -- a window opened with
@@ -139,12 +180,22 @@ function drawStamp(
  * onClick, BEFORE any await -- so the popup blocker doesn't catch it.
  * Falls back to a plain download if no window (or a blocked one) is passed.
  */
-export function generateSalesInvoicePDF(data: SalesInvoiceData, previewWindow?: Window | null) {
+export async function generateSalesInvoicePDF(data: SalesInvoiceData, previewWindow?: Window | null) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
   const marginX = 42;
   const contentW = pageW - marginX * 2;
   let y = 36;
+
+  // ---- Background watermark (shop logo, very faint) -- drawn first so
+  // everything else prints on top of it. ----
+  const watermarkImg = await loadWatermarkLogo();
+  if (watermarkImg) {
+    const wmW = 320;
+    const wmH = wmW * (watermarkImg.naturalHeight / watermarkImg.naturalWidth);
+    doc.addImage(watermarkImg, "PNG", (pageW - wmW) / 2, (pageH - wmH) / 2, wmW, wmH);
+  }
 
   // ---- Shop header (no logo -- text only) ----
   doc.setFont("helvetica", "bold");
@@ -249,7 +300,7 @@ export function generateSalesInvoicePDF(data: SalesInvoiceData, previewWindow?: 
   autoTable(doc, {
     startY: y,
     head: [["SL", "Product Description", "Warranty", "Qty", "Unit", "Unit Price", "Discount", "Amount"]],
-    body: [["1", description, "-", "1.00", "Pcs", data.sellingPrice.toLocaleString(), "0.00", data.sellingPrice.toLocaleString()]],
+    body: [["1", description, "-", "1.00", "Pcs", formatTaka(data.sellingPrice), "0.00", formatTaka(data.sellingPrice)]],
     margin: { left: marginX, right: marginX },
     styles: {
       font: "helvetica",
@@ -279,16 +330,16 @@ export function generateSalesInvoicePDF(data: SalesInvoiceData, previewWindow?: 
   const boxX = pageW - marginX - boxW;
   const totalsRows: [string, string][] = data.isDue
     ? [
-        ["Total Amount", data.sellingPrice.toLocaleString()],
-        ["Paid Amount", data.paidAmount.toLocaleString()],
-        ["Due Amount", data.dueAmount.toLocaleString()],
-        ["Net Payable Amount", data.sellingPrice.toLocaleString()],
+        ["Total Amount", formatTaka(data.sellingPrice)],
+        ["Paid Amount", formatTaka(data.paidAmount)],
+        ["Due Amount", formatTaka(data.dueAmount)],
+        ["Net Payable Amount", formatTaka(data.sellingPrice)],
       ]
     : [
-        ["Total Amount", data.sellingPrice.toLocaleString()],
+        ["Total Amount", formatTaka(data.sellingPrice)],
         ["Less Discount", "0.00"],
         ["Add Extra Charges", "0.00"],
-        ["Net Payable Amount", data.sellingPrice.toLocaleString()],
+        ["Net Payable Amount", formatTaka(data.sellingPrice)],
       ];
   const totalsRowH = 16;
   const boxH = 14 + totalsRows.length * totalsRowH;
@@ -371,7 +422,6 @@ export function generateSalesInvoicePDF(data: SalesInvoiceData, previewWindow?: 
   // sign-here line above the label. Anchored near the bottom of the page
   // so it lands in the same place regardless of notice-line count, but
   // pushed lower if the notices ran long enough to reach it. ----
-  const pageH = doc.internal.pageSize.getHeight();
   const sigLineY = Math.max(pageH - 60, noticeY + 24);
   const sigLineW = 160;
   doc.setDrawColor(...INK_MUTED);
@@ -447,7 +497,7 @@ export async function printSalesInvoice(sale: SalesInvoiceSaleInput, previewWind
     // Fall back to defaults below -- the memo still prints either way.
   }
 
-  generateSalesInvoicePDF(
+  await generateSalesInvoicePDF(
     {
       ...sale,
       shopName: shop.shop_name || "Apple Store Satkhira",
