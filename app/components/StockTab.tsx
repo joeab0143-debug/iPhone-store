@@ -54,6 +54,11 @@ export default function StockTab() {
   const [scanOpen, setScanOpen] = useState(false);
   const [printQueue, setPrintQueue] = useState<Phone[]>([]);
   const [queueOpen, setQueueOpen] = useState(false);
+  // "Print All Labels" (toolbar) -- a separate, transient hidden
+  // pre-render list from the manual print queue above, so a bulk print
+  // never disturbs whatever the shop owner is manually curating in the
+  // queue. See printAllLabels() below.
+  const [printAllQueue, setPrintAllQueue] = useState<Phone[]>([]);
 
   const [sellForm, setSellForm] = useState({
     selling_price: "",
@@ -501,6 +506,60 @@ export default function StockTab() {
     setPrintQueue([]);
   }
 
+  // Prints every phone in the CURRENT filtered/searched view at once --
+  // respects whatever tab (In Stock/Sold/All) and search are active, same
+  // as downloadStockReport() above. Unlike the manual print queue (capped
+  // at QUEUE_CAPACITY so one click stays a single A4 sheet), this can span
+  // several pages: labels are chunked into groups of QUEUE_CAPACITY (one
+  // full 5x8 sheet each) with an explicit page break between groups, so a
+  // large stock list still prints as clean, uncut label sheets.
+  function printAllLabels() {
+    const toPrint = filtered;
+    if (toPrint.length === 0) {
+      window.alert(t("stock.print_all_empty_notice"));
+      return;
+    }
+    // Open the window synchronously, still inside this click's user
+    // gesture -- browsers block window.open() once we wait (below) for
+    // the hidden labels to render (same reasoning as the Sell flow's
+    // receipt tab).
+    const w = window.open("", "_blank", "width=800,height=1000");
+    if (!w) return;
+    setPrintAllQueue(toPrint);
+    // Give the hidden PrintLabelCell nodes just mounted above a tick to
+    // render their barcodes before reading innerHTML.
+    setTimeout(() => {
+      const pagesHtml: string[] = [];
+      for (let i = 0; i < toPrint.length; i += QUEUE_CAPACITY) {
+        const chunk = toPrint.slice(i, i + QUEUE_CAPACITY);
+        const cellsHtml = chunk
+          .map((p) => {
+            const node = document.getElementById(`print-all-label-${p.imei}`);
+            return node
+              ? `<div style="width:1.5in;height:1.46in;overflow:hidden;display:flex;align-items:center;justify-content:center">${node.innerHTML}</div>`
+              : "";
+          })
+          .filter(Boolean)
+          .join("");
+        if (cellsHtml) pagesHtml.push(`<div class="page"><div class="grid">${cellsHtml}</div></div>`);
+      }
+      if (pagesHtml.length === 0) {
+        w.close();
+        setPrintAllQueue([]);
+        return;
+      }
+      w.document.write(
+        `<html><head><title>All Labels</title><style>@page{size:8.27in 11.69in;margin:0}html,body{margin:0;padding:0}.page{display:flex;justify-content:center;padding-top:0.15in;page-break-after:always}.page:last-child{page-break-after:auto}.grid{display:grid;grid-template-columns:repeat(5,1.5in);grid-auto-rows:1.46in}</style></head><body>${pagesHtml.join("")}</body></html>`
+      );
+      w.document.close();
+      w.focus();
+      setTimeout(() => {
+        w.print();
+      }, 300);
+      setPrintAllQueue([]);
+    }, 250);
+  }
+
   return (
     <div className="pb-24">
       <div className="mb-4 flex items-center gap-2">
@@ -541,6 +600,13 @@ export default function StockTab() {
           aria-label={t("stock.return_history_aria")}
         >
           <History size={20} />
+        </button>
+        <button
+          onClick={printAllLabels}
+          className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 text-teal"
+          aria-label={t("stock.print_all_aria")}
+        >
+          <Printer size={20} />
         </button>
       </div>
 
@@ -958,6 +1024,25 @@ export default function StockTab() {
       <div style={{ position: "absolute", top: -99999, left: -99999, visibility: "hidden" }} aria-hidden>
         {printQueue.map((p) => (
           <div id={`queue-label-${p.imei}`} key={p.imei}>
+            <PrintLabelCell
+              imei={p.imei}
+              label={p.name_model}
+              ramRom={p.ram_rom}
+              batteryHealth={p.battery_health}
+              boxStatus={p.box_status}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Hidden, always-mounted pre-render for "Print All Labels" -- same
+          reasoning as the print-queue block above, but for whatever
+          phones are in printAllQueue (see printAllLabels()). A separate
+          id prefix keeps its nodes from colliding with the manual
+          queue's when the same phone happens to be in both. */}
+      <div style={{ position: "absolute", top: -99999, left: -99999, visibility: "hidden" }} aria-hidden>
+        {printAllQueue.map((p) => (
+          <div id={`print-all-label-${p.imei}`} key={p.imei}>
             <PrintLabelCell
               imei={p.imei}
               label={p.name_model}

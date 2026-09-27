@@ -407,6 +407,11 @@ export const STRINGS: Record<string, Entry> = {
   "stock.sticker_sheet_title": { en: "Barcode Sticker", bn: "বারকোড স্টিকার" },
   "stock.print_sticker_button": { en: "Print Sticker", bn: "স্টিকার প্রিন্ট করুন" },
   "stock.print_queue_aria": { en: "Print queue", bn: "প্রিন্ট কিউ" },
+  "stock.print_all_aria": { en: "Print all labels", bn: "সব লেবেল প্রিন্ট করুন" },
+  "stock.print_all_empty_notice": {
+    en: "No phones to print in the current view",
+    bn: "এই ভিউতে প্রিন্ট করার মতো কোনো ফোন নেই",
+  },
   "stock.print_queue_title": { en: "Print Queue", bn: "প্রিন্ট কিউ" },
   "stock.print_queue_count": { en: "{count} of {capacity} labels queued", bn: "{capacity} এর মধ্যে {count} টি লেবেল কিউতে আছে" },
   "stock.print_queue_empty": { en: "No labels in the queue yet", bn: "কিউতে এখনো কোনো লেবেল নেই" },
