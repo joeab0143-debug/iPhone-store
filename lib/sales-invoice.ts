@@ -30,6 +30,8 @@ export interface SalesInvoiceData {
   imei: string;
   ramRom?: string | null;
   batteryHealth?: string | null;
+  variant?: string | null;
+  color?: string | null;
   sellingPrice: number;
   /** Raw date string -- formatted internally as English/Latin text. */
   sellingDate: string;
@@ -295,6 +297,8 @@ export async function generateSalesInvoicePDF(data: SalesInvoiceData, previewWin
   const detailBits = [`IMEI: ${data.imei}`];
   if (data.ramRom) detailBits.push(`RAM/ROM: ${data.ramRom}`);
   if (data.batteryHealth) detailBits.push(`Battery Health: ${data.batteryHealth}`);
+  if (data.variant) detailBits.push(`Variant: ${data.variant}`);
+  if (data.color) detailBits.push(`Color: ${data.color}`);
   const description = `${data.nameModel}\n${detailBits.join("  |  ")}`;
 
   autoTable(doc, {
@@ -452,6 +456,8 @@ export interface SalesInvoiceSaleInput {
   imei: string;
   ramRom?: string | null;
   batteryHealth?: string | null;
+  variant?: string | null;
+  color?: string | null;
   sellingPrice: number;
   sellingDate: string;
   isDue: boolean;

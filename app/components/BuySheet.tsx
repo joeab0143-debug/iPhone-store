@@ -39,6 +39,8 @@ function makeEmptyForm() {
     imei: "",
     ram_rom: "",
     battery_health: "",
+    variant: "",
+    color: "",
     buy_price: "",
     bought_from: "",
     phone_number: "",
@@ -360,6 +362,8 @@ export default function BuySheet({
         buy_date: form.buy_date ? `${form.buy_date} 00:00:00` : null,
         ram_rom: form.ram_rom || null,
         battery_health: form.battery_health || null,
+        variant: form.variant || null,
+        color: form.color || null,
         bought_from: form.bought_from,
         phone_number: form.phone_number || null,
         nid: form.nid || null,
@@ -509,6 +513,22 @@ export default function BuySheet({
                 value={form.battery_health}
                 onChange={(e) => setForm({ ...form, battery_health: e.target.value })}
                 placeholder={t("buy.battery_placeholder")}
+                className={inputClass}
+              />
+            </Field>
+            <Field label={t("buy.variant_label")}>
+              <input
+                value={form.variant}
+                onChange={(e) => setForm({ ...form, variant: e.target.value })}
+                placeholder={t("buy.variant_placeholder")}
+                className={inputClass}
+              />
+            </Field>
+            <Field label={t("buy.color_label")}>
+              <input
+                value={form.color}
+                onChange={(e) => setForm({ ...form, color: e.target.value })}
+                placeholder={t("buy.color_placeholder")}
                 className={inputClass}
               />
             </Field>

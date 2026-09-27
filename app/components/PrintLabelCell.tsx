@@ -38,6 +38,8 @@ export default function PrintLabelCell({
   ramRom,
   batteryHealth,
   boxStatus,
+  variant,
+  color,
   shopName = "Apple Store Satkhira",
 }: {
   imei: string;
@@ -45,6 +47,8 @@ export default function PrintLabelCell({
   ramRom?: string | null;
   batteryHealth?: string | null;
   boxStatus?: "with_box" | "without_box" | null;
+  variant?: string | null;
+  color?: string | null;
   shopName?: string;
 }) {
   const ref = useRef<SVGSVGElement>(null);
@@ -100,6 +104,14 @@ export default function PrintLabelCell({
     batteryHealth && `Battery: ${batteryHealth}`,
     boxLabel,
   ]
+    .filter(Boolean)
+    .join("  ·  ");
+
+  // Variant/Color -- a separate line placed directly above the barcode
+  // (per request), rather than folded into specLine above, so a long
+  // RAM/Battery/Box line never has to compete with it for the same
+  // single nowrap line.
+  const variantColorLine = [variant && `Variant: ${variant}`, color && `Color: ${color}`]
     .filter(Boolean)
     .join("  ·  ");
 
@@ -163,6 +175,18 @@ export default function PrintLabelCell({
           }}
         >
           {specLine}
+        </div>
+      )}
+      {variantColorLine && (
+        <div
+          style={{
+            textAlign: "center",
+            fontSize: 7,
+            color: "rgba(0,0,0,0.8)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {variantColorLine}
         </div>
       )}
       <svg ref={ref} />

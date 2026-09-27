@@ -30,6 +30,8 @@ export async function applyPhoneBuy(db: D1Database, payload: any): Promise<Apply
     nid_back_photo,
     person_photo,
     box_status,
+    variant,
+    color,
   } = payload || {};
 
   if (!name_model || !imei || buy_price === undefined) {
@@ -44,8 +46,8 @@ export async function applyPhoneBuy(db: D1Database, payload: any): Promise<Apply
   try {
     const result = await db
       .prepare(
-        `INSERT INTO phones (name_model, imei, buy_price, buy_date, status, ram_rom, battery_health, bought_from, phone_number, nid, seller_type, nid_front_photo, nid_back_photo, person_photo, box_status)
-         VALUES (?, ?, ?, COALESCE(?, datetime('now','localtime')), 'unsold', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO phones (name_model, imei, buy_price, buy_date, status, ram_rom, battery_health, bought_from, phone_number, nid, seller_type, nid_front_photo, nid_back_photo, person_photo, box_status, variant, color)
+         VALUES (?, ?, ?, COALESCE(?, datetime('now','localtime')), 'unsold', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         name_model,
@@ -61,7 +63,9 @@ export async function applyPhoneBuy(db: D1Database, payload: any): Promise<Apply
         sellerType === "individual" ? nid_front_photo || null : null,
         sellerType === "individual" ? nid_back_photo || null : null,
         sellerType === "individual" ? person_photo || null : null,
-        boxStatus
+        boxStatus,
+        variant || null,
+        color || null
       )
       .run();
 
@@ -106,6 +110,8 @@ export async function applyPhoneEdit(db: D1Database, id: number | string, payloa
     phone_number,
     nid,
     box_status,
+    variant,
+    color,
   } = payload || {};
 
   // Only a recognized value overwrites what's stored -- COALESCE below
@@ -125,7 +131,9 @@ export async function applyPhoneEdit(db: D1Database, id: number | string, payloa
           bought_from = COALESCE(?, bought_from),
           phone_number = COALESCE(?, phone_number),
           nid = COALESCE(?, nid),
-          box_status = COALESCE(?, box_status)
+          box_status = COALESCE(?, box_status),
+          variant = COALESCE(?, variant),
+          color = COALESCE(?, color)
          WHERE id = ?`
       )
       .bind(
@@ -139,6 +147,8 @@ export async function applyPhoneEdit(db: D1Database, id: number | string, payloa
         phone_number ?? null,
         nid ?? null,
         boxStatus,
+        variant || null,
+        color || null,
         id
       )
       .run();

@@ -244,6 +244,8 @@ export default function StockTab() {
         dueAmount: sd.sale.due_amount,
         ramRom: sd.sale.ram_rom,
         batteryHealth: sd.sale.battery_health,
+        variant: sd.sale.variant,
+        color: sd.sale.color,
       },
       previewWin
     );
@@ -284,6 +286,8 @@ export default function StockTab() {
         dueAmount: d.sale.due_amount,
         ramRom: d.sale.ram_rom,
         batteryHealth: d.sale.battery_health,
+        variant: d.phone.variant,
+        color: d.phone.color,
       },
       previewWin
     );
@@ -341,6 +345,8 @@ export default function StockTab() {
         dueAmount: sale.due_amount,
         ramRom: sale.ram_rom,
         batteryHealth: sale.battery_health,
+        variant: phone.variant,
+        color: phone.color,
         isReturn: true,
       },
       previewWin
@@ -889,6 +895,8 @@ export default function StockTab() {
                 ramRom={stickerPhone.ram_rom}
                 batteryHealth={stickerPhone.battery_health}
                 boxStatus={stickerPhone.box_status}
+                variant={stickerPhone.variant}
+                color={stickerPhone.color}
               />
             </div>
             <div className="flex w-full gap-2">
@@ -1030,6 +1038,8 @@ export default function StockTab() {
               ramRom={p.ram_rom}
               batteryHealth={p.battery_health}
               boxStatus={p.box_status}
+              variant={p.variant}
+              color={p.color}
             />
           </div>
         ))}
@@ -1049,6 +1059,8 @@ export default function StockTab() {
               ramRom={p.ram_rom}
               batteryHealth={p.battery_health}
               boxStatus={p.box_status}
+              variant={p.variant}
+              color={p.color}
             />
           </div>
         ))}
@@ -1351,6 +1363,8 @@ function EditPhoneSheet({
     phone_number: "",
     nid: "",
     box_status: "with_box" as "with_box" | "without_box",
+    variant: "",
+    color: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -1367,6 +1381,8 @@ function EditPhoneSheet({
         phone_number: phone.phone_number || "",
         nid: phone.nid || "",
         box_status: phone.box_status === "without_box" ? "without_box" : "with_box",
+        variant: phone.variant || "",
+        color: phone.color || "",
       });
       setError("");
     }
@@ -1394,6 +1410,8 @@ function EditPhoneSheet({
         phone_number: form.phone_number,
         nid: form.nid,
         box_status: form.box_status,
+        variant: form.variant,
+        color: form.color,
       }),
     });
     setSaving(false);
@@ -1442,6 +1460,22 @@ function EditPhoneSheet({
             value={form.battery_health}
             onChange={(e) => setForm({ ...form, battery_health: e.target.value })}
             placeholder={t("stock.battery_health_placeholder")}
+            className={inputClass}
+          />
+        </Field>
+        <Field label={t("buy.variant_label")}>
+          <input
+            value={form.variant}
+            onChange={(e) => setForm({ ...form, variant: e.target.value })}
+            placeholder={t("buy.variant_placeholder")}
+            className={inputClass}
+          />
+        </Field>
+        <Field label={t("buy.color_label")}>
+          <input
+            value={form.color}
+            onChange={(e) => setForm({ ...form, color: e.target.value })}
+            placeholder={t("buy.color_placeholder")}
             className={inputClass}
           />
         </Field>

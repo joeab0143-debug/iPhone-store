@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q");
 
   let query = `
-    SELECT s.*, p.name_model, p.imei, p.buy_price, p.buy_date
+    SELECT s.*, p.name_model, p.imei, p.buy_price, p.buy_date, p.variant, p.color
     FROM sales s
     JOIN phones p ON p.id = s.phone_id
     WHERE 1=1

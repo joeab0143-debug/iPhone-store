@@ -13,7 +13,7 @@ export async function GET(
   const db = getDB();
   const sale = await db
     .prepare(
-      `SELECT s.*, p.name_model, p.imei, p.buy_price
+      `SELECT s.*, p.name_model, p.imei, p.buy_price, p.variant, p.color
        FROM sales s JOIN phones p ON p.id = s.phone_id
        WHERE s.id = ?`
     )

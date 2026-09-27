@@ -19,6 +19,13 @@ export interface Phone {
   // on the Buy sheet (see migrations/0029_phones_box_status.sql), printed
   // on the sticker label. null for phones bought before this field existed.
   box_status?: "with_box" | "without_box" | null;
+  // Variant (e.g. "Pro Max", "256GB") and Color, entered on the Buy sheet
+  // and editable later from Stock's Edit sheet -- see
+  // migrations/0030_phones_variant_color.sql. Shown on the print label
+  // (above the barcode) and on the sales invoice/memo at sell time. null
+  // for phones bought before these fields existed.
+  variant?: string | null;
+  color?: string | null;
 }
 
 export interface Sale {

@@ -201,6 +201,8 @@ export default function SellSheet({
         dueAmount: row.due_amount,
         ramRom: row.ram_rom,
         batteryHealth: row.battery_health,
+        variant: row.variant,
+        color: row.color,
       },
       previewWin
     );
@@ -339,6 +341,8 @@ export default function SellSheet({
         dueAmount: sd.sale.due_amount,
         ramRom: sd.sale.ram_rom,
         batteryHealth: sd.sale.battery_health,
+        variant: sd.sale.variant,
+        color: sd.sale.color,
       },
       previewWin
     );
