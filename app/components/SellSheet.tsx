@@ -483,6 +483,20 @@ export default function SellSheet({
               className={inputClass}
             />
           </Field>
+          {/* Variant/Color -- Buy-time-only fields, no Sell-time re-entry
+              (same as Model above when matched): shown read-only, straight
+              from the matched stock phone, so the seller can see and quote
+              them without having to look the phone up separately. */}
+          {matchedPhone?.variant && (
+            <Field label={t("buy.variant_label")}>
+              <input value={matchedPhone.variant} readOnly className={inputClass + " opacity-70"} />
+            </Field>
+          )}
+          {matchedPhone?.color && (
+            <Field label={t("buy.color_label")}>
+              <input value={matchedPhone.color} readOnly className={inputClass + " opacity-70"} />
+            </Field>
+          )}
           <Field label={t("sell.price_label")}>
             <input
               type="number"

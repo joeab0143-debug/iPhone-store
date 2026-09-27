@@ -795,6 +795,19 @@ export default function StockTab() {
               className={inputClass}
             />
           </Field>
+          {/* Variant/Color -- Buy-time-only fields, shown read-only here
+              too (the phone is already known, so no lookup is needed, but
+              the seller can still see them without leaving this sheet). */}
+          {sellPhone?.variant && (
+            <Field label={t("buy.variant_label")}>
+              <input value={sellPhone.variant} readOnly className={inputClass + " opacity-70"} />
+            </Field>
+          )}
+          {sellPhone?.color && (
+            <Field label={t("buy.color_label")}>
+              <input value={sellPhone.color} readOnly className={inputClass + " opacity-70"} />
+            </Field>
+          )}
 
           {/* Same customer fields as the bottom-bar Sell sheet — always
               shown here too, not just for due sales, so both sell flows
