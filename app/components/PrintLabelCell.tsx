@@ -136,14 +136,14 @@ export default function PrintLabelCell({
         <div
           style={{
             textAlign: "center",
-            fontSize: 7,
-            fontWeight: 700,
+            fontSize: 8,
+            // 900 (heaviest) instead of 700 -- at this small a font size,
+            // 700 alone (even solid black) still read as thin next to the
+            // 11px/700 model-name line below it. Also dropped the letter
+            // spacing, which visually thins a word by pushing its strokes
+            // apart -- exactly what was fighting the bold look here.
+            fontWeight: 900,
             textTransform: "uppercase",
-            letterSpacing: "0.03em",
-            // Solid black (was a faint rgba(0,0,0,0.65) gray) -- at 65%
-            // opacity the bold weight barely read as bold, especially once
-            // printed. Full black at the same 700 weight as the model-name
-            // line below it makes the boldness actually visible.
             color: "#000000",
             whiteSpace: "nowrap",
           }}
