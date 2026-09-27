@@ -755,6 +755,7 @@ export default function StockTab() {
                 label={stickerPhone.name_model}
                 ramRom={stickerPhone.ram_rom}
                 batteryHealth={stickerPhone.battery_health}
+                price={stickerPhone.buy_price}
               />
             </div>
             <div className="flex w-full gap-2">
@@ -853,6 +854,7 @@ export default function StockTab() {
               label={p.name_model}
               ramRom={p.ram_rom}
               batteryHealth={p.battery_health}
+              price={p.buy_price}
             />
           </div>
         ))}
