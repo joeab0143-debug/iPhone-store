@@ -26,7 +26,10 @@ import JsBarcode from "jsbarcode";
 // consistent. Trimmed down twice now (was 125px, then 100px) so the
 // bars print noticeably thinner.
 const TARGET_BARCODE_WIDTH_PX = 80; // ~0.83in at 96dpi
-const BAR_HEIGHT = 46;
+// Halved from 46 -> 23 per user request: same bars/width, just shorter
+// top-to-bottom so the barcode block takes up less vertical space on
+// the label.
+const BAR_HEIGHT = 23;
 const BARCODE_FONT_SIZE = 8;
 
 export default function PrintLabelCell({
