@@ -137,12 +137,12 @@ export default function PrintLabelCell({
           style={{
             textAlign: "center",
             fontSize: 8,
-            // 900 (heaviest) instead of 700 -- at this small a font size,
-            // 700 alone (even solid black) still read as thin next to the
-            // 11px/700 model-name line below it. Also dropped the letter
-            // spacing, which visually thins a word by pushing its strokes
-            // apart -- exactly what was fighting the bold look here.
-            fontWeight: 900,
+            // 750 -- heavier than plain bold (700) so it reads clearly
+            // bolder at this small font size, without going as extreme as
+            // 900. Also dropped the letter spacing, which visually thins a
+            // word by pushing its strokes apart -- exactly what was
+            // fighting the bold look here.
+            fontWeight: 750,
             textTransform: "uppercase",
             color: "#000000",
             whiteSpace: "nowrap",
