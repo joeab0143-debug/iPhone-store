@@ -13,10 +13,12 @@ import type { Phone, Sale } from "@/lib/types";
 
 const SHOP_NAME = "Apple Store Satkhira";
 
-// A 1.5in x 2in label fits 5 columns x 5 rows on one A4 sheet
-// (8.27in / 1.5in = 5, 11.69in / 2in = 5) -- so a full grid print job is
-// capped at 25 labels at a time.
-const QUEUE_CAPACITY = 25;
+// A 1.5in x 1.46in label -- a compact landscape size meant to sit on top
+// of a phone box -- fits 5 columns x 8 rows on one A4 sheet
+// (8.27in / 1.5in = 5, 11.69in / 1.46in = 8) -- chosen so every label has
+// enough room for all its details, rather than packing the max the sheet
+// could physically hold. A full grid print job is capped at 40 labels.
+const QUEUE_CAPACITY = 40;
 
 // The print queue survives a page reload/tab close (localStorage) so the
 // shop owner can keep adding a few labels a day and print the full grid
@@ -423,7 +425,7 @@ export default function StockTab() {
   }
 
   // Prints every queued label at once, tiled into a 5x5 grid sized so each
-  // cell is exactly 1.5in x 2in on one A4 sheet -- no scaling, since each
+  // cell is exactly 1.5in x 1.46in on one A4 sheet -- no scaling, since each
   // hidden PrintLabelCell below is already rendered at that exact size.
   function printQueueGrid() {
     if (printQueue.length === 0) return;
@@ -431,7 +433,7 @@ export default function StockTab() {
       .map((p) => {
         const node = document.getElementById(`queue-label-${p.imei}`);
         return node
-          ? `<div style="width:1.5in;height:2in;overflow:hidden;display:flex;align-items:center;justify-content:center">${node.innerHTML}</div>`
+          ? `<div style="width:1.5in;height:1.46in;overflow:hidden;display:flex;align-items:center;justify-content:center">${node.innerHTML}</div>`
           : "";
       })
       .filter(Boolean)
@@ -440,7 +442,7 @@ export default function StockTab() {
     const w = window.open("", "_blank", "width=800,height=1000");
     if (!w) return;
     w.document.write(
-      `<html><head><title>Print Queue</title><style>@page{size:8.27in 11.69in;margin:0}html,body{margin:0;padding:0}.grid-wrap{display:flex;justify-content:center;padding-top:0.15in}.grid{display:grid;grid-template-columns:repeat(5,1.5in);grid-auto-rows:2in}</style></head><body><div class="grid-wrap"><div class="grid">${cellsHtml}</div></div></body></html>`
+      `<html><head><title>Print Queue</title><style>@page{size:8.27in 11.69in;margin:0}html,body{margin:0;padding:0}.grid-wrap{display:flex;justify-content:center;padding-top:0.15in}.grid{display:grid;grid-template-columns:repeat(5,1.5in);grid-auto-rows:1.46in}</style></head><body><div class="grid-wrap"><div class="grid">${cellsHtml}</div></div></body></html>`
     );
     w.document.close();
     w.focus();
@@ -739,7 +741,7 @@ export default function StockTab() {
         </div>
       </Sheet>
 
-      {/* Sticker print sheet -- fixed 1.5in x 2in physical label */}
+      {/* Sticker print sheet -- fixed 1.5in x 1.46in physical label */}
       <Sheet
         open={!!stickerPhone}
         onClose={() => setStickerPhone(null)}
@@ -761,13 +763,13 @@ export default function StockTab() {
                 onClick={() => {
                   const node = document.getElementById("sticker-print-area");
                   if (!node) return;
-                  // Every label is the same fixed 1.5in x 2in physical size,
+                  // Every label is the same fixed 1.5in x 1.46in physical size,
                   // so the print page can just be set to that size directly
                   // -- no measuring needed.
                   const w = window.open("", "_blank", "width=400,height=300");
                   if (w) {
                     w.document.write(
-                      `<html><head><title>Label</title><style>@page{size:1.5in 2in;margin:0}html,body{margin:0;padding:0}</style></head><body style="width:1.5in;height:2in;display:flex;align-items:center;justify-content:center">${node.innerHTML}</body></html>`
+                      `<html><head><title>Label</title><style>@page{size:1.5in 1.46in;margin:0}html,body{margin:0;padding:0}</style></head><body style="width:1.5in;height:1.46in;display:flex;align-items:center;justify-content:center">${node.innerHTML}</body></html>`
                     );
                     w.document.close();
                     w.focus();
@@ -795,7 +797,7 @@ export default function StockTab() {
 
       {/* Print queue sheet -- lets the queue fill up over several prints,
           then print every label in one grid-print pass on a single A4
-          sheet, 5 columns x 5 rows of 1.5in x 2in labels. */}
+          sheet, 5 columns x 8 rows of 1.5in x 1.46in labels. */}
       <Sheet
         open={queueOpen}
         onClose={() => setQueueOpen(false)}
