@@ -399,8 +399,10 @@ export async function generateSalesInvoicePDF(data: SalesInvoiceData, previewWin
   // ---- Notice / warning messages (Settings -> Shop / Invoice Info) ----
   // Free-form, admin-editable lines printed below the stamp -- e.g. a
   // return or warranty policy notice. Numbered so several lines read as
-  // a list rather than a wall of text.
-  let noticeY = y + 58;
+  // a list rather than a wall of text. Nudged further down from the
+  // footer note (was y + 58) so it doesn't crowd the "computer-generated
+  // invoice" line above it.
+  let noticeY = y + 84;
   const noticeLines = (data.noticeLines || []).filter((l) => !!l && !!l.trim());
   if (noticeLines.length) {
     doc.setFont("helvetica", "bold");

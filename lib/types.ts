@@ -15,6 +15,10 @@ export interface Phone {
   // "individual" == bought directly from a person -- shown to the owner as
   // "Used Phone" (see buy.seller_individual in lib/i18n.tsx).
   seller_type?: "supplier" | "individual";
+  // Whether the phone's original box was kept -- set from a checkbox pair
+  // on the Buy sheet (see migrations/0029_phones_box_status.sql), printed
+  // on the sticker label. null for phones bought before this field existed.
+  box_status?: "with_box" | "without_box" | null;
 }
 
 export interface Sale {
@@ -45,6 +49,25 @@ export interface Supplier {
   phone_number: string | null;
   nid: string | null;
   created_at: string;
+}
+
+// A snapshot of a phone that was returned to whoever it was bought from
+// (see migrations/0028_phone_returns.sql) -- the phone itself is deleted
+// from `phones` when this happens, so this is the only record left of it.
+export interface PhoneReturn {
+  id: number;
+  imei: string;
+  name_model: string;
+  buy_price: number;
+  buy_date: string | null;
+  ram_rom: string | null;
+  battery_health: string | null;
+  bought_from: string | null;
+  phone_number: string | null;
+  nid: string | null;
+  seller_type: "supplier" | "individual" | null;
+  returned_at: string;
+  returned_by: string | null;
 }
 
 export interface DuePayment {

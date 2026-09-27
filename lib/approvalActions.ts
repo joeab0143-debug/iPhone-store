@@ -29,6 +29,7 @@ export async function applyPhoneBuy(db: D1Database, payload: any): Promise<Apply
     nid_front_photo,
     nid_back_photo,
     person_photo,
+    box_status,
   } = payload || {};
 
   if (!name_model || !imei || buy_price === undefined) {
@@ -36,12 +37,15 @@ export async function applyPhoneBuy(db: D1Database, payload: any): Promise<Apply
   }
 
   const sellerType = seller_type === "individual" ? "individual" : "supplier";
+  // "With Box" / "Without Box" checkbox pair on the Buy sheet -- anything
+  // else (unset, stale value) is stored as null rather than guessed.
+  const boxStatus = box_status === "with_box" || box_status === "without_box" ? box_status : null;
 
   try {
     const result = await db
       .prepare(
-        `INSERT INTO phones (name_model, imei, buy_price, buy_date, status, ram_rom, battery_health, bought_from, phone_number, nid, seller_type, nid_front_photo, nid_back_photo, person_photo)
-         VALUES (?, ?, ?, COALESCE(?, datetime('now','localtime')), 'unsold', ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO phones (name_model, imei, buy_price, buy_date, status, ram_rom, battery_health, bought_from, phone_number, nid, seller_type, nid_front_photo, nid_back_photo, person_photo, box_status)
+         VALUES (?, ?, ?, COALESCE(?, datetime('now','localtime')), 'unsold', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         name_model,
@@ -56,7 +60,8 @@ export async function applyPhoneBuy(db: D1Database, payload: any): Promise<Apply
         sellerType,
         sellerType === "individual" ? nid_front_photo || null : null,
         sellerType === "individual" ? nid_back_photo || null : null,
-        sellerType === "individual" ? person_photo || null : null
+        sellerType === "individual" ? person_photo || null : null,
+        boxStatus
       )
       .run();
 
@@ -100,7 +105,12 @@ export async function applyPhoneEdit(db: D1Database, id: number | string, payloa
     bought_from,
     phone_number,
     nid,
+    box_status,
   } = payload || {};
+
+  // Only a recognized value overwrites what's stored -- COALESCE below
+  // leaves it untouched otherwise, same as every other optional field here.
+  const boxStatus = box_status === "with_box" || box_status === "without_box" ? box_status : null;
 
   try {
     await db
@@ -114,7 +124,8 @@ export async function applyPhoneEdit(db: D1Database, id: number | string, payloa
           battery_health = COALESCE(?, battery_health),
           bought_from = COALESCE(?, bought_from),
           phone_number = COALESCE(?, phone_number),
-          nid = COALESCE(?, nid)
+          nid = COALESCE(?, nid),
+          box_status = COALESCE(?, box_status)
          WHERE id = ?`
       )
       .bind(
@@ -127,6 +138,7 @@ export async function applyPhoneEdit(db: D1Database, id: number | string, payloa
         bought_from ?? null,
         phone_number ?? null,
         nid ?? null,
+        boxStatus,
         id
       )
       .run();
@@ -140,6 +152,50 @@ export async function applyPhoneEdit(db: D1Database, id: number | string, payloa
 }
 
 export async function applyPhoneDelete(db: D1Database, id: number | string): Promise<ApplyResult> {
+  await db.prepare("DELETE FROM phones WHERE id = ?").bind(id).run();
+  return { ok: true };
+}
+
+// Same as applyPhoneDelete, except an unsold phone's full details are
+// snapshotted into phone_returns first (see migrations/0028) so the shop
+// owner can still see later what was returned to the supplier/seller it
+// was bought from, and when -- a plain delete leaves no such trace.
+export async function applyPhoneReturn(
+  db: D1Database,
+  id: number | string,
+  returnedBy?: string | null
+): Promise<ApplyResult> {
+  const phone = await db.prepare("SELECT * FROM phones WHERE id = ?").bind(id).first<any>();
+  if (!phone) {
+    return { ok: false, error: "Not found", status: 404 };
+  }
+  if (phone.status !== "unsold") {
+    return {
+      ok: false,
+      error: "Only unsold phones can be returned to the supplier",
+      status: 400,
+    };
+  }
+  await db
+    .prepare(
+      `INSERT INTO phone_returns
+        (imei, name_model, buy_price, buy_date, ram_rom, battery_health, bought_from, phone_number, nid, seller_type, returned_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      phone.imei,
+      phone.name_model,
+      phone.buy_price,
+      phone.buy_date ?? null,
+      phone.ram_rom ?? null,
+      phone.battery_health ?? null,
+      phone.bought_from ?? null,
+      phone.phone_number ?? null,
+      phone.nid ?? null,
+      phone.seller_type ?? null,
+      returnedBy ?? null
+    )
+    .run();
   await db.prepare("DELETE FROM phones WHERE id = ?").bind(id).run();
   return { ok: true };
 }
@@ -197,7 +253,13 @@ export async function applyGadgetDelete(db: D1Database, id: number | string): Pr
 
 export async function applyPendingApproval(
   db: D1Database,
-  row: { action_type: string; resource_type: string; resource_id: number | null; payload: string | null }
+  row: {
+    action_type: string;
+    resource_type: string;
+    resource_id: number | null;
+    payload: string | null;
+    requested_by?: string | null;
+  }
 ): Promise<ApplyResult> {
   const payload = row.payload ? JSON.parse(row.payload) : null;
   const key = `${row.resource_type}:${row.action_type}`;
@@ -209,6 +271,8 @@ export async function applyPendingApproval(
       return applyPhoneEdit(db, row.resource_id as number, payload);
     case "phone:delete":
       return applyPhoneDelete(db, row.resource_id as number);
+    case "phone:return":
+      return applyPhoneReturn(db, row.resource_id as number, row.requested_by ?? null);
     case "sale:delete":
       return applySaleDelete(db, row.resource_id as number);
     case "expense_category:edit":

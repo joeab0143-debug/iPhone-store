@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ScanLine, Printer, Receipt, Wallet, Search, RotateCcw, Pencil, Trash2, Download, LayoutGrid, ListPlus, X } from "lucide-react";
-import { Button, Field, inputClass, Sheet, Badge, money, formatDate } from "./ui";
+import { ScanLine, Printer, Receipt, Wallet, Search, RotateCcw, Undo2, History, Pencil, Trash2, Download, LayoutGrid, ListPlus, X } from "lucide-react";
+import { Button, Field, inputClass, Sheet, Modal, Badge, money, formatDate } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
 import PrintLabelCell from "./PrintLabelCell";
 import { printSalesInvoice } from "@/lib/sales-invoice";
 import { generateReportPDF } from "@/lib/report-pdf";
 import { emitDashboardRefresh, emitApprovalsRefresh, DASHBOARD_REFRESH_EVENT } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
-import type { Phone, Sale } from "@/lib/types";
+import type { Phone, Sale, PhoneReturn } from "@/lib/types";
 
 const SHOP_NAME = "Apple Store Satkhira";
 
@@ -72,6 +72,10 @@ export default function StockTab() {
   const [error, setError] = useState("");
   const [returningId, setReturningId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [returningSupplierId, setReturningSupplierId] = useState<number | null>(null);
+  const [returnHistoryOpen, setReturnHistoryOpen] = useState(false);
+  const [returnHistory, setReturnHistory] = useState<PhoneReturn[]>([]);
+  const [returnHistoryLoading, setReturnHistoryLoading] = useState(false);
 
   async function load(opts?: { silent?: boolean }) {
     if (!opts?.silent) setLoading(true);
@@ -370,6 +374,51 @@ export default function StockTab() {
     load();
   }
 
+  // Returns an unsold phone to whoever it was bought from (Supplier or
+  // "Used Phone" seller) -- unlike deletePhone above, the phone's details
+  // are kept in Return History first (see migrations/0028_phone_returns.sql)
+  // so this stays visible later even though the phone itself leaves Stock
+  // and its buy price drops back out of Total Cash/Buy the same way a
+  // delete would.
+  async function returnToSupplier(phone: Phone) {
+    const supplierLabel = phone.bought_from || t("stock.return_supplier_button");
+    if (
+      !window.confirm(
+        t("stock.return_supplier_confirm")
+          .replace("{model}", phone.name_model)
+          .replace("{imei}", phone.imei)
+          .replace("{supplier}", supplierLabel)
+      )
+    ) {
+      return;
+    }
+    setReturningSupplierId(phone.id);
+    const res = await fetch(`/api/stock/${phone.id}/return`, { method: "POST" });
+    setReturningSupplierId(null);
+    const d: any = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(d.error || t("stock.return_supplier_failed"));
+      return;
+    }
+    if (d.pending) {
+      emitApprovalsRefresh();
+      window.alert(t("approvals.pending_submitted_message"));
+      return;
+    }
+    emitDashboardRefresh();
+    load();
+  }
+
+  function openReturnHistory() {
+    setReturnHistoryOpen(true);
+    setReturnHistoryLoading(true);
+    fetch("/api/phone-returns")
+      .then((r) => r.json())
+      .then((d: any) => setReturnHistory(Array.isArray(d.returns) ? d.returns : []))
+      .catch(() => setReturnHistory([]))
+      .finally(() => setReturnHistoryLoading(false));
+  }
+
   function handleScanResult(code: string) {
     setScanOpen(false);
     setSearch(code);
@@ -486,6 +535,13 @@ export default function StockTab() {
             </span>
           )}
         </button>
+        <button
+          onClick={openReturnHistory}
+          className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 text-teal"
+          aria-label={t("stock.return_history_aria")}
+        >
+          <History size={20} />
+        </button>
       </div>
 
       <div className="mb-4 flex gap-2 overflow-x-auto">
@@ -570,6 +626,14 @@ export default function StockTab() {
                     >
                       {t("stock.sell_button")}
                     </Button>
+                    <button
+                      onClick={() => returnToSupplier(p)}
+                      disabled={returningSupplierId === p.id}
+                      className="flex items-center justify-center rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-ink-muted hover:text-down disabled:opacity-50"
+                      aria-label={t("stock.return_supplier_aria")}
+                    >
+                      <Undo2 size={15} />
+                    </button>
                     <button
                       onClick={() => deletePhone(p)}
                       disabled={deletingId === p.id}
@@ -741,8 +805,11 @@ export default function StockTab() {
         </div>
       </Sheet>
 
-      {/* Sticker print sheet -- fixed 1.5in x 1.46in physical label */}
-      <Sheet
+      {/* Sticker print popup -- fixed 1.5in x 1.46in physical label.
+          A real floating Modal (not the full-page Sheet used elsewhere)
+          so it shows up right away no matter how far down the phone
+          list the triggering card was, or how long Stock's list is. */}
+      <Modal
         open={!!stickerPhone}
         onClose={() => setStickerPhone(null)}
         title={t("stock.sticker_sheet_title")}
@@ -755,6 +822,7 @@ export default function StockTab() {
                 label={stickerPhone.name_model}
                 ramRom={stickerPhone.ram_rom}
                 batteryHealth={stickerPhone.battery_health}
+                boxStatus={stickerPhone.box_status}
               />
             </div>
             <div className="flex w-full gap-2">
@@ -793,12 +861,14 @@ export default function StockTab() {
             </div>
           </div>
         )}
-      </Sheet>
+      </Modal>
 
-      {/* Print queue sheet -- lets the queue fill up over several prints,
-          then print every label in one grid-print pass on a single A4
-          sheet, 5 columns x 8 rows of 1.5in x 1.46in labels. */}
-      <Sheet
+      {/* Print queue popup -- same reasoning as the sticker popup above:
+          a floating Modal so it's visible immediately, lets the queue
+          fill up over several prints, then print every label in one
+          grid-print pass on a single A4 sheet, 5 columns x 8 rows of
+          1.5in x 1.46in labels. */}
+      <Modal
         open={queueOpen}
         onClose={() => setQueueOpen(false)}
         title={t("stock.print_queue_title")}
@@ -839,7 +909,47 @@ export default function StockTab() {
             <Printer size={16} /> {t("stock.print_queue_button")}
           </Button>
         </div>
-      </Sheet>
+      </Modal>
+
+      {/* Return History popup -- a read-only look at every phone ever
+          returned to whoever it was bought from (see
+          migrations/0028_phone_returns.sql + POST /api/stock/[id]/return).
+          A floating Modal for the same reason as the two above: opened
+          from the toolbar, so it should show up right away regardless of
+          scroll position. */}
+      <Modal
+        open={returnHistoryOpen}
+        onClose={() => setReturnHistoryOpen(false)}
+        title={t("stock.return_history_title")}
+      >
+        {returnHistoryLoading ? (
+          <p className="py-6 text-center text-sm text-ink-muted">{t("approvals.loading")}</p>
+        ) : returnHistory.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border py-10 text-center text-sm text-ink-muted">
+            {t("stock.return_history_empty")}
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {returnHistory.map((r) => (
+              <li
+                key={r.id}
+                className="rounded-xl border border-border bg-surface-2 px-3 py-2"
+              >
+                <p className="truncate text-sm font-medium">{r.name_model}</p>
+                <p className="truncate text-xs text-ink-faint tabular">IMEI: {r.imei}</p>
+                <p className="mt-1 text-xs text-ink-muted">
+                  {t("stock.return_history_returned_to_prefix")}
+                  {r.bought_from || "-"} · {money(r.buy_price)}
+                </p>
+                <p className="text-xs text-ink-faint">
+                  {t("stock.return_history_on_prefix")}
+                  {formatDate(r.returned_at)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
 
       {/* Hidden, always-mounted pre-render of every queued label -- each
           PrintLabelCell's JsBarcode draw effect finishes as soon as it
@@ -853,6 +963,7 @@ export default function StockTab() {
               label={p.name_model}
               ramRom={p.ram_rom}
               batteryHealth={p.battery_health}
+              boxStatus={p.box_status}
             />
           </div>
         ))}
@@ -1154,6 +1265,7 @@ function EditPhoneSheet({
     bought_from: "",
     phone_number: "",
     nid: "",
+    box_status: "with_box" as "with_box" | "without_box",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -1169,6 +1281,7 @@ function EditPhoneSheet({
         bought_from: phone.bought_from || "",
         phone_number: phone.phone_number || "",
         nid: phone.nid || "",
+        box_status: phone.box_status === "without_box" ? "without_box" : "with_box",
       });
       setError("");
     }
@@ -1195,6 +1308,7 @@ function EditPhoneSheet({
         bought_from: form.bought_from,
         phone_number: form.phone_number,
         nid: form.nid,
+        box_status: form.box_status,
       }),
     });
     setSaving(false);
@@ -1245,6 +1359,28 @@ function EditPhoneSheet({
             placeholder={t("stock.battery_health_placeholder")}
             className={inputClass}
           />
+        </Field>
+        <Field label={t("buy.box_status_label")}>
+          <div className="flex gap-5 pt-1">
+            <label className="flex items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={form.box_status === "with_box"}
+                onChange={() => setForm({ ...form, box_status: "with_box" })}
+                className="h-4 w-4"
+              />
+              {t("buy.with_box_label")}
+            </label>
+            <label className="flex items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={form.box_status === "without_box"}
+                onChange={() => setForm({ ...form, box_status: "without_box" })}
+                className="h-4 w-4"
+              />
+              {t("buy.without_box_label")}
+            </label>
+          </div>
         </Field>
         <Field label="Buy Price (৳)">
           <input

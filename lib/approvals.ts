@@ -10,7 +10,7 @@ import type { D1Database } from "@cloudflare/workers-types";
 // approves it from the Approvals tab. An admin's own requests always apply
 // immediately; this module is only ever consulted for a pos_manager role.
 
-export type ApprovalActionType = "edit" | "delete" | "buy";
+export type ApprovalActionType = "edit" | "delete" | "buy" | "return";
 
 // Keep in sync with the switch in applyPendingApproval() below -- every
 // resource_type inserted here must have a matching case there, or approving

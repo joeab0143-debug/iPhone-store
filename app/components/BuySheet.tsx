@@ -44,6 +44,10 @@ function makeEmptyForm() {
     phone_number: "",
     nid: "",
     seller_type: "supplier" as "supplier" | "individual",
+    // "With Box" / "Without Box" checkbox pair -- see
+    // migrations/0029_phones_box_status.sql. Defaults to "with_box" since
+    // that's the common case; the shop owner unchecks it when it isn't.
+    box_status: "with_box" as "with_box" | "without_box",
     nid_front_photo: "",
     nid_back_photo: "",
     person_photo: "",
@@ -360,6 +364,7 @@ export default function BuySheet({
         phone_number: form.phone_number || null,
         nid: form.nid || null,
         seller_type: form.seller_type,
+        box_status: form.box_status,
         nid_front_photo: form.seller_type === "individual" ? form.nid_front_photo : null,
         nid_back_photo: form.seller_type === "individual" ? form.nid_back_photo : null,
         person_photo: form.seller_type === "individual" ? form.person_photo : null,
@@ -506,6 +511,28 @@ export default function BuySheet({
                 placeholder={t("buy.battery_placeholder")}
                 className={inputClass}
               />
+            </Field>
+            <Field label={t("buy.box_status_label")}>
+              <div className="flex gap-5 pt-1">
+                <label className="flex items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    checked={form.box_status === "with_box"}
+                    onChange={() => setForm({ ...form, box_status: "with_box" })}
+                    className="h-4 w-4"
+                  />
+                  {t("buy.with_box_label")}
+                </label>
+                <label className="flex items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    checked={form.box_status === "without_box"}
+                    onChange={() => setForm({ ...form, box_status: "without_box" })}
+                    className="h-4 w-4"
+                  />
+                  {t("buy.without_box_label")}
+                </label>
+              </div>
             </Field>
             <Field label={t("buy.price_label")}>
               <input

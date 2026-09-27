@@ -100,6 +100,55 @@ export function Sheet({
   );
 }
 
+// A true floating/centered popup (fixed overlay + backdrop), unlike Sheet
+// above (which deliberately renders full-page/inline, per the Phase 7 fix
+// -- see its own comment). Sheet is wrong for something the shop owner
+// opens from a card deep in a long list (many phones in Stock): being
+// inline means it renders far below the current scroll position, so
+// opening it doesn't visibly do anything until they scroll all the way
+// down. Modal instead shows up immediately, centered, regardless of
+// scroll position or how long the list above it is -- used for the
+// sticker/print-queue dialogs.
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+}) {
+  const { t } = useLang();
+  const closeLabel = t("common.reset_form");
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-3xl border border-border bg-surface p-5 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-display text-lg font-semibold">{title}</h3>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1.5 text-ink-muted hover:bg-surface-2 hover:text-ink transition"
+            aria-label={closeLabel}
+            title={closeLabel}
+          >
+            <X size={20} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function Badge({
   children,
   tone = "default",

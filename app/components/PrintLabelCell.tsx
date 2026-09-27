@@ -23,9 +23,9 @@ import JsBarcode from "jsbarcode";
 // many digits happen to render; pass 2 re-renders at whatever module width
 // brings the result to TARGET_BARCODE_WIDTH_PX -- so a longer number gets
 // thinner bars instead of a wider barcode, keeping every label neat and
-// consistent. Trimmed down from an earlier 125px so the bars print a
-// little less thick.
-const TARGET_BARCODE_WIDTH_PX = 100; // ~1.05in at 96dpi
+// consistent. Trimmed down twice now (was 125px, then 100px) so the
+// bars print noticeably thinner.
+const TARGET_BARCODE_WIDTH_PX = 80; // ~0.83in at 96dpi
 const BAR_HEIGHT = 46;
 const BARCODE_FONT_SIZE = 8;
 
@@ -34,12 +34,14 @@ export default function PrintLabelCell({
   label,
   ramRom,
   batteryHealth,
+  boxStatus,
   shopName = "Apple Store Satkhira",
 }: {
   imei: string;
   label?: string;
   ramRom?: string | null;
   batteryHealth?: string | null;
+  boxStatus?: "with_box" | "without_box" | null;
   shopName?: string;
 }) {
   const ref = useRef<SVGSVGElement>(null);
@@ -84,9 +86,16 @@ export default function PrintLabelCell({
     }
   }, [imei]);
 
+  // Compact so it stays on the same single nowrap line as RAM/Battery --
+  // "Box: Yes/No" rather than the full "With Box"/"Without Box" wording
+  // used on the Buy/Edit form checkboxes.
+  const boxLabel =
+    boxStatus === "with_box" ? "Box: Yes" : boxStatus === "without_box" ? "Box: No" : null;
+
   const specLine = [
     ramRom && `RAM/ROM: ${ramRom}`,
     batteryHealth && `Battery: ${batteryHealth}`,
+    boxLabel,
   ]
     .filter(Boolean)
     .join("  ·  ");

@@ -8,7 +8,7 @@ import { emitDashboardRefresh, emitApprovalsRefresh, APPROVALS_REFRESH_EVENT } f
 
 interface ApprovalRow {
   id: number;
-  action_type: "edit" | "delete" | "buy";
+  action_type: "edit" | "delete" | "buy" | "return";
   resource_type: string;
   resource_id: number | null;
   resource_label: string;
@@ -68,6 +68,7 @@ export default function ApprovalsTab({
     if (action === "edit") return t("approvals.action_edit");
     if (action === "delete") return t("approvals.action_delete");
     if (action === "buy") return t("approvals.action_buy");
+    if (action === "return") return t("approvals.action_return");
     return action;
   }
 
