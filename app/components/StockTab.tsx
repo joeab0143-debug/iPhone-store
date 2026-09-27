@@ -1149,6 +1149,8 @@ function PhoneDetailsSheet({
     { label: "IMEI", value: phone.imei },
     ...(phone.ram_rom ? [{ label: "RAM/ROM", value: phone.ram_rom }] : []),
     ...(phone.battery_health ? [{ label: "Battery Health", value: phone.battery_health }] : []),
+    ...(phone.variant ? [{ label: t("buy.variant_label"), value: phone.variant }] : []),
+    ...(phone.color ? [{ label: t("buy.color_label"), value: phone.color }] : []),
     ...(phone.bought_from ? [{ label: "Buy from whom", value: phone.bought_from }] : []),
     ...(phone.phone_number ? [{ label: "Number", value: phone.phone_number }] : []),
     ...(phone.nid ? [{ label: "NID", value: phone.nid }] : []),
