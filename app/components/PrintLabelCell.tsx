@@ -168,7 +168,8 @@ export default function PrintLabelCell({
       <svg ref={ref} />
       {/* Blank "Price-" write-in row -- deliberately left empty (no
          computed amount) so the shop owner can fill it in by hand after
-         printing; the underline shows where to write. */}
+         printing. No underline (removed per request) -- just the label
+         and blank space to write on. */}
       <div
         style={{
           display: "flex",
@@ -190,7 +191,6 @@ export default function PrintLabelCell({
         <span
           style={{
             flex: 1,
-            borderBottom: "1px solid #000000",
             height: 7,
           }}
         />

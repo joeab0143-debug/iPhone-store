@@ -171,9 +171,22 @@ export function Badge({
   );
 }
 
+// South Asian (Bangladeshi) digit grouping -- the last 3 digits together,
+// then groups of 2 to the left (e.g. 200000 -> "2,00,000", 1807540 ->
+// "18,07,540") -- rather than the Western "1,807,540" that
+// Number.toLocaleString() produces (this app's "en-BD" call still grouped
+// Western-style). Mirrors formatTaka() in lib/sales-invoice.ts, kept as a
+// separate copy rather than a shared import since that file also pulls in
+// the PDF library and this helper is used all over the client UI.
 export function money(n: number | null | undefined) {
-  const v = Number(n || 0);
-  return v.toLocaleString("en-BD", { maximumFractionDigits: 0 });
+  const v = Math.round(Number(n || 0));
+  const sign = v < 0 ? "-" : "";
+  const s = Math.abs(v).toString();
+  if (s.length <= 3) return sign + s;
+  const lastThree = s.slice(-3);
+  const rest = s.slice(0, -3);
+  const grouped = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",");
+  return sign + grouped + "," + lastThree;
 }
 
 export function formatDate(iso: string | null | undefined) {
