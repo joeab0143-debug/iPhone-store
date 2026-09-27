@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   if (!payload || payload.app !== "iphone-store" || typeof payload.tables !== "object" || !payload.tables) {
     return NextResponse.json(
-      { error: "This doesn't look like an iPhone Store backup file" },
+      { error: "This doesn't look like an Apple Store Satkhira backup file" },
       { status: 400 }
     );
   }

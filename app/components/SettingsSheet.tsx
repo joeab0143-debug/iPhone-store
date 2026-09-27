@@ -28,6 +28,16 @@ export default function SettingsSheet({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loggingOut, setLoggingOut] = useState(false);
+  // Own admin/POS-Manager login username shown at the top of this sheet --
+  // kept as local state (seeded from the `username` prop, and updated
+  // straight away right after a successful "Change User ID / Password"
+  // save below) so the "Current User ID" field reflects the new name
+  // immediately, instead of still showing the old one until the whole
+  // app is reloaded (the parent only fetches /api/auth/me once, on mount).
+  const [displayUsername, setDisplayUsername] = useState(username);
+  useEffect(() => {
+    setDisplayUsername(username);
+  }, [username]);
 
   const [currentCash, setCurrentCash] = useState<number | null>(null);
   const [newCash, setNewCash] = useState("");
@@ -379,6 +389,7 @@ export default function SettingsSheet({
       return;
     }
     setSuccess(t("settings.saved_success"));
+    if (newUsername.trim()) setDisplayUsername(newUsername.trim());
     setCurrentPassword("");
     setNewUsername("");
     setNewPassword("");
@@ -398,7 +409,7 @@ export default function SettingsSheet({
       <div className="space-y-4">
         <div className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5">
           <p className="text-xs text-ink-faint">{t("settings.current_username_label")}</p>
-          <p className="font-medium">{username}</p>
+          <p className="font-medium">{displayUsername}</p>
         </div>
 
         {isAdmin && (

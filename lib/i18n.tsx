@@ -602,8 +602,8 @@ export const STRINGS: Record<string, Entry> = {
     bn: "নিশ্চিত করতে বক্সে বড় হাতের অক্ষরে RESTORE লিখুন",
   },
   "settings.restore_invalid_file": {
-    en: "This doesn't look like an iPhone Store backup file",
-    bn: "এটা iPhone Store-এর ব্যাকআপ ফাইলের মতো মনে হচ্ছে না",
+    en: "This doesn't look like an Apple Store Satkhira backup file",
+    bn: "এটা Apple Store Satkhira-এর ব্যাকআপ ফাইলের মতো মনে হচ্ছে না",
   },
   "settings.restore_failed": { en: "Restore failed -- please try again", bn: "রিস্টোর করা যায়নি -- আবার চেষ্টা করুন" },
   "settings.restore_success_prefix": { en: "Restore complete --", bn: "রিস্টোর সম্পন্ন --" },
