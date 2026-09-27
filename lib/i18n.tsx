@@ -574,6 +574,31 @@ export const STRINGS: Record<string, Entry> = {
   },
   "settings.backup_auto_none": { en: "No automatic backups yet", bn: "এখনো কোনো অটো ব্যাকআপ নেই" },
   "settings.backup_download_button": { en: "Download", bn: "ডাউনলোড" },
+  "settings.restore_heading": { en: "Restore from Backup", bn: "ব্যাকআপ থেকে রিস্টোর" },
+  "settings.restore_description": {
+    en: "Upload a previously downloaded backup .json file to replace all current Stock, Sales, Expense, Gadget and Supplier data with what's in that file. This cannot be undone -- take a fresh backup of the current data first if you're not sure.",
+    bn: "আগে ডাউনলোড করা ব্যাকআপ .json ফাইল আপলোড করে এখনকার সব Stock, Sales, Expense, Gadget ও Supplier ডেটা ওই ফাইলের ডেটা দিয়ে বদলে ফেলুন। এটা পরে আর ফিরিয়ে আনা যাবে না -- নিশ্চিত না হলে আগে এখনকার ডেটার একটা ব্যাকআপ নিয়ে রাখুন।",
+  },
+  "settings.restore_choose_file": { en: "Choose Backup File", bn: "ব্যাকআপ ফাইল বেছে নিন" },
+  "settings.restore_confirm_label": { en: "Type RESTORE below to confirm", bn: "নিশ্চিত করতে নিচে RESTORE লিখুন" },
+  "settings.restore_button": { en: "Restore Now", bn: "এখনই রিস্টোর করুন" },
+  "settings.restore_restoring": { en: "Restoring...", bn: "রিস্টোর হচ্ছে..." },
+  "settings.restore_confirm_dialog": {
+    en: "This will permanently delete all current Stock, Sales, Expense, Gadget and Supplier data and replace it with the backup file's data. This cannot be undone. Continue?",
+    bn: "এতে এখনকার সব Stock, Sales, Expense, Gadget ও Supplier ডেটা স্থায়ীভাবে মুছে গিয়ে ব্যাকআপ ফাইলের ডেটা দিয়ে বদলে যাবে। এটা পরে আর ফিরিয়ে আনা যাবে না। এগিয়ে যাবেন?",
+  },
+  "settings.restore_need_file": { en: "Please choose a backup file first", bn: "প্রথমে একটা ব্যাকআপ ফাইল বেছে নিন" },
+  "settings.restore_need_confirm_text": {
+    en: "Type RESTORE (capital letters) in the box to confirm",
+    bn: "নিশ্চিত করতে বক্সে বড় হাতের অক্ষরে RESTORE লিখুন",
+  },
+  "settings.restore_invalid_file": {
+    en: "This doesn't look like an iPhone Store backup file",
+    bn: "এটা iPhone Store-এর ব্যাকআপ ফাইলের মতো মনে হচ্ছে না",
+  },
+  "settings.restore_failed": { en: "Restore failed -- please try again", bn: "রিস্টোর করা যায়নি -- আবার চেষ্টা করুন" },
+  "settings.restore_success_prefix": { en: "Restore complete --", bn: "রিস্টোর সম্পন্ন --" },
+  "settings.restore_rows_suffix": { en: "rows restored", bn: "টা সারি রিস্টোর হয়েছে" },
 };
 
 const LanguageContext = createContext<{

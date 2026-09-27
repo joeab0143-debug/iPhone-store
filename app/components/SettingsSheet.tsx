@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Wallet, UserCog, Store, DatabaseBackup, Download, Plus, Trash2 } from "lucide-react";
+import { LogOut, Wallet, UserCog, Store, DatabaseBackup, Download, Upload, Plus, Trash2 } from "lucide-react";
 import { Button, Field, Sheet, inputClass, money, formatDate } from "./ui";
 import { emitDashboardRefresh } from "@/lib/events";
 import { useLang } from "@/lib/i18n";
@@ -69,6 +69,15 @@ export default function SettingsSheet({
   const [autoBackups, setAutoBackups] = useState<{ key: string; size: number; uploaded: string }[]>([]);
   const [autoBackupsConfigured, setAutoBackupsConfigured] = useState(true);
   const [backupListLoading, setBackupListLoading] = useState(false);
+
+  // Restore from Backup (admin-only) -- uploads a previously downloaded
+  // backup .json file and replaces all current business data with it (see
+  // app/api/backup/restore + lib/backup.ts's restoreFromBackup()).
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restoreConfirmText, setRestoreConfirmText] = useState("");
+  const [restoring, setRestoring] = useState(false);
+  const [restoreError, setRestoreError] = useState("");
+  const [restoreSuccess, setRestoreSuccess] = useState("");
 
   const isAdmin = role === "admin";
 
@@ -286,6 +295,56 @@ export default function SettingsSheet({
 
   function downloadAutoBackup(key: string) {
     window.open(`/api/backup/download?key=${encodeURIComponent(key)}`, "_blank");
+  }
+
+  // Replaces all current Stock/Sales/Expense/Gadget/Supplier data with
+  // whatever is in the uploaded backup file -- irreversible, so this is
+  // gated behind both a typed "RESTORE" confirmation and a native confirm
+  // dialog before the request ever goes out.
+  async function restoreFromBackupFile() {
+    setRestoreError("");
+    setRestoreSuccess("");
+    if (!restoreFile) {
+      setRestoreError(t("settings.restore_need_file"));
+      return;
+    }
+    if (restoreConfirmText.trim().toUpperCase() !== "RESTORE") {
+      setRestoreError(t("settings.restore_need_confirm_text"));
+      return;
+    }
+    if (!window.confirm(t("settings.restore_confirm_dialog"))) return;
+
+    setRestoring(true);
+    try {
+      const text = await restoreFile.text();
+      let payload: any;
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        throw new Error(t("settings.restore_invalid_file"));
+      }
+      if (!payload || payload.app !== "iphone-store") {
+        throw new Error(t("settings.restore_invalid_file"));
+      }
+      const res = await fetch("/api/backup/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: text,
+      });
+      const d: any = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "failed");
+      const total = Object.values(d.restored || {}).reduce(
+        (a: number, b: any) => a + (Number(b) || 0),
+        0
+      );
+      setRestoreSuccess(`${t("settings.restore_success_prefix")} ${total} ${t("settings.restore_rows_suffix")}`);
+      setRestoreFile(null);
+      setRestoreConfirmText("");
+      emitDashboardRefresh();
+    } catch (e: any) {
+      setRestoreError(e?.message || t("settings.restore_failed"));
+    }
+    setRestoring(false);
   }
 
   async function submit() {
@@ -530,6 +589,36 @@ export default function SettingsSheet({
                   ))}
                 </ul>
               )}
+            </div>
+
+            <div className="space-y-2 rounded-xl border border-down/30 bg-down/5 px-3.5 py-3">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-down">
+                <Upload size={15} /> {t("settings.restore_heading")}
+              </p>
+              <p className="text-xs text-ink-faint">{t("settings.restore_description")}</p>
+              {restoreError && <p className="text-sm text-down">{restoreError}</p>}
+              {restoreSuccess && <p className="text-sm text-up">{restoreSuccess}</p>}
+              <input
+                type="file"
+                accept="application/json,.json"
+                onChange={(e) => {
+                  setRestoreFile(e.target.files?.[0] || null);
+                  setRestoreError("");
+                  setRestoreSuccess("");
+                }}
+                className="block w-full text-xs text-ink-muted file:mr-3 file:rounded-lg file:border-0 file:bg-surface-2 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-ink"
+              />
+              <p className="text-xs text-ink-faint">{t("settings.restore_confirm_label")}</p>
+              <input
+                value={restoreConfirmText}
+                onChange={(e) => setRestoreConfirmText(e.target.value)}
+                placeholder="RESTORE"
+                className={inputClass}
+              />
+              <Button full variant="secondary" onClick={restoreFromBackupFile} disabled={restoring}>
+                <Upload size={16} />
+                {restoring ? t("settings.restore_restoring") : t("settings.restore_button")}
+              </Button>
             </div>
           </div>
         )}
