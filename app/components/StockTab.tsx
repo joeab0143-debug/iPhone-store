@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ScanLine, Printer, Receipt, Wallet, Search, RotateCcw, Pencil, Trash2, Download } from "lucide-react";
+import { ScanLine, Printer, Receipt, Wallet, Search, RotateCcw, Pencil, Trash2, Download, LayoutGrid, ListPlus, X } from "lucide-react";
 import { Button, Field, inputClass, Sheet, Badge, money, formatDate } from "./ui";
 import BarcodeScanner from "./BarcodeScanner";
-import BarcodeSticker from "./BarcodeSticker";
+import PrintLabelCell from "./PrintLabelCell";
 import { printSalesInvoice } from "@/lib/sales-invoice";
 import { generateReportPDF } from "@/lib/report-pdf";
 import { emitDashboardRefresh, emitApprovalsRefresh, DASHBOARD_REFRESH_EVENT } from "@/lib/events";
@@ -12,6 +12,16 @@ import { useLang } from "@/lib/i18n";
 import type { Phone, Sale } from "@/lib/types";
 
 const SHOP_NAME = "Apple Store Satkhira";
+
+// A 1.5in x 2in label fits 5 columns x 5 rows on one A4 sheet
+// (8.27in / 1.5in = 5, 11.69in / 2in = 5) -- so a full grid print job is
+// capped at 25 labels at a time.
+const QUEUE_CAPACITY = 25;
+
+// The print queue survives a page reload/tab close (localStorage) so the
+// shop owner can keep adding a few labels a day and print the full grid
+// only once it's worth a sheet of A4 label stock.
+const PRINT_QUEUE_STORAGE_KEY = "stock_print_queue_v1";
 
 // Another device/session may buy, sell, return, edit, delete, or have a
 // pending POS-Manager change approved while this tab is open -- this is
@@ -40,6 +50,8 @@ export default function StockTab() {
   const [editPhone, setEditPhone] = useState<Phone | null>(null);
   const [duePhone, setDuePhone] = useState<{ phone: Phone; sale: Sale } | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
+  const [printQueue, setPrintQueue] = useState<Phone[]>([]);
+  const [queueOpen, setQueueOpen] = useState(false);
 
   const [sellForm, setSellForm] = useState({
     selling_price: "",
@@ -73,6 +85,26 @@ export default function StockTab() {
   useEffect(() => {
     load();
   }, []);
+
+  // Restore any labels left in the print queue from a previous visit.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(PRINT_QUEUE_STORAGE_KEY);
+      if (raw) setPrintQueue(JSON.parse(raw));
+    } catch {
+      // Corrupt/unavailable storage -- just start with an empty queue.
+    }
+  }, []);
+
+  // Keep the queue in sync with localStorage on every change so it isn't
+  // lost on a reload or if the tab is closed before printing.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(PRINT_QUEUE_STORAGE_KEY, JSON.stringify(printQueue));
+    } catch {
+      // Storage full/unavailable -- the queue still works for this tab.
+    }
+  }, [printQueue]);
 
   // Opening the sell sheet for a phone already tells us its RAM/ROM and
   // Battery Health (entered at Buy time) — pre-fill them instead of making
@@ -377,6 +409,47 @@ export default function StockTab() {
     );
   }
 
+  function addToQueue(phone: Phone) {
+    if (printQueue.some((p) => p.imei === phone.imei)) return;
+    if (printQueue.length >= QUEUE_CAPACITY) {
+      window.alert(t("stock.queue_full_notice"));
+      return;
+    }
+    setPrintQueue([...printQueue, phone]);
+  }
+
+  function removeFromQueue(imei: string) {
+    setPrintQueue((prev) => prev.filter((p) => p.imei !== imei));
+  }
+
+  // Prints every queued label at once, tiled into a 5x5 grid sized so each
+  // cell is exactly 1.5in x 2in on one A4 sheet -- no scaling, since each
+  // hidden PrintLabelCell below is already rendered at that exact size.
+  function printQueueGrid() {
+    if (printQueue.length === 0) return;
+    const cellsHtml = printQueue
+      .map((p) => {
+        const node = document.getElementById(`queue-label-${p.imei}`);
+        return node
+          ? `<div style="width:1.5in;height:2in;overflow:hidden;display:flex;align-items:center;justify-content:center">${node.innerHTML}</div>`
+          : "";
+      })
+      .filter(Boolean)
+      .join("");
+    if (!cellsHtml) return;
+    const w = window.open("", "_blank", "width=800,height=1000");
+    if (!w) return;
+    w.document.write(
+      `<html><head><title>Print Queue</title><style>@page{size:8.27in 11.69in;margin:0}html,body{margin:0;padding:0}.grid-wrap{display:flex;justify-content:center;padding-top:0.15in}.grid{display:grid;grid-template-columns:repeat(5,1.5in);grid-auto-rows:2in}</style></head><body><div class="grid-wrap"><div class="grid">${cellsHtml}</div></div></body></html>`
+    );
+    w.document.close();
+    w.focus();
+    setTimeout(() => {
+      w.print();
+    }, 300);
+    setPrintQueue([]);
+  }
+
   return (
     <div className="pb-24">
       <div className="mb-4 flex items-center gap-2">
@@ -398,6 +471,18 @@ export default function StockTab() {
           aria-label={t("stock.scan_barcode_aria")}
         >
           <ScanLine size={20} />
+        </button>
+        <button
+          onClick={() => setQueueOpen(true)}
+          className="relative flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 text-teal"
+          aria-label={t("stock.print_queue_aria")}
+        >
+          <LayoutGrid size={20} />
+          {printQueue.length > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal px-1 text-[10px] font-bold text-white">
+              {printQueue.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -654,7 +739,7 @@ export default function StockTab() {
         </div>
       </Sheet>
 
-      {/* Sticker print sheet */}
+      {/* Sticker print sheet -- fixed 1.5in x 2in physical label */}
       <Sheet
         open={!!stickerPhone}
         onClose={() => setStickerPhone(null)}
@@ -663,43 +748,113 @@ export default function StockTab() {
         {stickerPhone && (
           <div className="flex flex-col items-center gap-4">
             <div id="sticker-print-area">
-              <BarcodeSticker
+              <PrintLabelCell
                 imei={stickerPhone.imei}
                 label={stickerPhone.name_model}
                 ramRom={stickerPhone.ram_rom}
                 batteryHealth={stickerPhone.battery_health}
               />
             </div>
-            <Button
-              full
-              onClick={() => {
-                const node = document.getElementById("sticker-print-area");
-                if (!node) return;
-                // Print at the sticker's real physical size instead of
-                // letting the browser scale it to fill an A4/Letter page —
-                // set the print page's size to exactly match the sticker's
-                // rendered size (converted from CSS px to mm at 96dpi), so
-                // nothing is stretched or shrunk.
-                const rect = node.getBoundingClientRect();
-                const mmPerPx = 25.4 / 96;
-                const wMm = (rect.width * mmPerPx).toFixed(2);
-                const hMm = (rect.height * mmPerPx).toFixed(2);
-                const w = window.open("", "_blank", "width=400,height=300");
-                if (w) {
-                  w.document.write(
-                    `<html><head><title>Sticker</title><style>@page{size:${wMm}mm ${hMm}mm;margin:0}html,body{margin:0;padding:0}</style></head><body style="width:${wMm}mm;height:${hMm}mm;display:flex;align-items:center;justify-content:center">${node.innerHTML}</body></html>`
-                  );
-                  w.document.close();
-                  w.focus();
-                  setTimeout(() => w.print(), 300);
+            <div className="flex w-full gap-2">
+              <Button
+                full
+                onClick={() => {
+                  const node = document.getElementById("sticker-print-area");
+                  if (!node) return;
+                  // Every label is the same fixed 1.5in x 2in physical size,
+                  // so the print page can just be set to that size directly
+                  // -- no measuring needed.
+                  const w = window.open("", "_blank", "width=400,height=300");
+                  if (w) {
+                    w.document.write(
+                      `<html><head><title>Label</title><style>@page{size:1.5in 2in;margin:0}html,body{margin:0;padding:0}</style></head><body style="width:1.5in;height:2in;display:flex;align-items:center;justify-content:center">${node.innerHTML}</body></html>`
+                    );
+                    w.document.close();
+                    w.focus();
+                    setTimeout(() => w.print(), 300);
+                  }
+                }}
+              >
+                <Printer size={16} /> {t("stock.print_sticker_button")}
+              </Button>
+              <Button
+                full
+                variant="secondary"
+                disabled={
+                  printQueue.length >= QUEUE_CAPACITY ||
+                  printQueue.some((p) => p.imei === stickerPhone.imei)
                 }
-              }}
-            >
-              <Printer size={16} /> {t("stock.print_sticker_button")}
-            </Button>
+                onClick={() => addToQueue(stickerPhone)}
+              >
+                <ListPlus size={16} /> {t("stock.add_to_queue_button")}
+              </Button>
+            </div>
           </div>
         )}
       </Sheet>
+
+      {/* Print queue sheet -- lets the queue fill up over several prints,
+          then print every label in one grid-print pass on a single A4
+          sheet, 5 columns x 5 rows of 1.5in x 2in labels. */}
+      <Sheet
+        open={queueOpen}
+        onClose={() => setQueueOpen(false)}
+        title={t("stock.print_queue_title")}
+      >
+        <div className="space-y-3">
+          <p className="text-xs text-ink-muted">
+            {t("stock.print_queue_count")
+              .replace("{count}", String(printQueue.length))
+              .replace("{capacity}", String(QUEUE_CAPACITY))}
+          </p>
+          {printQueue.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border py-10 text-center text-sm text-ink-muted">
+              {t("stock.print_queue_empty")}
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {printQueue.map((p) => (
+                <li
+                  key={p.imei}
+                  className="flex items-center justify-between gap-2 rounded-xl border border-border bg-surface-2 px-3 py-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{p.name_model}</p>
+                    <p className="truncate text-xs text-ink-faint tabular">IMEI: {p.imei}</p>
+                  </div>
+                  <button
+                    onClick={() => removeFromQueue(p.imei)}
+                    className="flex items-center justify-center rounded-lg border border-border bg-surface px-2 py-1.5 text-ink-muted hover:text-down"
+                    aria-label={t("stock.remove_from_queue_aria")}
+                  >
+                    <X size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Button full onClick={printQueueGrid} disabled={printQueue.length === 0}>
+            <Printer size={16} /> {t("stock.print_queue_button")}
+          </Button>
+        </div>
+      </Sheet>
+
+      {/* Hidden, always-mounted pre-render of every queued label -- each
+          PrintLabelCell's JsBarcode draw effect finishes as soon as it
+          mounts, so by the time printQueueGrid() reads its innerHTML (on a
+          later click) the barcode is guaranteed to already be there. */}
+      <div style={{ position: "absolute", top: -99999, left: -99999, visibility: "hidden" }} aria-hidden>
+        {printQueue.map((p) => (
+          <div id={`queue-label-${p.imei}`} key={p.imei}>
+            <PrintLabelCell
+              imei={p.imei}
+              label={p.name_model}
+              ramRom={p.ram_rom}
+              batteryHealth={p.battery_health}
+            />
+          </div>
+        ))}
+      </div>
 
       {/* Phone details — opens when tapping a card */}
       <PhoneDetailsSheet
