@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import JsBarcode from "jsbarcode";
-import { money } from "./ui";
 
 // A single physical print label, fixed at 1.5in x 1.46in -- a compact
 // landscape size meant to sit on top of a phone box. 1.46in (= 11.69in A4
@@ -35,14 +34,12 @@ export default function PrintLabelCell({
   label,
   ramRom,
   batteryHealth,
-  price,
   shopName = "Apple Store Satkhira",
 }: {
   imei: string;
   label?: string;
   ramRom?: string | null;
   batteryHealth?: string | null;
-  price?: number | null;
   shopName?: string;
 }) {
   const ref = useRef<SVGSVGElement>(null);
@@ -157,20 +154,35 @@ export default function PrintLabelCell({
         </div>
       )}
       <svg ref={ref} />
-      {price != null && (
-        <div
+      {/* Blank "Price-" write-in row -- deliberately left empty (no
+         computed amount) so the shop owner can fill it in by hand after
+         printing; the underline shows where to write. */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          width: "100%",
+          gap: 3,
+        }}
+      >
+        <span
           style={{
-            textAlign: "left",
-            width: "100%",
             fontSize: 8,
             fontWeight: 700,
             color: "#000000",
             whiteSpace: "nowrap",
           }}
         >
-          {`Price- \u09f3${money(price)}`}
-        </div>
-      )}
+          Price-
+        </span>
+        <span
+          style={{
+            flex: 1,
+            borderBottom: "1px solid #000000",
+            height: 7,
+          }}
+        />
+      </div>
     </div>
   );
 }
