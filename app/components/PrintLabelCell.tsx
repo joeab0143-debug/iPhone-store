@@ -140,7 +140,11 @@ export default function PrintLabelCell({
             fontWeight: 700,
             textTransform: "uppercase",
             letterSpacing: "0.03em",
-            color: "rgba(0,0,0,0.65)",
+            // Solid black (was a faint rgba(0,0,0,0.65) gray) -- at 65%
+            // opacity the bold weight barely read as bold, especially once
+            // printed. Full black at the same 700 weight as the model-name
+            // line below it makes the boldness actually visible.
+            color: "#000000",
             whiteSpace: "nowrap",
           }}
         >
