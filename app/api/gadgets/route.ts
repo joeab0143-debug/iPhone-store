@@ -45,12 +45,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Enter a valid Quantity" }, { status: 400 });
   }
 
-  const result = await db
+  const gadget = await db
     .prepare(
-      `INSERT INTO gadgets (buy_name, buy_price, quantity) VALUES (?, ?, ?)`
+      `INSERT INTO gadgets (buy_name, buy_price, quantity) VALUES (?, ?, ?) RETURNING *`
     )
     .bind(buy_name, Number(buy_price || 0), qty)
-    .run();
+    .first();
 
-  return NextResponse.json({ id: result.meta.last_row_id }, { status: 201 });
+  return NextResponse.json({ id: (gadget as any)?.id, gadget }, { status: 201 });
 }

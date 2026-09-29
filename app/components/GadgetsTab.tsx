@@ -151,9 +151,13 @@ export default function GadgetsTab() {
       setError(d.error || t("gadgets.save_failed"));
       return;
     }
+    const d: any = await res.json();
     setForm({ buy_name: "", buy_price: "", quantity: "1" });
     setAddOpen(false);
-    load();
+    // The API now returns the full created row directly (see
+    // app/api/gadgets/route.ts), so the new entry goes straight into the
+    // list here instead of a follow-up GET /api/gadgets round trip.
+    setGadgets((prev) => [{ ...d.gadget, sold_count: 0, total_sell: 0, total_profit: 0 }, ...prev]);
   }
 
   async function deleteGadget(id: number) {
@@ -165,7 +169,9 @@ export default function GadgetsTab() {
       window.alert(t("approvals.pending_submitted_message"));
       return;
     }
-    load();
+    // Already known locally -- just drop it from the list instead of
+    // re-fetching everything.
+    setGadgets((prev) => prev.filter((g) => g.id !== id));
   }
 
   function openSell(g: Gadget) {
@@ -222,9 +228,25 @@ export default function GadgetsTab() {
       setSellError(d.error || t("gadgets.save_failed"));
       return;
     }
+    const d: any = await res.json();
+    const soldGadgetId = sellTarget.id;
     setSellTarget(null);
     if (isDueFlag) emitDashboardRefresh();
-    load();
+    // The API returns this sale's total profit directly, so the gadget's
+    // running totals can be updated in place instead of re-fetching the
+    // whole list -- one less network round trip on every Sell.
+    setGadgets((prev) =>
+      prev.map((g) =>
+        g.id === soldGadgetId
+          ? {
+              ...g,
+              sold_count: Number(g.sold_count || 0) + qty,
+              total_sell: Number(g.total_sell || 0) + Number(sellPrice) * qty,
+              total_profit: Number(g.total_profit || 0) + Number(d.profit),
+            }
+          : g
+      )
+    );
   }
 
   const totalBuy = gadgets.reduce((s, g) => s + Number(g.buy_price) * Number(g.quantity), 0);
