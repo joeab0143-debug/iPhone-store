@@ -31,6 +31,8 @@ export async function GET() {
     expenseThisMonth,
     { cashIn, cashOut, totalBuyAmt },
     cashAdjustmentAmt,
+    phonesBuyToday,
+    gadgetsBuyToday,
   ] = await Promise.all([
     db.prepare("SELECT COUNT(*) AS cnt FROM phones WHERE status = 'unsold'").first<{ cnt: number }>(),
     db
@@ -51,10 +53,27 @@ export async function GET() {
       .first<{ total: number }>(),
     computeCashParts(),
     getCashAdjustment(),
+    db
+      .prepare(
+        "SELECT COALESCE(SUM(buy_price),0) AS total FROM phones WHERE date(buy_date) = date('now','localtime')"
+      )
+      .first<{ total: number }>(),
+    db
+      .prepare(
+        "SELECT COALESCE(SUM(buy_price * quantity),0) AS total FROM gadgets WHERE date(created_at) = date('now','localtime')"
+      )
+      .first<{ total: number }>(),
   ]);
 
   const stockCountAmt = stockCount?.cnt ?? 0;
   const todaySale = salesToday?.total ?? 0;
+
+  // Today Buy = today's phone purchases (Stock) + today's gadget
+  // purchases, combined into one figure for the dashboard tile. This is
+  // the only place gadget totals ever feed into /api/dashboard --
+  // deliberate, scoped to just this card, so the rest of the dashboard
+  // (Total Cash, Total Buy, Profit) still stays phones-only as designed.
+  const todayBuy = (phonesBuyToday?.total ?? 0) + (gadgetsBuyToday?.total ?? 0);
 
   // Cash on hand = actual cash received (sales' paid_amount) minus
   // everything spent (buying stock, expenses), plus any manual
@@ -68,6 +87,7 @@ export async function GET() {
   return NextResponse.json({
     total_cash: totalCash,
     today_sale: todaySale,
+    today_buy: todayBuy,
     total_buy: totalBuyAmt,
     stock_count: stockCountAmt,
     profit_till_now: profitTillNow,

@@ -321,28 +321,31 @@ export default function SellSheet({
     const d: any = await res.json();
     emitDashboardRefresh();
 
-    const r = await fetch(`/api/sales/${d.id}`);
-    const sd: any = await r.json();
+    // POST /api/sales now returns the fully joined sale+phone data
+    // directly (see app/api/sales/route.ts) -- this used to be a separate
+    // `GET /api/sales/${id}` round trip that delayed the printed memo by a
+    // whole extra request every single time.
+    const sd = d.sale;
     setSaving(false);
     await printSalesInvoice(
       {
-        saleId: sd.sale.id,
-        nameModel: sd.sale.name_model,
-        imei: sd.sale.imei,
-        sellingPrice: sd.sale.selling_price,
-        sellingDate: sd.sale.selling_date,
-        isDue: !!sd.sale.is_due,
-        customerName: sd.sale.customer_name,
-        customerPhone: sd.sale.customer_phone,
-        customerAddress: sd.sale.customer_address,
-        customerEmail: sd.sale.customer_email,
-        narration: sd.sale.narration,
-        paidAmount: sd.sale.paid_amount,
-        dueAmount: sd.sale.due_amount,
-        ramRom: sd.sale.ram_rom,
-        batteryHealth: sd.sale.battery_health,
-        variant: sd.sale.variant,
-        color: sd.sale.color,
+        saleId: sd.id,
+        nameModel: sd.name_model,
+        imei: sd.imei,
+        sellingPrice: sd.selling_price,
+        sellingDate: sd.selling_date,
+        isDue: !!sd.is_due,
+        customerName: sd.customer_name,
+        customerPhone: sd.customer_phone,
+        customerAddress: sd.customer_address,
+        customerEmail: sd.customer_email,
+        narration: sd.narration,
+        paidAmount: sd.paid_amount,
+        dueAmount: sd.due_amount,
+        ramRom: sd.ram_rom,
+        batteryHealth: sd.battery_health,
+        variant: sd.variant,
+        color: sd.color,
       },
       previewWin
     );

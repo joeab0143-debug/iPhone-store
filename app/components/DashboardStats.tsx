@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Wallet2, CalendarCheck2, ShoppingBag, Boxes, TrendingUp, ChevronRight, Download } from "lucide-react";
+import { Wallet2, CalendarCheck2, ShoppingCart, ShoppingBag, Boxes, TrendingUp, ChevronRight, Download } from "lucide-react";
 import { money, formatDate, Sheet, monthRange, currentMonthStr } from "./ui";
 import { DASHBOARD_REFRESH_EVENT } from "@/lib/events";
 import { generateReportPDF } from "@/lib/report-pdf";
@@ -56,6 +56,21 @@ interface TotalBuyBreakdown {
   total: number;
 }
 
+interface GadgetBuyRow {
+  buy_name: string;
+  buy_price: number;
+  quantity: number;
+  created_at: string;
+}
+
+interface TodayBuyBreakdown {
+  phones: BuyPhoneRow[];
+  gadgets: GadgetBuyRow[];
+  phonesTotal: number;
+  gadgetsTotal: number;
+  total: number;
+}
+
 interface StockProfitRow {
   name_model: string;
   imei: string;
@@ -104,6 +119,10 @@ export default function DashboardStats() {
   const [buyOpen, setBuyOpen] = useState(false);
   const [buyBreakdown, setBuyBreakdown] = useState<TotalBuyBreakdown | null>(null);
   const [buyLoading, setBuyLoading] = useState(false);
+
+  const [todayBuyOpen, setTodayBuyOpen] = useState(false);
+  const [todayBuyBreakdown, setTodayBuyBreakdown] = useState<TodayBuyBreakdown | null>(null);
+  const [todayBuyLoading, setTodayBuyLoading] = useState(false);
 
   // Nested details — clicking a line inside an already-open breakdown
   // sheet shows exactly which products/entries that money came from.
@@ -199,6 +218,45 @@ export default function DashboardStats() {
       // transient network error
     } finally {
       setBuyLoading(false);
+    }
+  }, []);
+
+  // Today's phone buys (Stock, date-filtered via /api/stock's from/to) +
+  // today's gadget buys (filtered client-side since /api/gadgets has no
+  // date filter of its own -- the list is small, this is cheap).
+  const openTodayBuyBreakdown = useCallback(async () => {
+    setTodayBuyOpen(true);
+    setTodayBuyLoading(true);
+    try {
+      const today = todayStr();
+      const [pRes, gRes] = await Promise.all([
+        fetch(`/api/stock?from=${today}&to=${today}`, { cache: "no-store" }),
+        fetch(`/api/gadgets`, { cache: "no-store" }),
+      ]);
+      const pData: any = pRes.ok ? await pRes.json() : { phones: [] };
+      const gData: any = gRes.ok ? await gRes.json() : { gadgets: [] };
+      const phones: BuyPhoneRow[] = (pData.phones || []).map((p: any) => ({
+        name_model: p.name_model,
+        imei: p.imei,
+        buy_price: p.buy_price,
+        buy_date: p.buy_date,
+        status: p.status,
+      }));
+      const gadgets: GadgetBuyRow[] = (gData.gadgets || [])
+        .filter((g: any) => (g.created_at || "").slice(0, 10) === today)
+        .map((g: any) => ({
+          buy_name: g.buy_name,
+          buy_price: g.buy_price,
+          quantity: g.quantity,
+          created_at: g.created_at,
+        }));
+      const phonesTotal = phones.reduce((s, p) => s + Number(p.buy_price), 0);
+      const gadgetsTotal = gadgets.reduce((s, g) => s + Number(g.buy_price) * Number(g.quantity), 0);
+      setTodayBuyBreakdown({ phones, gadgets, phonesTotal, gadgetsTotal, total: phonesTotal + gadgetsTotal });
+    } catch {
+      // transient network error
+    } finally {
+      setTodayBuyLoading(false);
     }
   }, []);
 
@@ -313,6 +371,35 @@ export default function DashboardStats() {
     );
   }
 
+  function downloadTodayBuyReport() {
+    if (!todayBuyBreakdown) return;
+    const previewWin = window.open("", "_blank");
+    const rows: (string | number)[][] = [
+      ...todayBuyBreakdown.phones.map((p) => ["Phone", p.name_model, p.imei, Number(p.buy_price).toLocaleString()]),
+      ...todayBuyBreakdown.gadgets.map((g) => [
+        "Gadget",
+        g.buy_name,
+        `x${g.quantity}`,
+        (Number(g.buy_price) * Number(g.quantity)).toLocaleString(),
+      ]),
+    ];
+    generateReportPDF(
+      {
+        shopName: "Apple Store Satkhira",
+        title: "Today's Buy Report",
+        subtitle: todayLabel(),
+        summary: [{ label: "Total (Today)", value: `Tk ${todayBuyBreakdown.total.toLocaleString()}`, tone: "down" }],
+        table: {
+          head: ["Type", "Item", "IMEI / Qty", "Amount (Tk)"],
+          rows,
+          emptyLabel: "No purchases today",
+        },
+        footerNote: "Generated from Apple Store Satkhira — Dashboard",
+      },
+      previewWin
+    );
+  }
+
   function downloadProfitReport() {
     if (!profitBreakdown) return;
     const previewWin = window.open("", "_blank");
@@ -410,6 +497,7 @@ export default function DashboardStats() {
 
       <div className="mt-3 grid grid-cols-2 gap-2.5">
         <StatTile icon={CalendarCheck2} label={t("dashboard.today_sale_label")} value={summary?.today_sale} tone="up" onClick={openTodayBreakdown} />
+        <StatTile icon={ShoppingCart} label={t("dashboard.today_buy_label")} value={summary?.today_buy} tone="down" onClick={openTodayBuyBreakdown} />
         <StatTile icon={ShoppingBag} label={t("dashboard.total_buy_label")} value={summary?.total_buy} tone="down" onClick={openBuyBreakdown} />
         <StatTile icon={Boxes} label={t("dashboard.stock_label")} value={summary?.stock_count} tone="default" isCount />
         <StatTile
@@ -418,6 +506,7 @@ export default function DashboardStats() {
           value={summary?.profit_till_now}
           tone={profitPositive ? "up" : "down"}
           onClick={openProfitBreakdown}
+          wide
         />
       </div>
 
@@ -497,6 +586,57 @@ export default function DashboardStats() {
               <p className="tabular font-display text-xl font-extrabold text-up">৳{money(todayBreakdown.total)}</p>
             </div>
             <DownloadPdfButton onClick={downloadTodayReport} />
+          </div>
+        ) : (
+          <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.data_load_failed")}</p>
+        )}
+      </Sheet>
+
+      {/* ---- Today's Buy ---- */}
+      <Sheet open={todayBuyOpen} onClose={() => setTodayBuyOpen(false)} title={t("dashboard.today_buy_sheet_title")}>
+        {todayBuyLoading && !todayBuyBreakdown ? (
+          <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.loading")}</p>
+        ) : todayBuyBreakdown ? (
+          <div className="space-y-4">
+            {todayBuyBreakdown.phones.length === 0 && todayBuyBreakdown.gadgets.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-ink-muted">
+                {t("dashboard.no_buys_today")}
+              </p>
+            ) : (
+              <>
+                {todayBuyBreakdown.phones.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold text-ink-muted">{t("dashboard.today_buy_phones_heading")}</p>
+                    <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
+                      {todayBuyBreakdown.phones.map((p, i) => (
+                        <BreakdownRow key={`p-${i}`} label={p.name_model} value={p.buy_price} tone="down" negative />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {todayBuyBreakdown.gadgets.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold text-ink-muted">{t("dashboard.today_buy_gadgets_heading")}</p>
+                    <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
+                      {todayBuyBreakdown.gadgets.map((g, i) => (
+                        <BreakdownRow
+                          key={`g-${i}`}
+                          label={g.quantity > 1 ? `${g.buy_name} (x${g.quantity})` : g.buy_name}
+                          value={Number(g.buy_price) * Number(g.quantity)}
+                          tone="down"
+                          negative
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
+              <p className="text-sm font-semibold">{t("dashboard.today_buy_total_label")}</p>
+              <p className="tabular font-display text-xl font-extrabold text-down">৳{money(todayBuyBreakdown.total)}</p>
+            </div>
+            <DownloadPdfButton onClick={downloadTodayBuyReport} />
           </div>
         ) : (
           <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.data_load_failed")}</p>
@@ -691,6 +831,7 @@ function StatTile({
   tone,
   isCount = false,
   onClick,
+  wide = false,
 }: {
   icon: any;
   label: string;
@@ -698,6 +839,7 @@ function StatTile({
   tone: "up" | "down" | "default";
   isCount?: boolean;
   onClick?: () => void;
+  wide?: boolean;
 }) {
   const colors: Record<string, string> = {
     up: "text-up",
@@ -719,18 +861,19 @@ function StatTile({
       </p>
     </>
   );
+  const wideClass = wide ? " col-span-2" : "";
 
   if (onClick) {
     return (
       <button
         type="button"
         onClick={onClick}
-        className="rounded-2xl border border-border bg-surface p-3.5 text-left transition active:scale-[0.97]"
+        className={`rounded-2xl border border-border bg-surface p-3.5 text-left transition active:scale-[0.97]${wideClass}`}
       >
         {content}
       </button>
     );
   }
 
-  return <div className="rounded-2xl border border-border bg-surface p-3.5">{content}</div>;
+  return <div className={`rounded-2xl border border-border bg-surface p-3.5${wideClass}`}>{content}</div>;
 }

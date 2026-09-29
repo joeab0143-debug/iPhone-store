@@ -88,6 +88,7 @@ export interface DuePayment {
 export interface DashboardSummary {
   total_cash: number;
   today_sale: number;
+  today_buy: number;
   total_buy: number;
   stock_count: number;
   profit_till_now: number;

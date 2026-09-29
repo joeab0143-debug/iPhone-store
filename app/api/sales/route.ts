@@ -75,7 +75,14 @@ export async function POST(req: NextRequest) {
   const phone = await db
     .prepare("SELECT * FROM phones WHERE id = ?")
     .bind(phone_id)
-    .first<{ buy_price: number; status: string }>();
+    .first<{
+      buy_price: number;
+      status: string;
+      name_model: string;
+      imei: string;
+      variant: string | null;
+      color: string | null;
+    }>();
 
   if (!phone) {
     return NextResponse.json({ error: "Phone not found" }, { status: 404 });
@@ -92,34 +99,54 @@ export async function POST(req: NextRequest) {
   const paidAmount = dueFlag ? Number(paid_now || 0) : Number(selling_price);
   const dueAmount = dueFlag ? Number(selling_price) - paidAmount : 0;
 
-  const result = await db
-    .prepare(
-      `INSERT INTO sales
-        (phone_id, selling_price, selling_date, profit, is_due, customer_name, customer_phone, customer_address, customer_email, narration, due_amount, paid_amount, ram_rom, battery_health)
-       VALUES (?, ?, COALESCE(?, datetime('now','localtime')), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .bind(
-      phone_id,
-      selling_price,
-      selling_date || null,
-      profit,
-      dueFlag,
-      customer_name || null,
-      customer_phone || null,
-      customer_address || null,
-      customer_email || null,
-      narration || null,
-      dueAmount,
-      paidAmount,
-      ram_rom || null,
-      battery_health || null
-    )
-    .run();
+  // INSERT ... RETURNING gives back the full inserted row in the same
+  // round trip -- the frontend used to immediately re-fetch this same sale
+  // via a separate `GET /api/sales/${id}` just to get it joined with the
+  // phone's fields for the printed memo. Returning it here directly (using
+  // the phone fields already fetched above) removes that whole extra
+  // request from the critical path between "Sell" and the memo appearing.
+  // The UPDATE has no dependency on the INSERT's result, so it runs in
+  // parallel instead of waiting on it.
+  const [saleRow] = await Promise.all([
+    db
+      .prepare(
+        `INSERT INTO sales
+          (phone_id, selling_price, selling_date, profit, is_due, customer_name, customer_phone, customer_address, customer_email, narration, due_amount, paid_amount, ram_rom, battery_health)
+         VALUES (?, ?, COALESCE(?, datetime('now','localtime')), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         RETURNING *`
+      )
+      .bind(
+        phone_id,
+        selling_price,
+        selling_date || null,
+        profit,
+        dueFlag,
+        customer_name || null,
+        customer_phone || null,
+        customer_address || null,
+        customer_email || null,
+        narration || null,
+        dueAmount,
+        paidAmount,
+        ram_rom || null,
+        battery_health || null
+      )
+      .first<Record<string, unknown>>(),
+    db.prepare("UPDATE phones SET status = 'sold' WHERE id = ?").bind(phone_id).run(),
+  ]);
 
-  await db
-    .prepare("UPDATE phones SET status = 'sold' WHERE id = ?")
-    .bind(phone_id)
-    .run();
-
-  return NextResponse.json({ id: result.meta.last_row_id }, { status: 201 });
+  return NextResponse.json(
+    {
+      id: saleRow?.id ?? null,
+      sale: {
+        ...(saleRow || {}),
+        name_model: phone.name_model,
+        imei: phone.imei,
+        buy_price: phone.buy_price,
+        variant: phone.variant,
+        color: phone.color,
+      },
+    },
+    { status: 201 }
+  );
 }

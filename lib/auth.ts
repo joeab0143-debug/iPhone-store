@@ -102,25 +102,26 @@ export async function getSessionUser(
 ): Promise<SessionUser | null> {
   if (!token) return null;
 
-  const session = await db
+  // One query instead of two: resolve the session's role AND the matching
+  // credentials row's username in the same round trip, by left-joining
+  // both single-row credential tables and picking the right one with
+  // CASE. Practically every route calls this to find out who's calling,
+  // so shaving one D1 round trip off it here saves it on every
+  // authenticated request across the whole app.
+  const row = await db
     .prepare(
-      "SELECT role FROM app_sessions WHERE token = ? AND expires_at > datetime('now','localtime')"
+      `SELECT s.role AS role,
+              CASE WHEN s.role = 'pos_manager' THEN pm.username ELSE ac.username END AS username
+       FROM app_sessions s
+       LEFT JOIN pos_manager_credentials pm ON pm.id = 1
+       LEFT JOIN app_credentials ac ON ac.id = 1
+       WHERE s.token = ? AND s.expires_at > datetime('now','localtime')`
     )
     .bind(token)
-    .first<{ role: string }>();
-  if (!session) return null;
+    .first<{ role: string; username: string | null }>();
+  if (!row) return null;
 
-  const role: UserRole = session.role === "pos_manager" ? "pos_manager" : "admin";
-
-  if (role === "pos_manager") {
-    const cred = await db
-      .prepare("SELECT username FROM pos_manager_credentials WHERE id = 1")
-      .first<{ username: string }>();
-    return { role, username: cred?.username || "pos_manager" };
-  }
-
-  const cred = await db
-    .prepare("SELECT username FROM app_credentials WHERE id = 1")
-    .first<{ username: string }>();
-  return { role, username: cred?.username || "admin" };
+  const role: UserRole = row.role === "pos_manager" ? "pos_manager" : "admin";
+  const fallback = role === "pos_manager" ? "pos_manager" : "admin";
+  return { role, username: row.username || fallback };
 }
