@@ -42,6 +42,9 @@ export async function GET(req: NextRequest) {
   const dueRow = await db
     .prepare(`SELECT COALESCE(SUM(due_amount),0) AS total FROM sales WHERE due_amount > 0`)
     .first<{ total: number }>();
+  const gadgetDueRow = await db
+    .prepare(`SELECT COALESCE(SUM(due_amount),0) AS total FROM gadget_sales WHERE due_amount > 0`)
+    .first<{ total: number }>();
 
   const stockProfit = stockRow?.total ?? 0;
   const totalExpense = expenseRow?.total ?? 0;
@@ -52,7 +55,7 @@ export async function GET(req: NextRequest) {
     to: to || null,
     stock_profit: stockProfit,
     total_expense: totalExpense,
-    total_due_outstanding: dueRow?.total ?? 0,
+    total_due_outstanding: (dueRow?.total ?? 0) + (gadgetDueRow?.total ?? 0),
     net_profit: netProfit,
     stock_sales_count: stockRow?.cnt ?? 0,
   });

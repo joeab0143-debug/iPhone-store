@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Wallet2, CalendarCheck2, ShoppingCart, ShoppingBag, Boxes, TrendingUp, ChevronRight, Download } from "lucide-react";
-import { money, formatDate, Sheet, monthRange, currentMonthStr } from "./ui";
-import { DASHBOARD_REFRESH_EVENT } from "@/lib/events";
+import { Wallet2, Wallet, Receipt, CalendarCheck2, ShoppingCart, ShoppingBag, Boxes, TrendingUp, ChevronRight, Download } from "lucide-react";
+import { money, formatDate, Sheet, monthRange, currentMonthStr, Field, Button, inputClass } from "./ui";
+import { DASHBOARD_REFRESH_EVENT, emitDashboardRefresh } from "@/lib/events";
 import { generateReportPDF } from "@/lib/report-pdf";
+import { printSalesInvoice } from "@/lib/sales-invoice";
 import { useLang } from "@/lib/i18n";
 import type { DashboardSummary } from "@/lib/types";
 
@@ -71,6 +72,26 @@ interface TodayBuyBreakdown {
   total: number;
 }
 
+// A customer's outstanding balance from either a phone sale or a gadget
+// sale, normalized into one shape so both can sit in the same list. `raw`
+// keeps the original row so a memo can be printed from it on demand.
+interface DueSaleRow {
+  kind: "phone" | "gadget";
+  id: number;
+  label: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  totalAmount: number;
+  dueAmount: number;
+  paidAmount: number;
+  raw: any;
+}
+
+interface DueBreakdown {
+  rows: DueSaleRow[];
+  total: number;
+}
+
 interface StockProfitRow {
   name_model: string;
   imei: string;
@@ -123,6 +144,17 @@ export default function DashboardStats() {
   const [todayBuyOpen, setTodayBuyOpen] = useState(false);
   const [todayBuyBreakdown, setTodayBuyBreakdown] = useState<TodayBuyBreakdown | null>(null);
   const [todayBuyLoading, setTodayBuyLoading] = useState(false);
+
+  const [dueOpen, setDueOpen] = useState(false);
+  const [dueBreakdown, setDueBreakdown] = useState<DueBreakdown | null>(null);
+  const [dueLoading, setDueLoading] = useState(false);
+
+  // Drilled into from the due list -- collecting a full or partial
+  // payment for one specific due sale (phone or gadget).
+  const [collectDue, setCollectDue] = useState<DueSaleRow | null>(null);
+  const [collectAmount, setCollectAmount] = useState("");
+  const [collectSaving, setCollectSaving] = useState(false);
+  const [collectError, setCollectError] = useState("");
 
   // Nested details — clicking a line inside an already-open breakdown
   // sheet shows exactly which products/entries that money came from.
@@ -259,6 +291,140 @@ export default function DashboardStats() {
       setTodayBuyLoading(false);
     }
   }, []);
+
+  // Combined outstanding due -- phone sales (GET /api/sales?due_only=1) +
+  // gadget sales (GET /api/gadgets/due) -- sorted highest-due first.
+  const openDueBreakdown = useCallback(async () => {
+    setDueOpen(true);
+    setDueLoading(true);
+    try {
+      const [pRes, gRes] = await Promise.all([
+        fetch(`/api/sales?due_only=1`, { cache: "no-store" }),
+        fetch(`/api/gadgets/due`, { cache: "no-store" }),
+      ]);
+      const pData: any = pRes.ok ? await pRes.json() : { sales: [] };
+      const gData: any = gRes.ok ? await gRes.json() : { sales: [] };
+      const phoneRows: DueSaleRow[] = (pData.sales || []).map((s: any) => ({
+        kind: "phone" as const,
+        id: s.id,
+        label: s.name_model,
+        customerName: s.customer_name,
+        customerPhone: s.customer_phone,
+        totalAmount: s.selling_price,
+        dueAmount: s.due_amount,
+        paidAmount: s.paid_amount,
+        raw: s,
+      }));
+      const gadgetRows: DueSaleRow[] = (gData.sales || []).map((s: any) => ({
+        kind: "gadget" as const,
+        id: s.id,
+        label: s.buy_name,
+        customerName: s.customer_name,
+        customerPhone: s.customer_phone,
+        totalAmount: s.sell_price,
+        dueAmount: s.due_amount,
+        paidAmount: s.paid_amount,
+        raw: s,
+      }));
+      const rows = [...phoneRows, ...gadgetRows].sort((a, b) => Number(b.dueAmount) - Number(a.dueAmount));
+      const total = rows.reduce((s, r) => s + Number(r.dueAmount), 0);
+      setDueBreakdown({ rows, total });
+    } catch {
+      // transient network error
+    } finally {
+      setDueLoading(false);
+    }
+  }, []);
+
+  // Prints/reprints the memo for one due sale, straight from the
+  // breakdown -- phones reuse the full Sales Invoice with all their
+  // fields; gadgets go through the same template with no IMEI (there
+  // isn't one) and none of the phone-only fields.
+  async function viewDueMemo(row: DueSaleRow) {
+    const previewWin = window.open("", "_blank");
+    const s = row.raw;
+    if (row.kind === "phone") {
+      await printSalesInvoice(
+        {
+          saleId: s.id,
+          nameModel: s.name_model,
+          imei: s.imei,
+          sellingPrice: s.selling_price,
+          sellingDate: s.selling_date,
+          isDue: !!s.is_due,
+          customerName: s.customer_name,
+          customerPhone: s.customer_phone,
+          customerAddress: s.customer_address,
+          customerEmail: s.customer_email,
+          narration: s.narration,
+          paidAmount: s.paid_amount,
+          dueAmount: s.due_amount,
+          ramRom: s.ram_rom,
+          batteryHealth: s.battery_health,
+          variant: s.variant,
+          color: s.color,
+        },
+        previewWin
+      );
+    } else {
+      await printSalesInvoice(
+        {
+          saleId: s.id,
+          nameModel: s.buy_name,
+          imei: "-",
+          sellingPrice: s.sell_price,
+          sellingDate: s.sold_at,
+          isDue: true,
+          customerName: s.customer_name,
+          customerPhone: s.customer_phone,
+          paidAmount: s.paid_amount,
+          dueAmount: s.due_amount,
+        },
+        previewWin
+      );
+    }
+  }
+
+  function openCollect(row: DueSaleRow) {
+    setCollectDue(row);
+    setCollectAmount("");
+    setCollectError("");
+  }
+
+  async function backFromCollect() {
+    setCollectDue(null);
+    // A payment may have just changed the due list and the all-time total.
+    await Promise.all([openDueBreakdown(), load()]);
+  }
+
+  async function submitCollectDue() {
+    if (!collectDue) return;
+    setCollectError("");
+    if (!collectAmount || Number(collectAmount) <= 0) {
+      setCollectError(t("stock.invalid_amount"));
+      return;
+    }
+    setCollectSaving(true);
+    const endpoint = collectDue.kind === "phone" ? "/api/due-payments" : "/api/gadget-due-payments";
+    const payload =
+      collectDue.kind === "phone"
+        ? { sale_id: collectDue.id, amount: Number(collectAmount) }
+        : { gadget_sale_id: collectDue.id, amount: Number(collectAmount) };
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    setCollectSaving(false);
+    const d: any = await res.json();
+    if (!res.ok) {
+      setCollectError(d.error || t("stock.save_failed"));
+      return;
+    }
+    setCollectDue({ ...collectDue, dueAmount: d.due_amount, paidAmount: d.paid_amount });
+    setCollectAmount("");
+    emitDashboardRefresh();
+  }
 
   const openSub = useCallback(async (kind: SubDetailKind) => {
     setSubKind(kind);
@@ -400,6 +566,26 @@ export default function DashboardStats() {
     );
   }
 
+  function downloadDueReport() {
+    if (!dueBreakdown) return;
+    const previewWin = window.open("", "_blank");
+    generateReportPDF(
+      {
+        shopName: "Apple Store Satkhira",
+        title: "Due Outstanding Report",
+        subtitle: `As of ${todayLabel()}`,
+        summary: [{ label: "Total Due Outstanding", value: `Tk ${dueBreakdown.total.toLocaleString()}` }],
+        table: {
+          head: ["Item", "Customer", "Phone", "Due (Tk)"],
+          rows: dueBreakdown.rows.map((r) => [r.label, r.customerName || "-", r.customerPhone || "-", Number(r.dueAmount).toLocaleString()]),
+          emptyLabel: "No outstanding due",
+        },
+        footerNote: "Generated from Apple Store Satkhira — Dashboard (all-time)",
+      },
+      previewWin
+    );
+  }
+
   function downloadProfitReport() {
     if (!profitBreakdown) return;
     const previewWin = window.open("", "_blank");
@@ -506,8 +692,8 @@ export default function DashboardStats() {
           value={summary?.profit_till_now}
           tone={profitPositive ? "up" : "down"}
           onClick={openProfitBreakdown}
-          wide
         />
+        <StatTile icon={Wallet} label={t("dashboard.due_label")} value={summary?.total_due_outstanding} tone="due" onClick={openDueBreakdown} />
       </div>
 
       {/* ---- Total Cash ---- */}
@@ -725,6 +911,104 @@ export default function DashboardStats() {
         )}
       </Sheet>
 
+      {/* ---- Due Outstanding — combined phone + gadget dues ---- */}
+      <Sheet
+        open={dueOpen}
+        onClose={() => {
+          setDueOpen(false);
+          setCollectDue(null);
+        }}
+        title={collectDue ? `${t("stock.due_sheet_title_prefix")}${collectDue.label}` : t("dashboard.due_sheet_title")}
+      >
+        {collectDue ? (
+          <div className="space-y-4">
+            <button type="button" onClick={backFromCollect} className="text-xs font-semibold text-teal">
+              {t("profit.back_to_due_list")}
+            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-surface-2 p-3 text-center">
+                <p className="text-xs text-ink-muted">{t("stock.total_selling_price_label")}</p>
+                <p className="tabular text-lg font-semibold">৳{money(collectDue.totalAmount)}</p>
+              </div>
+              <div className="rounded-xl bg-due/10 p-3 text-center">
+                <p className="text-xs text-due">{t("stock.due_remaining_label")}</p>
+                <p className="tabular text-lg font-semibold text-due">৳{money(collectDue.dueAmount)}</p>
+              </div>
+            </div>
+            {collectDue.customerName && (
+              <p className="text-sm text-ink-muted">
+                {t("stock.customer_prefix")}
+                <span className="text-ink">{collectDue.customerName}</span>{" "}
+                {collectDue.customerPhone && `· ${collectDue.customerPhone}`}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => viewDueMemo(collectDue)}
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-semibold text-teal"
+            >
+              <Receipt size={13} /> {t("dashboard.view_memo_button")}
+            </button>
+            {collectDue.dueAmount > 0 ? (
+              <>
+                <Field label={t("stock.how_much_paid_label")}>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={collectAmount}
+                    onChange={(e) => setCollectAmount(e.target.value)}
+                    placeholder="0"
+                    className={inputClass}
+                  />
+                </Field>
+                {collectError && <p className="text-sm text-down">{collectError}</p>}
+                <Button full onClick={submitCollectDue} disabled={collectSaving}>
+                  {collectSaving ? t("stock.saving") : t("stock.add_payment_button")}
+                </Button>
+              </>
+            ) : (
+              <p className="text-center text-sm font-medium text-up">{t("stock.fully_paid")}</p>
+            )}
+          </div>
+        ) : dueLoading && !dueBreakdown ? (
+          <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.loading")}</p>
+        ) : dueBreakdown ? (
+          <div className="space-y-4">
+            {dueBreakdown.rows.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-ink-muted">
+                {t("profit.no_due")}
+              </p>
+            ) : (
+              <div className="space-y-1.5 rounded-xl border border-border bg-surface-2 p-3">
+                {dueBreakdown.rows.map((r) => (
+                  <button
+                    key={`${r.kind}-${r.id}`}
+                    type="button"
+                    onClick={() => openCollect(r)}
+                    className="flex w-full items-center justify-between gap-3 rounded-lg px-1 py-1 text-left transition hover:bg-surface"
+                  >
+                    <p className="text-sm text-ink-muted truncate">
+                      {r.label} {r.customerName ? `— ${r.customerName}` : ""}
+                    </p>
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <span className="tabular text-sm font-semibold text-due">৳{money(r.dueAmount)}</span>
+                      <ChevronRight size={14} className="text-ink-faint" />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center justify-between rounded-xl bg-gold/10 border border-gold/30 px-3.5 py-3">
+              <p className="text-sm font-semibold">{t("dashboard.due_total_label")}</p>
+              <p className="tabular font-display text-xl font-extrabold text-due">৳{money(dueBreakdown.total)}</p>
+            </div>
+            <DownloadPdfButton onClick={downloadDueReport} />
+          </div>
+        ) : (
+          <p className="py-6 text-center text-sm text-ink-muted">{t("dashboard.data_load_failed")}</p>
+        )}
+      </Sheet>
+
       {/* ---- Nested details — which product/entry this money came from ---- */}
       <Sheet
         open={subKind !== null}
@@ -836,7 +1120,7 @@ function StatTile({
   icon: any;
   label: string;
   value: number | undefined;
-  tone: "up" | "down" | "default";
+  tone: "up" | "down" | "default" | "due";
   isCount?: boolean;
   onClick?: () => void;
   wide?: boolean;
@@ -845,6 +1129,7 @@ function StatTile({
     up: "text-up",
     down: "text-down",
     default: "text-ink",
+    due: "text-due",
   };
   const content = (
     <>

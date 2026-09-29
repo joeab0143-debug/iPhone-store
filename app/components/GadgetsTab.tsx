@@ -6,7 +6,7 @@ import { Button, Field, inputClass, money, formatDate, Sheet, Badge } from "./ui
 import { generateReportPDF } from "@/lib/report-pdf";
 import { useLang } from "@/lib/i18n";
 import type { Gadget } from "@/lib/types";
-import { emitApprovalsRefresh } from "@/lib/events";
+import { emitApprovalsRefresh, emitDashboardRefresh } from "@/lib/events";
 
 // Another device/session may add, sell, or have a pending gadget entry
 // approved while this tab is open -- this is how often it quietly checks
@@ -34,6 +34,10 @@ export default function GadgetsTab() {
   const [sellTarget, setSellTarget] = useState<Gadget | null>(null);
   const [sellPrice, setSellPrice] = useState("");
   const [sellQty, setSellQty] = useState("1");
+  const [sellCustomerName, setSellCustomerName] = useState("");
+  const [sellCustomerPhone, setSellCustomerPhone] = useState("");
+  const [sellIsDue, setSellIsDue] = useState(false);
+  const [sellPaidNow, setSellPaidNow] = useState("");
   const [sellSaving, setSellSaving] = useState(false);
   const [sellError, setSellError] = useState("");
 
@@ -169,6 +173,10 @@ export default function GadgetsTab() {
     setSellPrice("");
     setSellQty("1");
     setSellError("");
+    setSellCustomerName("");
+    setSellCustomerPhone("");
+    setSellIsDue(false);
+    setSellPaidNow("");
   }
 
   async function confirmSell() {
@@ -188,11 +196,25 @@ export default function GadgetsTab() {
       setSellError(t("gadgets.exceeds_stock").replace("{remaining}", String(remaining)));
       return;
     }
+    // Due sales are restricted to one unit at a time -- see the API route
+    // for why.
+    const isDueFlag = sellIsDue && qty === 1;
+    if (isDueFlag && !sellCustomerName.trim()) {
+      setSellError(t("gadgets.due_customer_required"));
+      return;
+    }
     setSellSaving(true);
     const res = await fetch(`/api/gadgets/${sellTarget.id}/sell`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sell_price: Number(sellPrice), quantity: qty }),
+      body: JSON.stringify({
+        sell_price: Number(sellPrice),
+        quantity: qty,
+        customer_name: sellCustomerName || null,
+        customer_phone: sellCustomerPhone || null,
+        is_due: isDueFlag,
+        paid_now: isDueFlag ? Number(sellPaidNow || 0) : undefined,
+      }),
     });
     setSellSaving(false);
     if (!res.ok) {
@@ -201,6 +223,7 @@ export default function GadgetsTab() {
       return;
     }
     setSellTarget(null);
+    if (isDueFlag) emitDashboardRefresh();
     load();
   }
 
@@ -392,7 +415,10 @@ export default function GadgetsTab() {
                 min={1}
                 max={Number(sellTarget.quantity) - Number(sellTarget.sold_count || 0)}
                 value={sellQty}
-                onChange={(e) => setSellQty(e.target.value)}
+                onChange={(e) => {
+                  setSellQty(e.target.value);
+                  if (Number(e.target.value) !== 1) setSellIsDue(false);
+                }}
                 placeholder="1"
                 className={inputClass}
               />
@@ -404,6 +430,49 @@ export default function GadgetsTab() {
                   .replace("{qty}", sellQty)
                   .replace("{price}", money(Number(sellPrice)))}
               </p>
+            )}
+            <Field label={t("stock.customer_name_label")}>
+              <input
+                value={sellCustomerName}
+                onChange={(e) => setSellCustomerName(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label={t("stock.customer_phone_label")}>
+              <input
+                value={sellCustomerPhone}
+                onChange={(e) => setSellCustomerPhone(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            {Number(sellQty) === 1 ? (
+              <label className="flex items-center gap-2.5 rounded-xl border border-border bg-surface-2 px-3.5 py-3">
+                <input
+                  type="checkbox"
+                  checked={sellIsDue}
+                  onChange={(e) => setSellIsDue(e.target.checked)}
+                  className="h-4 w-4 accent-[var(--gold)]"
+                />
+                <span className="text-sm font-medium">{t("stock.due_sale_label")}</span>
+              </label>
+            ) : (
+              Number(sellQty) > 1 && (
+                <p className="text-xs text-ink-faint">{t("gadgets.due_qty_restriction_note")}</p>
+              )
+            )}
+            {sellIsDue && Number(sellQty) === 1 && (
+              <div className="space-y-3 rounded-xl border border-due/30 bg-due/5 p-3">
+                <Field label={t("stock.paid_now_label")}>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={sellPaidNow}
+                    onChange={(e) => setSellPaidNow(e.target.value)}
+                    placeholder="0"
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
             )}
             {sellError && <p className="text-sm text-down">{sellError}</p>}
             <Button full onClick={confirmSell} disabled={sellSaving}>

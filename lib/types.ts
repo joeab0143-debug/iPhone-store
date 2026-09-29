@@ -92,6 +92,7 @@ export interface DashboardSummary {
   total_buy: number;
   stock_count: number;
   profit_till_now: number;
+  total_due_outstanding: number;
 }
 
 export interface ExpenseCategory {
@@ -130,6 +131,11 @@ export interface GadgetSale {
   sell_price: number;
   profit: number;
   sold_at: string;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  is_due?: number;
+  due_amount?: number;
+  paid_amount?: number;
 }
 
 export interface NetProfitSummary {

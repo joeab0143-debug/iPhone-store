@@ -333,6 +333,11 @@ export const STRINGS: Record<string, Entry> = {
   "gadgets.confirm_sell_button": { en: "Confirm Sell", bn: "বিক্রি নিশ্চিত করুন" },
   "gadgets.invalid_sell_price": { en: "Enter a valid Sell price", bn: "সঠিক Sell দাম দিন" },
   "gadgets.invalid_quantity": { en: "Enter a valid Quantity", bn: "সঠিক Quantity দিন" },
+  "gadgets.due_customer_required": { en: "Customer name is required for a due sale", bn: "বাকি বিক্রির জন্য কাস্টমারের নাম দিতে হবে" },
+  "gadgets.due_qty_restriction_note": {
+    en: "Due sale is only available when selling 1 unit at a time",
+    bn: "একবারে ১টি ইউনিট বিক্রির সময়ই শুধু বাকি (Due) রাখা যাবে",
+  },
   "gadgets.exceeds_stock": {
     en: "Only {remaining} left in stock — can't sell more than that",
     bn: "স্টকে আছে মাত্র {remaining}টা — এর বেশি বিক্রি করা যাবে না",
@@ -493,6 +498,10 @@ export const STRINGS: Record<string, Entry> = {
   "dashboard.today_buy_phones_heading": { en: "Phones", bn: "ফোন" },
   "dashboard.today_buy_gadgets_heading": { en: "Gadgets & Accessories", bn: "গ্যাজেট ও এক্সেসরিজ" },
   "dashboard.today_buy_total_label": { en: "Today's Buy Total", bn: "আজকের মোট ক্রয়" },
+  "dashboard.due_label": { en: "Due", bn: "বাকি (Due)" },
+  "dashboard.due_sheet_title": { en: "Due Outstanding Breakdown", bn: "বাকি (Due) হিসাব" },
+  "dashboard.due_total_label": { en: "Total Due Outstanding", bn: "মোট বাকি (Due)" },
+  "dashboard.view_memo_button": { en: "View Memo", bn: "মেমো দেখুন" },
   "dashboard.total_buy_sheet_title": { en: "Total Buy Breakdown", bn: "মোট ক্রয়ের হিসাব" },
   "dashboard.in_stock_unsold_label": { en: "In Stock (Unsold)", bn: "স্টকে আছে (Unsold)" },
   "dashboard.sold_label": { en: "Sold", bn: "বিক্রি হয়েছে (Sold)" },

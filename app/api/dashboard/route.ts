@@ -33,6 +33,8 @@ export async function GET() {
     cashAdjustmentAmt,
     phonesBuyToday,
     gadgetsBuyToday,
+    phoneDueOutstanding,
+    gadgetDueOutstanding,
   ] = await Promise.all([
     db.prepare("SELECT COUNT(*) AS cnt FROM phones WHERE status = 'unsold'").first<{ cnt: number }>(),
     db
@@ -63,6 +65,12 @@ export async function GET() {
         "SELECT COALESCE(SUM(buy_price * quantity),0) AS total FROM gadgets WHERE date(created_at) = date('now','localtime')"
       )
       .first<{ total: number }>(),
+    db
+      .prepare("SELECT COALESCE(SUM(due_amount),0) AS total FROM sales WHERE is_due = 1 AND due_amount > 0")
+      .first<{ total: number }>(),
+    db
+      .prepare("SELECT COALESCE(SUM(due_amount),0) AS total FROM gadget_sales WHERE is_due = 1 AND due_amount > 0")
+      .first<{ total: number }>(),
   ]);
 
   const stockCountAmt = stockCount?.cnt ?? 0;
@@ -74,6 +82,10 @@ export async function GET() {
   // deliberate, scoped to just this card, so the rest of the dashboard
   // (Total Cash, Total Buy, Profit) still stays phones-only as designed.
   const todayBuy = (phonesBuyToday?.total ?? 0) + (gadgetsBuyToday?.total ?? 0);
+
+  // Combined outstanding due -- phone sales + gadget sales, all-time (dues
+  // don't reset monthly the way "This Month's Profit" does).
+  const totalDueOutstanding = (phoneDueOutstanding?.total ?? 0) + (gadgetDueOutstanding?.total ?? 0);
 
   // Cash on hand = actual cash received (sales' paid_amount) minus
   // everything spent (buying stock, expenses), plus any manual
@@ -91,5 +103,6 @@ export async function GET() {
     total_buy: totalBuyAmt,
     stock_count: stockCountAmt,
     profit_till_now: profitTillNow,
+    total_due_outstanding: totalDueOutstanding,
   });
 }
