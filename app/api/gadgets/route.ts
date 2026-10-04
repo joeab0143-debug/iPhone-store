@@ -35,7 +35,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const db = getDB();
   const body: any = await req.json();
-  const { buy_name, buy_price, quantity } = body;
+  const { buy_name, buy_price, quantity, buy_date } = body;
 
   if (!buy_name) {
     return NextResponse.json({ error: "Enter a name" }, { status: 400 });
@@ -47,9 +47,11 @@ export async function POST(req: NextRequest) {
 
   const gadget = await db
     .prepare(
-      `INSERT INTO gadgets (buy_name, buy_price, quantity) VALUES (?, ?, ?) RETURNING *`
+      `INSERT INTO gadgets (buy_name, buy_price, quantity, created_at)
+       VALUES (?, ?, ?, COALESCE(?, datetime('now','localtime')))
+       RETURNING *`
     )
-    .bind(buy_name, Number(buy_price || 0), qty)
+    .bind(buy_name, Number(buy_price || 0), qty, buy_date || null)
     .first();
 
   return NextResponse.json({ id: (gadget as any)?.id, gadget }, { status: 201 });

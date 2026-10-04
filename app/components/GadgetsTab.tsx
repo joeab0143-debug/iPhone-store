@@ -8,6 +8,14 @@ import { useLang } from "@/lib/i18n";
 import type { Gadget } from "@/lib/types";
 import { emitApprovalsRefresh, emitDashboardRefresh } from "@/lib/events";
 
+// "YYYY-MM-DD" for today, in the browser's local time -- pre-fills the
+// date fields below so a normal add/sell doesn't need a date typed in;
+// stays editable for a backdated entry, same as the phone Buy/Sell forms.
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 // Another device/session may add, sell, or have a pending gadget entry
 // approved while this tab is open -- this is how often it quietly checks
 // for that.
@@ -27,13 +35,14 @@ export default function GadgetsTab() {
   const [gadgets, setGadgets] = useState<Gadget[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
-  const [form, setForm] = useState({ buy_name: "", buy_price: "", quantity: "1" });
+  const [form, setForm] = useState({ buy_name: "", buy_price: "", quantity: "1", buy_date: todayStr() });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const [sellTarget, setSellTarget] = useState<Gadget | null>(null);
   const [sellPrice, setSellPrice] = useState("");
   const [sellQty, setSellQty] = useState("1");
+  const [sellDate, setSellDate] = useState(todayStr());
   const [sellCustomerName, setSellCustomerName] = useState("");
   const [sellCustomerPhone, setSellCustomerPhone] = useState("");
   const [sellIsDue, setSellIsDue] = useState(false);
@@ -143,6 +152,7 @@ export default function GadgetsTab() {
         buy_name: form.buy_name,
         buy_price: Number(form.buy_price),
         quantity: Number(form.quantity),
+        buy_date: form.buy_date ? `${form.buy_date} 00:00:00` : null,
       }),
     });
     setSaving(false);
@@ -152,7 +162,7 @@ export default function GadgetsTab() {
       return;
     }
     const d: any = await res.json();
-    setForm({ buy_name: "", buy_price: "", quantity: "1" });
+    setForm({ buy_name: "", buy_price: "", quantity: "1", buy_date: todayStr() });
     setAddOpen(false);
     // The API now returns the full created row directly (see
     // app/api/gadgets/route.ts), so the new entry goes straight into the
@@ -178,6 +188,7 @@ export default function GadgetsTab() {
     setSellTarget(g);
     setSellPrice("");
     setSellQty("1");
+    setSellDate(todayStr());
     setSellError("");
     setSellCustomerName("");
     setSellCustomerPhone("");
@@ -220,6 +231,7 @@ export default function GadgetsTab() {
         customer_phone: sellCustomerPhone || null,
         is_due: isDueFlag,
         paid_now: isDueFlag ? Number(sellPaidNow || 0) : undefined,
+        sell_date: sellDate ? `${sellDate} 00:00:00` : null,
       }),
     });
     setSellSaving(false);
@@ -397,6 +409,14 @@ export default function GadgetsTab() {
               className={inputClass}
             />
           </Field>
+          <Field label={t("buy.date_label")}>
+            <input
+              type="date"
+              value={form.buy_date}
+              onChange={(e) => setForm({ ...form, buy_date: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
           {error && <p className="text-sm text-down">{error}</p>}
           <Button full onClick={submit} disabled={saving}>
             {saving ? t("gadgets.saving") : t("gadgets.add_button")}
@@ -453,6 +473,14 @@ export default function GadgetsTab() {
                   .replace("{price}", money(Number(sellPrice)))}
               </p>
             )}
+            <Field label={t("sell.date_label")}>
+              <input
+                type="date"
+                value={sellDate}
+                onChange={(e) => setSellDate(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
             <Field label={t("stock.customer_name_label")}>
               <input
                 value={sellCustomerName}

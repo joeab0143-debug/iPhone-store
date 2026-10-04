@@ -24,6 +24,7 @@ export async function POST(
   const isDueFlag = body.is_due && quantity === 1 ? 1 : 0;
   const customerName = body.customer_name || null;
   const customerPhone = body.customer_phone || null;
+  const sellDate = body.sell_date || null;
 
   if (!sellPrice || sellPrice <= 0) {
     return NextResponse.json({ error: "Enter a valid Sell price" }, { status: 400 });
@@ -69,15 +70,15 @@ export async function POST(
   }
 
   const insert = db.prepare(
-    `INSERT INTO gadget_sales (gadget_id, sell_price, profit, customer_name, customer_phone, is_due, due_amount, paid_amount)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO gadget_sales (gadget_id, sell_price, profit, customer_name, customer_phone, is_due, due_amount, paid_amount, sold_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now','localtime')))`
   );
   // One row per unit, all in a single atomic batch — so a partial failure
   // never leaves the stock count out of sync. Due sales are always
   // quantity 1, so this loop only ever runs once for those.
   await db.batch(
     Array.from({ length: quantity }, () =>
-      insert.bind(gadget.id, sellPrice, profit, customerName, customerPhone, isDueFlag, dueAmount, paidAmount)
+      insert.bind(gadget.id, sellPrice, profit, customerName, customerPhone, isDueFlag, dueAmount, paidAmount, sellDate)
     )
   );
 
