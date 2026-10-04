@@ -123,6 +123,14 @@ export default function BuySheet({
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
+  // As soon as an IMEI is typed/scanned, check whether this exact phone
+  // has ever been entered before (bought and possibly sold since -- see
+  // migrations/0006_phones_imei_reuse.sql, which is what lets the same
+  // IMEI be bought back after it previously sold). If so, its known
+  // physical details are carried over -- see the effect further down.
+  const [checkingImei, setCheckingImei] = useState(false);
+  const [matchedHistory, setMatchedHistory] = useState<any | null>(null);
+
   // Supplier autocomplete -- only relevant for the "supplier" seller type.
   // The full list is fetched once per sheet-open (suppliers are few enough
   // that client-side filtering is simpler than a search-as-you-type API,
@@ -187,6 +195,47 @@ export default function BuySheet({
     }));
   }
 
+  // Same IMEI lookup pattern as the Sell sheet: an exact match against
+  // ANY past phones row for this IMEI (sold or not -- /api/stock with no
+  // `status` filter, ordered newest first) brings back this phone's own
+  // known details, so buying back a phone that was sold before doesn't
+  // need its model/RAM-ROM/battery/variant/color/box retyped. This
+  // purchase's own price and seller info are never touched -- those are
+  // new every time, not something to copy from the old entry.
+  useEffect(() => {
+    const imei = form.imei.trim();
+    if (!imei) {
+      setMatchedHistory(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setCheckingImei(true);
+      try {
+        const res = await fetch(`/api/stock?imei=${encodeURIComponent(imei)}`);
+        const d: any = await res.json();
+        const found = (d.phones || [])[0];
+        if (found) {
+          setMatchedHistory(found);
+          setForm((f) => ({
+            ...f,
+            model: found.name_model || f.model,
+            ram_rom: found.ram_rom || f.ram_rom,
+            battery_health: found.battery_health || f.battery_health,
+            variant: found.variant || f.variant,
+            color: found.color || f.color,
+            box_status: found.box_status || f.box_status,
+          }));
+        } else {
+          setMatchedHistory(null);
+        }
+      } catch {
+        // ignore — manual entry still works if the lookup fails
+      }
+      setCheckingImei(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [form.imei]);
+
   // Purchase history download — even after a phone sells and leaves stock,
   // who it was bought from is never lost (stays in the phones table); this
   // downloads that history any time, all-time or a chosen date range, as a
@@ -209,6 +258,8 @@ export default function BuySheet({
     setForm(makeEmptyForm());
     setError("");
     setDone(false);
+    setCheckingImei(false);
+    setMatchedHistory(null);
   }
 
   function handleClose() {
@@ -499,6 +550,12 @@ export default function BuySheet({
                   <ScanLine size={18} />
                 </button>
               </div>
+              {checkingImei && <p className="mt-1 text-xs text-ink-faint">{t("sell.searching")}</p>}
+              {matchedHistory && (
+                <p className="mt-1 text-xs text-up">
+                  {t("buy.found_previous_record")} {matchedHistory.name_model}
+                </p>
+              )}
             </Field>
             <Field label={t("buy.ram_rom_label")}>
               <input

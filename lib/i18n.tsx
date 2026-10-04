@@ -59,6 +59,7 @@ export const STRINGS: Record<string, Entry> = {
   "buy.model_label": { en: "Model Number", bn: "Model Number" },
   "buy.model_placeholder": { en: "e.g. iPhone 12, 128GB", bn: "যেমন: iPhone 12, 128GB" },
   "buy.imei_label": { en: "IMEI", bn: "IMEI" },
+  "buy.found_previous_record": { en: "Found previous record —", bn: "আগের তথ্য পাওয়া গেছে —" },
   "buy.imei_placeholder": { en: "IMEI number", bn: "IMEI নম্বর" },
   "buy.imei_scan_aria": { en: "Scan IMEI", bn: "IMEI স্ক্যান করুন" },
   "buy.ram_rom_label": { en: "RAM/ROM", bn: "RAM/ROM" },
